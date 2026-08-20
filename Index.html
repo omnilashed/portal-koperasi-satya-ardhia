@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Koperasi - Pengajuan & Monitoring</title>
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- ================= AUTH SECTION ================= -->
+  <div id="authContainer" class="flex-1 flex items-center justify-center p-4">
+    
+    <!-- 1. LOGIN CARD -->
+    <div id="cardLogin" class="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 max-w-md w-full">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white mx-auto shadow-lg shadow-emerald-200 mb-3">
+          <i data-lucide="wallet-cards" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900">Koperasi Satya Ardhia - HLP</h2>
+        <p class="text-xs text-slate-500 mt-1">Masuk untuk mengakses portal pengajuan & persetujuan</p>
+      </div>
+
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Username / NIK</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input type="text" id="loginUsername" required placeholder="Masukkan username atau NIK" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-semibold text-slate-700 uppercase">Password</label>
+            <button type="button" onclick="showAuthView('forgot')" class="text-xs text-emerald-600 hover:underline font-medium">Lupa Password?</button>
+          </div>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <button type="submit" id="btnLogin" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-200 flex items-center justify-center space-x-2">
+          <span>Masuk ke Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+
+        <div class="pt-3 border-t border-slate-100 text-center">
+          <p class="text-xs text-slate-500">
+            Belum punya akun anggota? 
+            <button type="button" onclick="showAuthView('register')" class="text-emerald-600 font-semibold hover:underline">Daftar Sekarang</button>
+          </p>
+        </div>
+      </form>
+    </div>
+
+    <!-- 2. REGISTER CARD -->
+    <div id="cardRegister" class="hidden bg-white rounded-3xl border border-slate-200 shadow-xl p-8 max-w-md w-full">
+      <div class="text-center mb-5">
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="user-plus" class="w-6 h-6"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900">Registrasi Anggota</h2>
+        <p class="text-xs text-slate-500 mt-1">Akun baru akan diverifikasi oleh Admin sebelum dapat digunakan.</p>
+      </div>
+
+      <form onsubmit="handleRegister(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nama Lengkap Karyawan <span class="text-red-500">*</span></label>
+          <input type="text" id="regNama" required placeholder="Contoh: Budi Santoso" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK - UNIT KERJA <span class="text-red-500">*</span></label>
+          <input type="text" id="regNik" required placeholder="Contoh: 2024098 - Unit Logistik" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Email Aktif <span class="text-red-500">*</span></label>
+          <input type="email" id="regEmail" required placeholder="nama@email.com" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Username <span class="text-red-500">*</span></label>
+            <input type="text" id="regUsername" required placeholder="budi_s" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Password <span class="text-red-500">*</span></label>
+            <input type="password" id="regPassword" minlength="4" required placeholder="••••••••" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <button type="submit" id="btnRegister" class="w-full mt-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-200 flex items-center justify-center space-x-2">
+          <span>Daftar Akun</span>
+        </button>
+
+        <div class="text-center pt-2">
+          <p class="text-xs text-slate-500">
+            Sudah memiliki akun? 
+            <button type="button" onclick="showAuthView('login')" class="text-emerald-600 font-semibold hover:underline">Masuk</button>
+          </p>
+        </div>
+      </form>
+    </div>
+
+    <!-- 3. FORGOT PASSWORD CARD -->
+    <div id="cardForgot" class="hidden bg-white rounded-3xl border border-slate-200 shadow-xl p-8 max-w-md w-full">
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="key-round" class="w-6 h-6"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900">Lupa Password</h2>
+        <p class="text-xs text-slate-500 mt-1">Masukkan username atau email terdaftar untuk menerima OTP.</p>
+      </div>
+
+      <form onsubmit="handleRequestReset(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Username / Email</label>
+          <input type="text" id="forgotIdentifier" required placeholder="Contoh: budi@gmail.com" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <button type="submit" id="btnForgot" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-200">
+          <span>Kirim Kode OTP</span>
+        </button>
+
+        <div class="text-center pt-2">
+          <button type="button" onclick="showAuthView('login')" class="text-xs text-slate-500 hover:text-slate-900 font-medium">← Kembali ke Login</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 4. RESET PASSWORD CARD -->
+    <div id="cardReset" class="hidden bg-white rounded-3xl border border-slate-200 shadow-xl p-8 max-w-md w-full">
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900">Buat Password Baru</h2>
+        <p class="text-xs text-slate-500 mt-1" id="resetDesc">Masukkan kode 6-digit OTP email.</p>
+      </div>
+
+      <form onsubmit="handleResetPassword(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Kode OTP (6 Angka)</label>
+          <input type="text" id="resetOtp" maxlength="6" required placeholder="123456" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono tracking-widest text-center font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Password Baru</label>
+          <input type="password" id="resetNewPassword" minlength="4" required placeholder="Minimal 4 karakter" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <button type="submit" id="btnReset" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-200">
+          <span>Simpan Password Baru</span>
+        </button>
+
+        <div class="text-center pt-2">
+          <button type="button" onclick="showAuthView('login')" class="text-xs text-slate-500 hover:text-slate-900 font-medium">Batal</button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+
+  <!-- ================= MAIN APPLICATION SECTION ================= -->
+  <div id="appContainer" class="hidden flex-1 flex flex-col">
+    
+    <!-- Header Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-200">
+            <i data-lucide="wallet-cards" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-slate-900 leading-none text-base sm:text-lg">Koperasi Satya Ardhia - HLP</h1>
+            <p class="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+              <span id="userBadgeRole" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase">User</span>
+              <span id="userGreeting" class="truncate max-w-[120px] sm:max-w-none">Nama Anggota</span>
+            </p>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <!-- Nav Tabs -->
+          <div class="flex bg-slate-100 p-1 rounded-xl text-xs sm:text-sm font-medium" id="navTabsContainer">
+            <!-- Tab 1: Tracking (Semua Role) -->
+            <button id="tabTrackBtn" onclick="switchTab('tracking')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm">
+              <i data-lucide="list-checks" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Tracking & Progress</span>
+              <span class="sm:hidden">Tracking</span>
+            </button>
+
+            <!-- Tab 2: Form Input Baru (Hanya Admin & Financial, Hidden untuk User & Pengurus) -->
+            <button id="tabFormBtn" onclick="switchTab('form')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Form Input Pinjaman</span>
+              <span class="sm:hidden">Input</span>
+            </button>
+            
+            <!-- Tab 3: Validasi Akun (Hanya Admin) -->
+            <button id="tabUsersBtn" onclick="switchTab('users')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+              <i data-lucide="users" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Validasi Akun</span>
+              <span class="sm:hidden">Users</span>
+            </button>
+          </div>
+
+          <!-- Logout Button -->
+          <button onclick="handleLogout()" class="p-2 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition" title="Logout">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+      <!-- VIEW 1: TRACKING & APPROVAL -->
+      <div id="viewTracking" class="space-y-6">
+        
+        <!-- KPI Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Pengajuan</p>
+              <p id="kpiCount" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+            </div>
+            <div class="w-11 h-11 bg-slate-100 text-slate-700 rounded-xl flex items-center justify-center">
+              <i data-lucide="file-text" class="w-5 h-5"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Menunggu Approval</p>
+              <p id="kpiCreated" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+            </div>
+            <div class="w-11 h-11 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="clock" class="w-5 h-5"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Disetujui / On Process</p>
+              <p id="kpiOnProcess" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+            </div>
+            <div class="w-11 h-11 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Selesai / Cair</p>
+              <p id="kpiDone" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+            </div>
+            <div class="w-11 h-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div class="relative w-full md:w-80">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input type="text" id="searchInput" oninput="onSearchChange()" placeholder="Cari Nama, NIK, Rekening, Ket..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          
+          <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+            <select id="filterStatus" onchange="onFilterChange()" class="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-medium">
+              <option value="">Semua Status</option>
+              <option value="Created">⏳ Menunggu Approval (Created)</option>
+              <option value="On Process">🔄 Disetujui / On Process</option>
+              <option value="Done">✅ Selesai (Done)</option>
+              <option value="Rejected">❌ Ditolak (Rejected)</option>
+            </select>
+
+            <select id="filterTipe" onchange="onFilterChange()" class="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+              <option value="">Semua Tipe Formulir</option>
+              <option value="Pencairan Simpanan Sukarela">Pencairan Simpanan Sukarela</option>
+              <option value="Peminjaman Multiguna">Peminjaman Multiguna</option>
+              <option value="Peminjaman Tunai">Peminjaman Tunai</option>
+              <option value="Pengajuan Anggaran Unit">Pengajuan Anggaran Unit</option>
+              <option value="Lainnya">Yang lain / Lainnya</option>
+            </select>
+            
+            <select id="rowsPerPage" onchange="onPageSizeChange()" class="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+              <option value="10">10 baris</option>
+              <option value="25">25 baris</option>
+              <option value="50">50 baris</option>
+            </select>
+
+            <button onclick="fetchData()" class="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition" title="Refresh Data">
+              <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Table Section -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                <tr>
+                  <th class="py-3.5 px-4">Status & Approval</th>
+                  <th class="py-3.5 px-4">Waktu</th>
+                  <th class="py-3.5 px-4">Karyawan & Unit</th>
+                  <th class="py-3.5 px-4">Tipe Form</th>
+                  <th class="py-3.5 px-4">Info Rekening</th>
+                  <th class="py-3.5 px-4 text-right">Total Transfer</th>
+                  <th class="py-3.5 px-4 text-center">Cicilan</th>
+                  <th class="py-3.5 px-4">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Footer -->
+          <div class="border-t border-slate-200 px-4 py-3.5 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div id="paginationInfo">Menampilkan 0 entri</div>
+            <div class="flex items-center space-x-1" id="paginationButtons"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: FORM INPUT (KHUSUS FINANCE & ADMIN) -->
+      <div id="viewForm" class="hidden max-w-3xl mx-auto">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+          <div class="mb-6 border-b border-slate-100 pb-4">
+            <h2 class="text-xl font-bold text-slate-900">Form Input Pengajuan Anggota</h2>
+            <p class="text-sm text-slate-500 mt-1">Input data permohonan dana anggota untuk diajukan ke Pengurus.</p>
+          </div>
+
+          <form id="submissionForm" onsubmit="handleSubmit(event)" class="space-y-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Tipe Formulir <span class="text-red-500">*</span></label>
+                <select name="tipeFormulir" id="formTipeSelect" onchange="toggleCustomTipe(this.value)" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                  <option value="Pencairan Simpanan Sukarela">Pencairan Simpanan Sukarela</option>
+                  <option value="Peminjaman Multiguna">Peminjaman Multiguna</option>
+                  <option value="Peminjaman Tunai">Peminjaman Tunai</option>
+                  <option value="Pengajuan Anggaran Unit">Pengajuan Anggaran Unit</option>
+                  <option value="CUSTOM">Yang lain: (Tulis manual)</option>
+                </select>
+                <input type="text" id="customTipeInput" placeholder="Tuliskan tipe formulir..." class="hidden mt-2 w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nama Lengkap Karyawan / Anggota <span class="text-red-500">*</span></label>
+                <input type="text" id="inputNamaKaryawan" name="namaKaryawan" required placeholder="Contoh: Budi Santoso" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK - UNIT KERJA <span class="text-red-500">*</span></label>
+              <input type="text" id="inputNikUnit" name="nikUnit" required placeholder="Contoh: 2024098 - Unit Logistik" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">No. Rekening <span class="text-red-500">*</span></label>
+                <input type="text" name="noRekening" required placeholder="Contoh: 1234567890" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">No. Rekening Atas Nama Siapa? <span class="text-red-500">*</span></label>
+                <input type="text" name="atasNamaRekening" required placeholder="Sesuai dengan nama lengkap" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Total Ditransfer (Rp) <span class="text-red-500">*</span></label>
+                <input type="number" name="totalDitransfer" min="1000" step="500" required placeholder="Contoh: 1500000" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Berapa Kali Cicilan <span class="text-red-500">*</span></label>
+                <div class="relative">
+                  <input type="number" id="inputCicilan" name="cicilan" min="0" max="180" step="1" required placeholder="0 untuk non-cicil / maks. 180 kali" oninput="if(this.value > 180) this.value = 180; if(this.value < 0 && this.value !== '') this.value = 0;" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                  <span class="absolute right-3.5 top-2.5 text-xs text-slate-400 pointer-events-none">Kali</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">Isi <b>0</b> jika tanpa cicilan (misal: Simpanan Sukarela/Anggaran Unit), maks. 180 kali.</p>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Keterangan / Keperluan <span class="text-red-500">*</span></label>
+              <textarea name="keterangan" rows="3" required placeholder="Tuliskan rincian keperluan secara jelas..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+            </div>
+
+            <div class="pt-4 flex justify-end">
+              <button type="submit" id="btnSubmit" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-3 rounded-xl transition shadow-md shadow-emerald-200">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span>Ajukan ke Pengurus</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- VIEW 3: KHUSUS ROLE ADMIN - VALIDASI AKUN -->
+      <div id="viewUsers" class="hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Validasi & Kelola Akun Anggota</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Kelola izin dan status akses akun karyawan koperasi.</p>
+          </div>
+          <button onclick="fetchUsersList()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center space-x-2 transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span>Refresh Daftar User</span>
+          </button>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                <tr>
+                  <th class="py-3.5 px-4">Status Akun</th>
+                  <th class="py-3.5 px-4">Nama Lengkap</th>
+                  <th class="py-3.5 px-4">NIK - Unit Kerja</th>
+                  <th class="py-3.5 px-4">Username</th>
+                  <th class="py-3.5 px-4">Email</th>
+                  <th class="py-3.5 px-4">Role</th>
+                  <th class="py-3.5 px-4 text-center">Aksi / Validasi</th>
+                </tr>
+              </thead>
+              <tbody id="userTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+</div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 z-50 transition-all">
+    <i id="toastIcon" data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+    <span id="toastMsg" class="text-sm font-medium">Notifikasi</span>
+  </div>
+
+  <script>
+    const API_BASE = '';
+    let currentUser = null;
+    let globalData = [];
+    let usersList = [];
+    let currentPage = 1;
+    let pageSize = 10;
+    let resetIdentifierCache = '';
+
+    // ================= AUTH FUNCTIONS =================
+    function showAuthView(view) {
+      document.getElementById('cardLogin').classList.toggle('hidden', view !== 'login');
+      document.getElementById('cardRegister').classList.toggle('hidden', view !== 'register');
+      document.getElementById('cardForgot').classList.toggle('hidden', view !== 'forgot');
+      document.getElementById('cardReset').classList.toggle('hidden', view !== 'reset');
+      lucide.createIcons();
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('loginUsername').value;
+      const p = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('btnLogin');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memeriksa Akun...`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(API_BASE + '/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          currentUser = {
+            username: data.user.username,
+            role: data.user.role,
+            nama: data.user.namaLengkap,
+            nik: data.user.nik,
+            email: data.user.email,
+            status: data.user.accountStatus
+          };
+          localStorage.setItem('koperasi_user', JSON.stringify(currentUser));
+          showToast(data.message || 'Login berhasil!');
+          initApp();
+        } else {
+          showToast(data.message || 'Login gagal.', true);
+        }
+      } catch (err) {
+        showToast('Koneksi server gagal: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Masuk ke Portal</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnRegister');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Mendaftarkan...`;
+      lucide.createIcons();
+
+      const userData = {
+        namaLengkap: document.getElementById('regNama').value,
+        nik: document.getElementById('regNik').value,
+        email: document.getElementById('regEmail').value,
+        username: document.getElementById('regUsername').value,
+        password: document.getElementById('regPassword').value,
+        role: 'User'
+      };
+
+      try {
+        const res = await fetch(API_BASE + '/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast(data.message);
+          document.getElementById('loginUsername').value = userData.username;
+          document.getElementById('loginPassword').value = '';
+          showAuthView('login');
+        } else {
+          showToast(data.message || 'Gagal mendaftar', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Daftar Akun</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function handleRequestReset(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgotIdentifier').value;
+      const btn = document.getElementById('btnForgot');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Mengirim OTP...`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(API_BASE + '/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          resetIdentifierCache = email;
+          showToast(data.message);
+          document.getElementById('resetDesc').innerText = 'Kode OTP telah dikirim ke ' + email;
+          showAuthView('reset');
+        } else {
+          showToast(data.message || 'Gagal mengirim OTP', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Kirim Kode OTP</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function handleResetPassword(e) {
+      e.preventDefault();
+      const otp = document.getElementById('resetOtp').value;
+      const newPassword = document.getElementById('resetNewPassword').value;
+      const btn = document.getElementById('btnReset');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(API_BASE + '/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: resetIdentifierCache, otp, newPassword })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast(data.message);
+          showAuthView('login');
+          document.getElementById('loginPassword').value = '';
+        } else {
+          showToast(data.message || 'Gagal reset password', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Simpan Password Baru</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    function handleLogout() {
+      currentUser = null;
+      localStorage.removeItem('koperasi_user');
+      document.getElementById('appContainer').classList.add('hidden');
+      document.getElementById('authContainer').classList.remove('hidden');
+      showAuthView('login');
+      showToast('Berhasil logout.');
+    }
+
+    // ================= APP INITIALIZATION =================
+    function initApp() {
+      document.getElementById('authContainer').classList.add('hidden');
+      document.getElementById('appContainer').classList.remove('hidden');
+
+      document.getElementById('userGreeting').innerText = currentUser.nama || currentUser.username;
+      const roleBadge = document.getElementById('userBadgeRole');
+      roleBadge.innerText = currentUser.role;
+      
+      const tabFormBtn = document.getElementById('tabFormBtn');
+      const tabUsersBtn = document.getElementById('tabUsersBtn');
+
+      // TAMPILAN TAB SESUAI ROLE & HIERARKI
+      if (currentUser.role === 'Admin') {
+        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase";
+        tabFormBtn.style.display = 'inline-flex';
+        tabFormBtn.disabled = false;
+        tabUsersBtn.style.display = 'inline-flex';
+        tabUsersBtn.disabled = false;
+      } else if (currentUser.role === 'Financial') {
+        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase";
+        tabFormBtn.style.display = 'inline-flex';
+        tabFormBtn.disabled = false;
+        tabUsersBtn.style.display = 'none';
+        tabUsersBtn.disabled = true;
+      } else if (currentUser.role === 'Pengurus') {
+        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
+        tabFormBtn.style.display = 'none';
+        tabFormBtn.disabled = true;
+        tabUsersBtn.style.display = 'none';
+        tabUsersBtn.disabled = true;
+      } else {
+        // Role = User (Anggota)
+        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase";
+        tabFormBtn.style.display = 'none';
+        tabFormBtn.disabled = true;
+        tabUsersBtn.style.display = 'none';
+        tabUsersBtn.disabled = true;
+      }
+
+      lucide.createIcons();
+      switchTab('tracking');
+    }
+
+    function switchTab(tab) {
+      if (tab === 'users' && (!currentUser || currentUser.role !== 'Admin')) {
+        tab = 'tracking';
+      }
+      if (tab === 'form' && (!currentUser || (currentUser.role !== 'Admin' && currentUser.role !== 'Financial'))) {
+        tab = 'tracking';
+      }
+
+      document.getElementById('viewTracking').classList.toggle('hidden', tab !== 'tracking');
+      document.getElementById('viewForm').classList.toggle('hidden', tab !== 'form');
+      document.getElementById('viewUsers').classList.toggle('hidden', tab !== 'users');
+
+      const trackBtn = document.getElementById('tabTrackBtn');
+      const formBtn = document.getElementById('tabFormBtn');
+      const usersBtn = document.getElementById('tabUsersBtn');
+
+      const activeClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm font-medium";
+      const inactiveClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900";
+
+      trackBtn.className = (tab === 'tracking' ? activeClass : inactiveClass) + " flex";
+      
+      if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Financial')) {
+        formBtn.className = (tab === 'form' ? activeClass : inactiveClass) + " flex";
+      }
+      if (currentUser && currentUser.role === 'Admin') {
+        usersBtn.className = (tab === 'users' ? activeClass : inactiveClass) + " flex";
+      }
+
+      if (tab === 'tracking') fetchData();
+      if (tab === 'users' && currentUser && currentUser.role === 'Admin') fetchUsersList();
+      lucide.createIcons();
+    }
+
+    // ================= ADMIN: USER APPROVAL MANAGEMENT =================
+    async function fetchUsersList() {
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      const tbody = document.getElementById('userTableBody');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="py-8 text-center text-slate-400">
+            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
+            Memuat daftar user...
+          </td>
+        </tr>
+      `;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(API_BASE + '/api/users?role=Admin');
+        const json = await res.json();
+        if (json.success) {
+          usersList = (json.data || []).map(u => ({
+            rowIndex: u.rowIndex,
+            nama: u.namaLengkap,
+            nik: u.nik,
+            username: u.username,
+            email: u.email,
+            role: u.role,
+            accountStatus: u.accountStatus
+          }));
+          renderUsersTable();
+        } else {
+          showToast('Gagal memuat user: ' + json.message, true);
+          tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-red-500">Gagal mengambil daftar pengguna.</td></tr>`;
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-red-500">Koneksi server gagal.</td></tr>`;
+      }
+    }
+
+    function renderUsersTable() {
+      const tbody = document.getElementById('userTableBody');
+      if (usersList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 text-sm">Belum ada akun user terdaftar.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = usersList.map(u => {
+        const status = String(u.accountStatus || 'Pending').trim();
+        
+        let statusBadge = '';
+        if (status === 'Active') {
+          statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✅ Active</span>`;
+        } else if (status === 'Pending') {
+          statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">⏳ Pending</span>`;
+        } else if (status === 'Deactive') {
+          statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">⏸️ Deactive</span>`;
+        } else if (status === 'Rejected') {
+          statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">❌ Rejected</span>`;
+        } else {
+          statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${status}</span>`;
+        }
+
+        let actionButtons = '';
+        if (u.role === 'Admin') {
+          actionButtons = `<span class="text-xs text-slate-400 italic">Superadmin</span>`;
+        } else if (status === 'Pending') {
+          actionButtons = `
+            <div class="flex items-center justify-center space-x-1.5">
+              <button onclick="changeUserStatus('${u.username}', 'Active')" title="Setujui dan Aktifkan Akun" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-sm">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Approve</span>
+              </button>
+              <button onclick="changeUserStatus('${u.username}', 'Rejected')" title="Tolak dan Disable Akun" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                <span>Reject</span>
+              </button>
+            </div>
+          `;
+        } else if (status === 'Active') {
+          actionButtons = `
+            <div class="flex items-center justify-center">
+              <button onclick="changeUserStatus('${u.username}', 'Deactive')" title="Nonaktifkan Akun" class="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+                <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+                <span>Deactivate</span>
+              </button>
+            </div>
+          `;
+        } else if (status === 'Deactive' || status === 'Rejected') {
+          actionButtons = `
+            <div class="flex items-center justify-center">
+              <button onclick="changeUserStatus('${u.username}', 'Active')" title="Aktifkan Kembali Akun" class="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+                <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+                <span>Aktifkan Kembali</span>
+              </button>
+            </div>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+            <td class="py-3.5 px-4">${statusBadge}</td>
+            <td class="py-3.5 px-4 font-semibold text-slate-900">${u.nama}</td>
+            <td class="py-3.5 px-4 text-slate-600 text-xs">${u.nik}</td>
+            <td class="py-3.5 px-4 text-xs font-mono text-slate-700">${u.username}</td>
+            <td class="py-3.5 px-4 text-xs text-slate-500">${u.email}</td>
+            <td class="py-3.5 px-4">
+              <span class="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">${u.role}</span>
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              ${actionButtons}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    async function changeUserStatus(username, newStatus) {
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      showToast('Memproses status user...');
+      try {
+        const res = await fetch(API_BASE + '/api/users/status', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          fetchUsersList();
+        } else {
+          showToast(data.message || 'Gagal memperbarui status user', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    // ================= DATA PENGAJUAN & STATUS FLOW =================
+    async function fetchData() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="py-12 text-center text-slate-400">
+            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
+            Memperbarui data dari Spreadsheet...
+          </td>
+        </tr>
+      `;
+      lucide.createIcons();
+
+      if (!currentUser) return;
+
+      let url = API_BASE + '/api/pengajuan?role=' + encodeURIComponent(currentUser.role);
+      if (currentUser.role === 'User') {
+        url += '&nik=' + encodeURIComponent(currentUser.nik || '') + '&nama=' + encodeURIComponent(currentUser.nama || '');
+      }
+
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.success) {
+          function parseDateToTimestamp(dateStr) {
+            if (!dateStr) return 0;
+            const str = String(dateStr).trim();
+            const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+            if (dmyMatch) {
+              const [, day, month, year, hour = '0', minute = '0', second = '0'] = dmyMatch;
+              return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), parseInt(hour, 10), parseInt(minute, 10), parseInt(second, 10)).getTime();
+            }
+            const ymdMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+            if (ymdMatch) {
+              const [, year, month, day, hour = '0', minute = '0', second = '0'] = ymdMatch;
+              return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10), parseInt(hour, 10), parseInt(minute, 10), parseInt(second, 10)).getTime();
+            }
+            const parsed = Date.parse(str);
+            return isNaN(parsed) ? 0 : parsed;
+          }
+
+          globalData = (json.data || []).map(r => ({
+            rowIndex: r.rowIndex,
+            datetime: r.timestamp,
+            tipeFormulir: r.tipeFormulir,
+            namaKaryawan: r.namaKaryawan,
+            nikUnit: r.nikUnitKerja,
+            noRekening: r.noRekening,
+            atasNamaRekening: r.atasNamaRekening,
+            totalDitransfer: r.totalDitransfer,
+            cicilan: r.cicilan,
+            keterangan: r.keterangan,
+            status: r.status
+          })).sort((a, b) => {
+            const timeA = parseDateToTimestamp(a.datetime);
+            const timeB = parseDateToTimestamp(b.datetime);
+            if (timeA !== timeB) return timeB - timeA;
+            return b.rowIndex - a.rowIndex;
+          });
+
+          updateKPIs();
+          renderTable();
+        } else {
+          showToast('Gagal memuat data: ' + json.message, true);
+          tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">Gagal mengambil data dari spreadsheet.</td></tr>`;
+        }
+      } catch (err) {
+        showToast('Gagal memuat data: ' + err.message, true);
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">Koneksi server terputus.</td></tr>`;
+      }
+    }
+
+    function onSearchChange() { currentPage = 1; renderTable(); }
+    function onFilterChange() { currentPage = 1; renderTable(); }
+    function onPageSizeChange() {
+      pageSize = parseInt(document.getElementById('rowsPerPage').value, 10);
+      currentPage = 1;
+      renderTable();
+    }
+    function goToPage(page) { currentPage = page; renderTable(); }
+
+    // LOGIKA TAMPILAN STATUS / APPROVAL SESUAI HIERARKI BARU
+    function getStatusBadge(status, rowIndex) {
+      const st = String(status || 'Created').trim();
+
+      // 1. TAMPILAN KHUSUS ROLE PENGURUS (APPROVAL WORKFLOW)
+      if (currentUser && currentUser.role === 'Pengurus') {
+        if (st === 'Created') {
+          // Status Created -> Pengurus memiliki tombol Approve & Reject
+          return `
+            <div class="flex items-center space-x-1.5">
+              <button onclick="changeStatus(${rowIndex}, 'On Process')" title="Setujui Pinjaman Ini" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-sm">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Approve</span>
+              </button>
+              <button onclick="changeStatus(${rowIndex}, 'Rejected')" title="Tolak Pinjaman Ini" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                <span>Reject</span>
+              </button>
+            </div>
+          `;
+        } else if (st === 'On Process') {
+          return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">✅ Approved (Proses Transfer)</span>`;
+        } else if (st === 'Done') {
+          return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✅ Selesai / Ditransfer</span>`;
+        } else if (st === 'Rejected') {
+          return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200">❌ Ditolak Pengurus</span>`;
+        }
+      }
+
+      // 2. TAMPILAN ROLE USER (HANYA MELIHAT PROGRES PINJAMAN SENDIRI)
+      if (currentUser && currentUser.role === 'User') {
+        let label = '⏳ Menunggu Approval Pengurus';
+        let style = 'bg-amber-50 text-amber-700 border-amber-200';
+        
+        if (st === 'On Process') {
+          label = '🔄 Disetujui (Sedang Ditransfer)';
+          style = 'bg-blue-50 text-blue-700 border-blue-200';
+        } else if (st === 'Done') {
+          label = '✅ Selesai (Dana Masuk)';
+          style = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        } else if (st === 'Rejected') {
+          label = '❌ Pengajuan Ditolak';
+          style = 'bg-red-50 text-red-700 border-red-200';
+        }
+
+        return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${style}">${label}</span>`;
+      }
+
+      // 3. TAMPILAN ROLE FINANCE & ADMIN (DROPDOWN UPDATE STATUS PROSES/TRANSFER)
+      let colorStyle = "bg-amber-50 text-amber-700 border-amber-200";
+      if (st === 'On Process') colorStyle = "bg-blue-50 text-blue-700 border-blue-200";
+      if (st === 'Done') colorStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
+      if (st === 'Rejected') colorStyle = "bg-red-50 text-red-700 border-red-200";
+
+      return `
+        <div class="inline-block">
+          <select onchange="changeStatus(${rowIndex}, this.value)" class="text-xs font-semibold rounded-lg px-2.5 py-1 border cursor-pointer focus:outline-none transition ${colorStyle}">
+            <option value="Created" ${st === 'Created' ? 'selected' : ''}>⏳ Created (Menunggu Pengurus)</option>
+            <option value="On Process" ${st === 'On Process' ? 'selected' : ''}>🔄 On Process (Disetujui)</option>
+            <option value="Done" ${st === 'Done' ? 'selected' : ''}>✅ Done (Sudah Ditransfer)</option>
+            <option value="Rejected" ${st === 'Rejected' ? 'selected' : ''}>❌ Rejected (Ditolak)</option>
+          </select>
+        </div>
+      `;
+    }
+
+    async function changeStatus(rowIndex, newStatus) {
+      if (!currentUser) return;
+
+      showToast('Memperbarui status pengajuan...');
+      try {
+        const res = await fetch(API_BASE + '/api/pengajuan/status', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rowIndex,
+            newStatus,
+            userRole: currentUser.role
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message);
+          const target = globalData.find(d => d.rowIndex === rowIndex);
+          if (target) target.status = newStatus;
+          updateKPIs();
+          renderTable();
+        } else {
+          showToast('Gagal update: ' + (data.message || ''), true);
+        }
+      } catch (err) {
+        showToast('Error update: ' + err.message, true);
+      }
+    }
+
+    function formatRupiah(rawVal) {
+      if (rawVal === undefined || rawVal === null || rawVal === '') return 'Rp 0';
+      let str = String(rawVal).trim();
+      
+      // Hapus prefix Rp atau IDR dan spasi
+      str = str.replace(/^(rp|idr)\.?\s*/i, '');
+      
+      // Jika format Indonesia dengan desimal koma (contoh: 2.000.000,00 atau 500.000,00)
+      if (str.includes('.') && str.includes(',')) {
+        str = str.replace(/\./g, '').replace(/,/g, '.');
+      } else if (str.includes('.') && !str.includes(',')) {
+        // Cek apakah titik merupakan pemisah ribuan (contoh: 2.000.000 atau 500.000)
+        // Jika setelah titik ada 3 digit (atau multiple titik 3 digit), anggap pemisah ribuan
+        const parts = str.split('.');
+        if (parts.length > 1 && parts.every((p, idx) => idx === 0 || p.length === 3)) {
+          str = str.replace(/\./g, '');
+        }
+      } else if (str.includes(',')) {
+        // Cek apakah koma sebagai ribuan atau desimal
+        const parts = str.split(',');
+        if (parts.length > 1 && parts.every((p, idx) => idx === 0 || p.length === 3)) {
+          str = str.replace(/,/g, '');
+        } else {
+          str = str.replace(/,/g, '.');
+        }
+      }
+
+      // Bersihkan karakter non-digit selain titik desimal dan minus
+      str = str.replace(/[^0-9.-]/g, '');
+      const num = parseFloat(str) || 0;
+      return 'Rp ' + Math.round(num).toLocaleString('id-ID');
+    }
+
+    function renderTable() {
+      const search = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const filterTipe = document.getElementById('filterTipe').value;
+      const filterStatus = document.getElementById('filterStatus').value;
+      const tbody = document.getElementById('tableBody');
+
+      const knownTypes = [
+        "Pencairan Simpanan Sukarela",
+        "Peminjaman Multiguna",
+        "Peminjaman Tunai",
+        "Pengajuan Anggaran Unit"
+      ];
+
+      const filtered = globalData.filter(item => {
+        const nama = String(item.namaKaryawan || '').toLowerCase();
+        const nik = String(item.nikUnit || '').toLowerCase();
+        const rek = String(item.noRekening || '').toLowerCase();
+        const an = String(item.atasNamaRekening || '').toLowerCase();
+        const ket = String(item.keterangan || '').toLowerCase();
+        const tipe = String(item.tipeFormulir || '').toLowerCase();
+        const status = String(item.status || '').toLowerCase();
+
+        const matchSearch = !search || 
+          nama.includes(search) ||
+          nik.includes(search) ||
+          rek.includes(search) ||
+          an.includes(search) ||
+          ket.includes(search) ||
+          tipe.includes(search) ||
+          status.includes(search);
+
+        let matchTipe = true;
+        if (filterTipe === 'Lainnya') {
+          matchTipe = !knownTypes.includes(item.tipeFormulir);
+        } else if (filterTipe !== '') {
+          matchTipe = item.tipeFormulir === filterTipe;
+        }
+
+        const matchStatus = !filterStatus || item.status === filterStatus;
+
+        return matchSearch && matchTipe && matchStatus;
+      });
+
+      const totalItems = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = Math.min(startIndex + pageSize, totalItems);
+      const pageData = filtered.slice(startIndex, endIndex);
+
+      if (totalItems === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-slate-400 text-sm">Tidak ada data yang sesuai filter / pencarian.</td></tr>`;
+      } else {
+        tbody.innerHTML = pageData.map(row => {
+          return `
+            <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+              <td class="py-3.5 px-4 whitespace-nowrap">${getStatusBadge(row.status, row.rowIndex)}</td>
+              <td class="py-3.5 px-4 text-xs text-slate-500 font-mono whitespace-nowrap">${row.datetime || '-'}</td>
+              <td class="py-3.5 px-4">
+                <div class="font-medium text-slate-900">${row.namaKaryawan || '-'}</div>
+                <div class="text-xs text-slate-500">${row.nikUnit || '-'}</div>
+              </td>
+              <td class="py-3.5 px-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  ${row.tipeFormulir || '-'}
+                </span>
+              </td>
+              <td class="py-3.5 px-4 text-xs">
+                <div class="font-mono text-slate-800 font-semibold">${row.noRekening || '-'}</div>
+                <div class="text-slate-500">a.n ${row.atasNamaRekening || '-'}</div>
+              </td>
+              <td class="py-3.5 px-4 text-right font-bold text-slate-900 whitespace-nowrap">
+                ${formatRupiah(row.totalDitransfer)}
+              </td>
+              <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                <span class="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium">
+                  ${(() => {
+                    const c = parseInt(String(row.cicilan || '0').replace(/[^0-9]/g, ''), 10);
+                    if (isNaN(c) || c === 0) return '-';
+                    return c + ' Kali';
+                  })()}
+                </span>
+              </td>
+              <td class="py-3.5 px-4 text-xs text-slate-600 max-w-xs truncate" title="${row.keterangan || '-'}">
+                ${row.keterangan || '-'}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      renderPaginationControls(totalItems, totalPages, startIndex, endIndex);
+      lucide.createIcons();
+    }
+
+    function renderPaginationControls(totalItems, totalPages, startIndex, endIndex) {
+      const infoEl = document.getElementById('paginationInfo');
+      const btnsEl = document.getElementById('paginationButtons');
+
+      if (totalItems === 0) {
+        infoEl.innerText = 'Menampilkan 0 entri';
+        btnsEl.innerHTML = '';
+        return;
+      }
+
+      infoEl.innerHTML = `Menampilkan <span class="font-semibold text-slate-800">${startIndex + 1}</span> - <span class="font-semibold text-slate-800">${endIndex}</span> dari <span class="font-semibold text-slate-800">${totalItems}</span> data`;
+
+      let btnHTML = `
+        <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+      `;
+
+      let startP = Math.max(1, currentPage - 2);
+      let endP = Math.min(totalPages, startP + 4);
+      if (endP - startP < 4) startP = Math.max(1, endP - 4);
+
+      if (startP > 1) {
+        btnHTML += `<button onclick="goToPage(1)" class="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs">1</button>`;
+        if (startP > 2) btnHTML += `<span class="px-1 text-slate-400">...</span>`;
+      }
+
+      for (let p = startP; p <= endP; p++) {
+        if (p === currentPage) {
+          btnHTML += `<button class="px-3 py-1 rounded-lg bg-emerald-600 text-white font-semibold text-xs shadow-sm">${p}</button>`;
+        } else {
+          btnHTML += `<button onclick="goToPage(${p})" class="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs transition">${p}</button>`;
+        }
+      }
+
+      if (endP < totalPages) {
+        if (endP < totalPages - 1) btnHTML += `<span class="px-1 text-slate-400">...</span>`;
+        btnHTML += `<button onclick="goToPage(${totalPages})" class="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs">${totalPages}</button>`;
+      }
+
+      btnHTML += `
+        <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      `;
+
+      btnsEl.innerHTML = btnHTML;
+    }
+
+    function updateKPIs() {
+      document.getElementById('kpiCount').innerText = globalData.length;
+      const createdCount = globalData.filter(d => (d.status || 'Created') === 'Created').length;
+      const processCount = globalData.filter(d => d.status === 'On Process').length;
+      const doneCount = globalData.filter(d => d.status === 'Done').length;
+
+      document.getElementById('kpiCreated').innerText = createdCount;
+      document.getElementById('kpiOnProcess').innerText = processCount;
+      document.getElementById('kpiDone').innerText = doneCount;
+    }
+
+    function toggleCustomTipe(val) {
+      const customInput = document.getElementById('customTipeInput');
+      const cicilanInput = document.getElementById('inputCicilan');
+
+      if (val === 'CUSTOM') {
+        customInput.classList.remove('hidden');
+        customInput.required = true;
+      } else {
+        customInput.classList.add('hidden');
+        customInput.required = false;
+      }
+
+      // Otomatis isi 0 jika tipe form adalah pencairan simpanan atau anggaran unit (non-cicil)
+      if (val === 'Pencairan Simpanan Sukarela' || val === 'Pengajuan Anggaran Unit') {
+        if (cicilanInput) cicilanInput.value = '0';
+      }
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = document.getElementById('btnSubmit');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
+      lucide.createIcons();
+
+      const formData = new FormData(form);
+      let tipeForm = formData.get('tipeFormulir');
+      if (tipeForm === 'CUSTOM') {
+        tipeForm = document.getElementById('customTipeInput').value;
+      }
+
+      const payload = {
+        tipeFormulir: tipeForm,
+        namaKaryawan: formData.get('namaKaryawan'),
+        nikUnitKerja: formData.get('nikUnit'),
+        noRekening: formData.get('noRekening'),
+        atasNamaRekening: formData.get('atasNamaRekening'),
+        totalDitransfer: formData.get('totalDitransfer'),
+        cicilan: formData.get('cicilan'),
+        keterangan: formData.get('keterangan')
+      };
+
+      try {
+        const res = await fetch(API_BASE + '/api/pengajuan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          form.reset();
+          document.getElementById('customTipeInput').classList.add('hidden');
+          showToast('Pengajuan berhasil disimpan & menunggu persetujuan Pengurus!');
+          switchTab('tracking');
+        } else {
+          showToast(data.message || 'Gagal menyimpan', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="send" class="w-4 h-4 mr-2"></i> Ajukan ke Pengurus`;
+        lucide.createIcons();
+      }
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = msg;
+      toastIcon.setAttribute('data-lucide', isError ? 'alert-circle' : 'check-circle');
+      toastIcon.className = isError ? "w-5 h-5 text-red-400" : "w-5 h-5 text-emerald-400";
+      lucide.createIcons();
+
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 4000);
+    }
+
+    window.onload = function() {
+      lucide.createIcons();
+      const saved = localStorage.getItem('koperasi_user');
+      if (saved) {
+        try {
+          currentUser = JSON.parse(saved);
+          initApp();
+          return;
+        } catch (e) {
+          localStorage.removeItem('koperasi_user');
+        }
+      }
+      showAuthView('login');
+    };
+  </script>
+</body>
+</html>
