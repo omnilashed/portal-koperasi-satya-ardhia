@@ -1,3 +1,4 @@
 .env
 vendor/
 node_modules/
+Add-Content -Path .gitignore -Value "`n.env"
