@@ -33,45 +33,56 @@ let sheetsInstance = null;
 async function getSheetsClient() {
   const currentSpreadsheetId = process.env.SPREADSHEET_ID || SPREADSHEET_ID;
   if (!currentSpreadsheetId) {
-    throw new Error('SPREADSHEET_ID belum dikonfigurasi di Environment Variables / .env. Silakan atur SPREADSHEET_ID.');
+    throw new Error('SPREADSHEET_ID belum dikonfigurasi di Environment Variables / .env.');
   }
 
   if (sheetsInstance) return sheetsInstance;
 
-  try {
-    let credsObj = null;
+  let resolvedPath = CREDENTIALS_PATH;
+  if (!fs.existsSync(resolvedPath)) {
+    resolvedPath = path.join(__dirname, 'credentials.json');
+  }
 
-    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+  // Attempt 1: Try GOOGLE_CREDENTIALS_JSON if provided in Vercel Environment Variables
+  if (process.env.GOOGLE_CREDENTIALS_JSON) {
+    try {
       const rawEnv = process.env.GOOGLE_CREDENTIALS_JSON.trim();
-      credsObj = typeof rawEnv === 'string' ? JSON.parse(rawEnv) : rawEnv;
-    } else {
-      let resolvedPath = CREDENTIALS_PATH;
-      if (!fs.existsSync(resolvedPath)) {
-        resolvedPath = path.join(__dirname, 'credentials.json');
-      }
-      if (fs.existsSync(resolvedPath)) {
-        const fileData = fs.readFileSync(resolvedPath, 'utf8');
-        credsObj = JSON.parse(fileData);
-      } else {
-        throw new Error('Credentials file tidak ditemukan di: ' + resolvedPath + ' dan GOOGLE_CREDENTIALS_JSON belum di-set di Vercel.');
-      }
-    }
+      const credsObj = typeof rawEnv === 'string' ? JSON.parse(rawEnv) : rawEnv;
 
-    if (credsObj && credsObj.private_key) {
-      credsObj.private_key = credsObj.private_key.replace(/\\n/g, '\n');
+      if (credsObj && credsObj.private_key) {
+        credsObj.private_key = credsObj.private_key.replace(/\\n/g, '\n');
+      }
+
+      const auth = new google.auth.GoogleAuth({
+        credentials: credsObj,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+
+      const authClient = await auth.getClient();
+      sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
+      return sheetsInstance;
+    } catch (envError) {
+      console.warn('[Google Auth]: GOOGLE_CREDENTIALS_JSON gagal, mencoba file credentials.json...', envError.message);
+    }
+  }
+
+  // Attempt 2: Use keyFile credentials.json directly
+  try {
+    if (!fs.existsSync(resolvedPath)) {
+      throw new Error('File credentials.json tidak ditemukan di: ' + resolvedPath);
     }
 
     const auth = new google.auth.GoogleAuth({
-      credentials: credsObj,
+      keyFile: resolvedPath,
       scopes: ['https://www.googleapis.com/auth/spreadsheets']
     });
 
     const authClient = await auth.getClient();
     sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
     return sheetsInstance;
-  } catch (error) {
-    console.error('[Google Sheets Auth Error]:', error.message);
-    throw error;
+  } catch (fileError) {
+    console.error('[Google Sheets Auth Error]:', fileError.message);
+    throw fileError;
   }
 }
 
