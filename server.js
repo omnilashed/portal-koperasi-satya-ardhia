@@ -15,7 +15,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1mFlMWzoKkEeBxidakZSZz_yMZgK3qzk8nbPMSGIujJ0';
+const DEFAULT_SPREADSHEET_ID = '1mFlMWzoKkEeBxidakZSZz_yMZgK3qzk8nbPMSGIujJ0';
+const SPREADSHEET_ID = (process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID.trim()) ? process.env.SPREADSHEET_ID.trim() : DEFAULT_SPREADSHEET_ID;
 const CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, 'credentials.json');
 
 // Middleware
@@ -31,11 +32,6 @@ app.use(express.static(__dirname));
 let sheetsInstance = null;
 
 async function getSheetsClient() {
-  const currentSpreadsheetId = process.env.SPREADSHEET_ID || SPREADSHEET_ID || '1mFlMWzoKkEeBxidakZSZz_yMZgK3qzk8nbPMSGIujJ0';
-  if (!currentSpreadsheetId) {
-    throw new Error('SPREADSHEET_ID belum dikonfigurasi di Environment Variables / .env.');
-  }
-
   if (sheetsInstance) return sheetsInstance;
 
   let resolvedPath = CREDENTIALS_PATH;
