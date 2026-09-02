@@ -31,18 +31,32 @@ app.use(express.static(__dirname));
 let sheetsInstance = null;
 
 async function getSheetsClient() {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID belum dikonfigurasi di file .env. Silakan buka file .env dan masukkan ID Google Spreadsheet Anda.');
+  }
+
   if (sheetsInstance) return sheetsInstance;
 
   try {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
+    let authConfig;
+    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+      const credentials = typeof process.env.GOOGLE_CREDENTIALS_JSON === 'string'
+        ? JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON)
+        : process.env.GOOGLE_CREDENTIALS_JSON;
+      authConfig = {
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      };
+    } else if (fs.existsSync(CREDENTIALS_PATH)) {
+      authConfig = {
+        keyFile: CREDENTIALS_PATH,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      };
+    } else {
       throw new Error('File credentials service account tidak ditemukan di: ' + CREDENTIALS_PATH);
     }
 
-    const auth = new google.auth.GoogleAuth({
-      keyFile: CREDENTIALS_PATH,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets']
-    });
-
+    const auth = new google.auth.GoogleAuth(authConfig);
     const authClient = await auth.getClient();
     sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
     return sheetsInstance;
@@ -686,12 +700,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log('===================================================');
-  console.log(' Portal Koperasi Server running on port ' + PORT);
-  console.log(' URL: http://localhost:' + PORT);
-  console.log(' Spreadsheet ID: ' + (SPREADSHEET_ID ? SPREADSHEET_ID : 'BELUM DI-SET'));
-  console.log(' Credentials: ' + CREDENTIALS_PATH);
-  console.log('===================================================');
-});
+// Export Express app for Vercel Serverless Functions
+module.exports = app;
+
+// Start local server if not running on Vercel
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log('===================================================');
+    console.log(' Portal Koperasi Server running on port ' + PORT);
+    console.log(' URL: http://localhost:' + PORT);
+    console.log(' Spreadsheet ID: ' + (SPREADSHEET_ID ? SPREADSHEET_ID : 'BELUM DI-SET'));
+    console.log(' Credentials: ' + CREDENTIALS_PATH);
+    console.log('===================================================');
+  });
+}
