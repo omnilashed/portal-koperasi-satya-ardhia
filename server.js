@@ -31,32 +31,41 @@ app.use(express.static(__dirname));
 let sheetsInstance = null;
 
 async function getSheetsClient() {
-  if (!SPREADSHEET_ID) {
-    throw new Error('SPREADSHEET_ID belum dikonfigurasi di file .env. Silakan buka file .env dan masukkan ID Google Spreadsheet Anda.');
+  const currentSpreadsheetId = process.env.SPREADSHEET_ID || SPREADSHEET_ID;
+  if (!currentSpreadsheetId) {
+    throw new Error('SPREADSHEET_ID belum dikonfigurasi di Environment Variables / .env. Silakan atur SPREADSHEET_ID.');
   }
 
   if (sheetsInstance) return sheetsInstance;
 
   try {
-    let authConfig;
+    let credsObj = null;
+
     if (process.env.GOOGLE_CREDENTIALS_JSON) {
-      const credentials = typeof process.env.GOOGLE_CREDENTIALS_JSON === 'string'
-        ? JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON)
-        : process.env.GOOGLE_CREDENTIALS_JSON;
-      authConfig = {
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      };
-    } else if (fs.existsSync(CREDENTIALS_PATH)) {
-      authConfig = {
-        keyFile: CREDENTIALS_PATH,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      };
+      const rawEnv = process.env.GOOGLE_CREDENTIALS_JSON.trim();
+      credsObj = typeof rawEnv === 'string' ? JSON.parse(rawEnv) : rawEnv;
     } else {
-      throw new Error('File credentials service account tidak ditemukan di: ' + CREDENTIALS_PATH);
+      let resolvedPath = CREDENTIALS_PATH;
+      if (!fs.existsSync(resolvedPath)) {
+        resolvedPath = path.join(__dirname, 'credentials.json');
+      }
+      if (fs.existsSync(resolvedPath)) {
+        const fileData = fs.readFileSync(resolvedPath, 'utf8');
+        credsObj = JSON.parse(fileData);
+      } else {
+        throw new Error('Credentials file tidak ditemukan di: ' + resolvedPath + ' dan GOOGLE_CREDENTIALS_JSON belum di-set di Vercel.');
+      }
     }
 
-    const auth = new google.auth.GoogleAuth(authConfig);
+    if (credsObj && credsObj.private_key) {
+      credsObj.private_key = credsObj.private_key.replace(/\\n/g, '\n');
+    }
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: credsObj,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+
     const authClient = await auth.getClient();
     sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
     return sheetsInstance;
