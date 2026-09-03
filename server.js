@@ -42,8 +42,21 @@ async function getSheetsClient() {
   // Attempt 1: Try GOOGLE_CREDENTIALS_JSON if provided in Vercel Environment Variables
   if (process.env.GOOGLE_CREDENTIALS_JSON) {
     try {
-      const rawEnv = process.env.GOOGLE_CREDENTIALS_JSON.trim();
-      const credsObj = typeof rawEnv === 'string' ? JSON.parse(rawEnv) : rawEnv;
+      let rawEnv = process.env.GOOGLE_CREDENTIALS_JSON.trim();
+      let credsObj;
+      try {
+        credsObj = JSON.parse(rawEnv);
+      } catch (e1) {
+        try {
+          credsObj = JSON.parse(rawEnv.replace(/\r?\n/g, '\\n'));
+        } catch (e2) {
+          throw new Error('Format GOOGLE_CREDENTIALS_JSON tidak valid: ' + e1.message);
+        }
+      }
+
+      if (typeof credsObj === 'string') {
+        credsObj = JSON.parse(credsObj);
+      }
 
       if (credsObj && credsObj.private_key) {
         credsObj.private_key = credsObj.private_key.replace(/\\n/g, '\n');
@@ -58,14 +71,17 @@ async function getSheetsClient() {
       sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
       return sheetsInstance;
     } catch (envError) {
-      console.warn('[Google Auth]: GOOGLE_CREDENTIALS_JSON gagal, mencoba file credentials.json...', envError.message);
+      console.error('[Google Auth Error (GOOGLE_CREDENTIALS_JSON)]:', envError.message);
+      if (!fs.existsSync(resolvedPath)) {
+        throw envError;
+      }
     }
   }
 
-  // Attempt 2: Use keyFile credentials.json directly
+  // Attempt 2: Use local credentials.json directly (for local development)
   try {
     if (!fs.existsSync(resolvedPath)) {
-      throw new Error('File credentials.json tidak ditemukan di: ' + resolvedPath);
+      throw new Error('Kredensial Google belum disiapkan. Di Vercel, pastikan Environment Variable GOOGLE_CREDENTIALS_JSON sudah diisi.');
     }
 
     const auth = new google.auth.GoogleAuth({
@@ -533,15 +549,45 @@ app.get('/api/pengajuan', async (req, res) => {
       status: r[9] || 'Created'
     }));
 
-    // Jika role adalah User, filter data milik sendiri
+    // Jika role adalah User, filter data milik sendiri secara akurat
     if (role === 'User') {
       const userNik = (nik || '').trim().toLowerCase();
       const userNama = (nama || '').trim().toLowerCase();
 
+      // Ekstrak angka unik jika NIK mengandung nomor identitas (misal: "20246808")
+      const nikNumberMatch = userNik.match(/\d{4,}/);
+      const nikOnly = nikNumberMatch ? nikNumberMatch[0] : '';
+
       list = list.filter(item => {
         const itemNik = (item.nikUnitKerja || '').toLowerCase();
         const itemNama = (item.namaKaryawan || '').toLowerCase();
-        return (userNik && itemNik.includes(userNik)) || (userNama && itemNama.includes(userNama));
+
+        // 1. Cek kesesuaian Nama Lengkap (Karyawan)
+        const isNameMatch = Boolean(
+          userNama && (
+            itemNama === userNama ||
+            itemNama.includes(userNama) ||
+            userNama.includes(itemNama)
+          )
+        );
+
+        // 2. Cek kesesuaian NIK angka unik (jika ada nomor minimal 4 digit)
+        let isNikMatch = false;
+        if (nikOnly) {
+          isNikMatch = itemNik.includes(nikOnly);
+        } else if (userNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(userNik)) {
+          isNikMatch = itemNik === userNik || itemNik.startsWith(userNik + ' ') || itemNik.endsWith(' ' + userNik);
+        }
+
+        // Jika Nama cocok, sertakan data
+        if (isNameMatch) return true;
+
+        // Jika hanya NIK yang cocok tanpa nama, hanya izinkan jika NIK berupa nomor identitas unik (bukan teks nama unit)
+        if (isNikMatch && nikOnly) {
+          return true;
+        }
+
+        return false;
       });
     }
 
