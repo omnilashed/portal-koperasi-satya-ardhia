@@ -282,15 +282,35 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
     const cleanName = String(userName || '').trim().toLowerCase();
     const cleanUname = String(userUsername || '').trim().toLowerCase();
 
+    // Ekstrak angka unik jika NIK berupa nomor identitas (misal: 20246808)
+    const nikMatch = cleanNik.match(/\d{4,}/);
+    const nikOnly = nikMatch ? nikMatch[0] : '';
+
     list = list.filter(item => {
       const rowNama = String(item.namaKaryawan || '').trim().toLowerCase();
       const rowNikUnit = String(item.nikUnit || '').trim().toLowerCase();
 
-      const matchNik = cleanNik && (rowNikUnit.includes(cleanNik) || rowNama.includes(cleanNik));
-      const matchUsername = cleanUname && (rowNikUnit.includes(cleanUname) || rowNama.includes(cleanUname));
-      const matchName = cleanName && (rowNama.includes(cleanName) || cleanName.includes(rowNama));
+      // 1. Prioritaskan kecocokan Nama Lengkap
+      const isNameMatch = Boolean(
+        cleanName && (rowNama === cleanName || rowNama.includes(cleanName) || cleanName.includes(rowNama))
+      );
 
-      return matchNik || matchUsername || matchName;
+      // 2. Kecocokan Username
+      const isUnameMatch = Boolean(
+        cleanUname && (rowNama.includes(cleanUname) || rowNikUnit.includes(cleanUname))
+      );
+
+      // 3. Kecocokan NIK angka unik
+      let isNikMatch = false;
+      if (nikOnly) {
+        isNikMatch = rowNikUnit.includes(nikOnly);
+      } else if (cleanNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(cleanNik)) {
+        isNikMatch = rowNikUnit === cleanNik;
+      }
+
+      if (isNameMatch || isUnameMatch) return true;
+      if (isNikMatch && nikOnly) return true;
+      return false;
     });
   }
 
@@ -341,18 +361,52 @@ function updateStatusPengajuan(userRole, rowIndex, newStatus) {
   } catch (err) {
     return { status: 'error', message: 'Gagal update status: ' + err.toString() };
   }
-}             "• `/budget set <kategori> <limit>`\n" +
-             "• `/budget list` (Melihat status & progress bar)\n\n" +
-             "4️⃣ *Utang & Piutang:*\n" +
-             "• `/utang add -m \"<nama> - <ket>\" <nominal> [-tempo YYYY-MM-DD]`\n" +
-             "• `/piutang add -m \"<nama> - <ket>\" <nominal> [-tempo YYYY-MM-DD]`\n" +
-             "• `/utang list` | `/utang lunas <ID>` | `/piutang lunas <ID>`\n\n" +
-             "5️⃣ *Laporan & Saldo:*\n" +
-             "• `/summary` | `/summary hari-ini` | `/summary kemarin` | `/summary YYYY-MM` | `/summary -c <kategori>`\n" +
-             "• `/saldo` (Lihat saldo semua rekening)\n\n" +
-             "6️⃣ *AI Features:*\n" +
-             "• `/tanya <pertanyaan>` (Financial Advisor AI)\n" +
-             "• Pesan teks bebas (misal: *\"barusan beli kopi 25rb pake gopay\"*) langsung dicatat otomatis oleh AI!";
+}
 
-  sendTelegramMessage(chatId, help, msgId);
+// Khusus Role Admin: Edit Data Pengajuan
+function editPengajuan(userRole, rowIndex, form) {
+  if (userRole !== 'Admin') {
+    return { status: 'error', message: 'Akses ditolak! Hanya Admin yang dapat mengedit data pengajuan.' };
+  }
+
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    const row = Number(rowIndex);
+
+    sheet.getRange(row, 2, 1, 9).setValues([[
+      form.tipeFormulir || '',
+      form.namaKaryawan || '',
+      form.nikUnitKerja || form.nikUnit || '',
+      String(form.noRekening || ''),
+      form.atasNamaRekening || '',
+      Number(form.totalDitransfer) || 0,
+      form.cicilan || '-',
+      form.keterangan || '-',
+      form.status || 'Created'
+    ]]);
+
+    return { status: 'success', message: 'Data pengajuan baris ke-' + row + ' berhasil diperbarui!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal mengedit pengajuan: ' + err.toString() };
+  }
+}
+
+// Khusus Role Admin: Hapus Data Pengajuan
+function hapusPengajuan(userRole, rowIndex) {
+  if (userRole !== 'Admin') {
+    return { status: 'error', message: 'Akses ditolak! Hanya Admin yang dapat menghapus data pengajuan.' };
+  }
+
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    const row = Number(rowIndex);
+    if (row < 2) {
+      return { status: 'error', message: 'Baris header tidak dapat dihapus!' };
+    }
+
+    sheet.deleteRow(row);
+    return { status: 'success', message: 'Data pengajuan baris ke-' + row + ' berhasil dihapus!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal menghapus pengajuan: ' + err.toString() };
+  }
 }
