@@ -323,6 +323,7 @@
                   <th class="py-3.5 px-4 text-right">Total Transfer</th>
                   <th class="py-3.5 px-4 text-center">Cicilan</th>
                   <th class="py-3.5 px-4">Keterangan</th>
+                  <th class="py-3.5 px-4 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
@@ -448,7 +449,92 @@
 
     </main>
 
-</div>
+  <!-- Modal Edit Pengajuan (Khusus Admin) -->
+  <div id="modalEditPengajuan" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 my-8">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i data-lucide="edit" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Edit Data Pengajuan</h3>
+            <p class="text-xs text-slate-500">Perbarui rincian data pengajuan anggota (Khusus Administrator).</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleEditPengajuanSubmit(event)" class="space-y-4">
+        <input type="hidden" id="editRowIndex">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Tipe Formulir <span class="text-red-500">*</span></label>
+            <input type="text" id="editTipeFormulir" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nama Karyawan / Anggota <span class="text-red-500">*</span></label>
+            <input type="text" id="editNamaKaryawan" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK - Unit Kerja <span class="text-red-500">*</span></label>
+            <input type="text" id="editNikUnitKerja" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Status Pengajuan <span class="text-red-500">*</span></label>
+            <select id="editStatus" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+              <option value="Created">⏳ Created (Menunggu Approval)</option>
+              <option value="On Process">🔄 On Process (Disetujui Pengurus)</option>
+              <option value="Done">✅ Done (Selesai Ditransfer)</option>
+              <option value="Rejected">❌ Rejected (Ditolak)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">No. Rekening <span class="text-red-500">*</span></label>
+            <input type="text" id="editNoRekening" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Atas Nama Rekening <span class="text-red-500">*</span></label>
+            <input type="text" id="editAtasNamaRekening" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Total Ditransfer (Rp) <span class="text-red-500">*</span></label>
+            <input type="number" id="editTotalDitransfer" step="any" min="0" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Berapa Kali Cicilan <span class="text-red-500">*</span></label>
+            <input type="text" id="editCicilan" required placeholder="0 untuk non-cicil" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Keterangan / Keperluan</label>
+          <textarea id="editKeterangan" rows="3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition">
+            Batal
+          </button>
+          <button type="submit" id="btnSaveEdit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-md shadow-emerald-200 transition">
+            <span>Simpan Perubahan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Toast Notification -->
   <div id="toast" class="fixed bottom-6 right-6 hidden bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 z-50 transition-all">
@@ -1112,7 +1198,7 @@
       const pageData = filtered.slice(startIndex, endIndex);
 
       if (totalItems === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-slate-400 text-sm">Tidak ada data yang sesuai filter / pencarian.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="py-10 text-center text-slate-400 text-sm">Tidak ada data yang sesuai filter / pencarian.</td></tr>`;
       } else {
         tbody.innerHTML = pageData.map(row => {
           return `
@@ -1146,6 +1232,20 @@
               </td>
               <td class="py-3.5 px-4 text-xs text-slate-600 max-w-xs truncate" title="${row.keterangan || '-'}">
                 ${row.keterangan || '-'}
+              </td>
+              <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                ${currentUser && currentUser.role === 'Admin' ? `
+                  <div class="inline-flex items-center justify-center gap-1.5">
+                    <button onclick="openEditModal(${row.rowIndex})" class="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition" title="Edit Data Pengajuan">
+                      <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="confirmDelete(${row.rowIndex}, '${(row.namaKaryawan || '').replace(/'/g, "\\'")}')" class="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition" title="Hapus Data Pengajuan">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                ` : `
+                  <span class="text-xs text-slate-400 font-medium">-</span>
+                `}
               </td>
             </tr>
           `;
@@ -1282,6 +1382,109 @@
         btn.disabled = false;
         btn.innerHTML = `<i data-lucide="send" class="w-4 h-4 mr-2"></i> Ajukan ke Pengurus`;
         lucide.createIcons();
+      }
+    }
+
+    // ================= ADMIN ACTIONS: EDIT & DELETE PENGAJUAN =================
+    function openEditModal(rowIndex) {
+      const item = globalData.find(x => x.rowIndex === rowIndex);
+      if (!item) {
+        showToast('Data pengajuan tidak ditemukan.', true);
+        return;
+      }
+
+      document.getElementById('editRowIndex').value = item.rowIndex;
+      document.getElementById('editTipeFormulir').value = item.tipeFormulir || '';
+      document.getElementById('editNamaKaryawan').value = item.namaKaryawan || '';
+      document.getElementById('editNikUnitKerja').value = item.nikUnit || '';
+      document.getElementById('editStatus').value = item.status || 'Created';
+      document.getElementById('editNoRekening').value = item.noRekening || '';
+      document.getElementById('editAtasNamaRekening').value = item.atasNamaRekening || '';
+
+      let cleanNominal = String(item.totalDitransfer || '0').replace(/[^0-9.-]/g, '');
+      document.getElementById('editTotalDitransfer').value = cleanNominal || 0;
+
+      document.getElementById('editCicilan').value = item.cicilan || '0';
+      document.getElementById('editKeterangan').value = item.keterangan || '';
+
+      document.getElementById('modalEditPengajuan').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeEditModal() {
+      document.getElementById('modalEditPengajuan').classList.add('hidden');
+    }
+
+    async function handleEditPengajuanSubmit(e) {
+      e.preventDefault();
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      const btn = document.getElementById('btnSaveEdit');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
+      lucide.createIcons();
+
+      const rowIndex = parseInt(document.getElementById('editRowIndex').value, 10);
+      const payload = {
+        rowIndex,
+        role: currentUser.role,
+        tipeFormulir: document.getElementById('editTipeFormulir').value,
+        namaKaryawan: document.getElementById('editNamaKaryawan').value,
+        nikUnitKerja: document.getElementById('editNikUnitKerja').value,
+        status: document.getElementById('editStatus').value,
+        noRekening: document.getElementById('editNoRekening').value,
+        atasNamaRekening: document.getElementById('editAtasNamaRekening').value,
+        totalDitransfer: document.getElementById('editTotalDitransfer').value,
+        cicilan: document.getElementById('editCicilan').value,
+        keterangan: document.getElementById('editKeterangan').value
+      };
+
+      try {
+        const res = await fetch(API_BASE + '/api/pengajuan', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast(data.message || 'Data pengajuan berhasil diperbarui!');
+          closeEditModal();
+          fetchData();
+        } else {
+          showToast(data.message || 'Gagal mengubah data pengajuan.', true);
+        }
+      } catch (err) {
+        showToast('Koneksi server gagal: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Simpan Perubahan</span>';
+      }
+    }
+
+    async function confirmDelete(rowIndex, namaKaryawan) {
+      if (!currentUser || currentUser.role !== 'Admin') return;
+
+      const confirmMsg = `Apakah Anda yakin ingin menghapus pengajuan atas nama "${namaKaryawan || 'baris ke-' + rowIndex}"? Data akan dihapus secara permanen dari Spreadsheet.`;
+      if (!window.confirm(confirmMsg)) return;
+
+      showToast('Menghapus data pengajuan...');
+      try {
+        const res = await fetch(API_BASE + '/api/pengajuan', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rowIndex, role: currentUser.role })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast(data.message || 'Data pengajuan berhasil dihapus!');
+          fetchData();
+        } else {
+          showToast(data.message || 'Gagal menghapus data pengajuan.', true);
+        }
+      } catch (err) {
+        showToast('Koneksi server gagal: ' + err.message, true);
       }
     }
 

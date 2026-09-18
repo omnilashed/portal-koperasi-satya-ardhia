@@ -757,6 +757,119 @@ app.put('/api/pengajuan/status', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/pengajuan
+ * Body: { rowIndex, role, tipeFormulir, namaKaryawan, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, status }
+ * Khusus Admin: Edit data pengajuan
+ */
+app.put('/api/pengajuan', async (req, res) => {
+  try {
+    const {
+      rowIndex,
+      role,
+      tipeFormulir,
+      namaKaryawan,
+      nikUnitKerja,
+      noRekening,
+      atasNamaRekening,
+      totalDitransfer,
+      cicilan,
+      keterangan,
+      status
+    } = req.body;
+
+    if (!rowIndex || parseInt(rowIndex, 10) < 2) {
+      return res.status(400).json({ success: false, message: 'Index baris (rowIndex) tidak valid.' });
+    }
+
+    if (role !== 'Admin') {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses untuk mengubah data pengajuan.' });
+    }
+
+    const sheets = await getSheetsClient();
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'Form Responses 1'!B${rowIndex}:J${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          tipeFormulir || '',
+          namaKaryawan || '',
+          nikUnitKerja || '',
+          String(noRekening || ''),
+          atasNamaRekening || '',
+          totalDitransfer || '0',
+          cicilan || '-',
+          keterangan || '-',
+          status || 'Created'
+        ]]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Data pengajuan baris ke-' + rowIndex + ' berhasil diperbarui.'
+    });
+  } catch (error) {
+    console.error('Error PUT /api/pengajuan:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui data pengajuan: ' + error.message });
+  }
+});
+
+/**
+ * DELETE /api/pengajuan
+ * Body: { rowIndex, role }
+ * Khusus Admin: Hapus pengajuan dari spreadsheet
+ */
+app.delete('/api/pengajuan', async (req, res) => {
+  try {
+    const { rowIndex, role } = req.body;
+
+    if (!rowIndex || parseInt(rowIndex, 10) < 2) {
+      return res.status(400).json({ success: false, message: 'Index baris (rowIndex) tidak valid.' });
+    }
+
+    if (role !== 'Admin') {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses untuk menghapus data pengajuan.' });
+    }
+
+    const targetRow = parseInt(rowIndex, 10);
+    const sheets = await getSheetsClient();
+
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID
+    });
+    const targetSheet = (meta.data.sheets || []).find(s => s.properties.title === 'Form Responses 1');
+    const sheetId = targetSheet ? targetSheet.properties.sheetId : 0;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetId,
+                dimension: 'ROWS',
+                startIndex: targetRow - 1,
+                endIndex: targetRow
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Data pengajuan baris ke-' + rowIndex + ' berhasil dihapus.'
+    });
+  } catch (error) {
+    console.error('Error DELETE /api/pengajuan:', error);
+    return res.status(500).json({ success: false, message: 'Gagal menghapus pengajuan: ' + error.message });
+  }
+});
+
 // Fallback route to serve frontend index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
