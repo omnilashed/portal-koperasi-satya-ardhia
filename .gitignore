@@ -1,4 +1,19 @@
+# Environment variables
 .env
-vendor/
+.env.local
+
+# Google Cloud Service Account Credentials (SANGAT PENTING: Jangan upload ke GitHub)
+credentials.json
+*.json.json
+
+# Node dependencies
 node_modules/
-Add-Content -Path .gitignore -Value "`n.env"
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

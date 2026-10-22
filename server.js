@@ -34,14 +34,34 @@ async function getSheetsClient() {
   if (sheetsInstance) return sheetsInstance;
 
   try {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
-      throw new Error('File credentials service account tidak ditemukan di: ' + CREDENTIALS_PATH);
-    }
+    let auth;
 
-    const auth = new google.auth.GoogleAuth({
-      keyFile: CREDENTIALS_PATH,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets']
-    });
+    // 1. Prioritas Vercel / Cloud: Gunakan Environment Variable GOOGLE_CREDENTIALS_JSON
+    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+      let credentials;
+      try {
+        credentials = typeof process.env.GOOGLE_CREDENTIALS_JSON === 'string'
+          ? JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON)
+          : process.env.GOOGLE_CREDENTIALS_JSON;
+      } catch (e) {
+        throw new Error('Format GOOGLE_CREDENTIALS_JSON di Environment Variables Vercel tidak valid (bukan JSON string valid)');
+      }
+
+      auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    } else {
+      // 2. Mode Lokal: Gunakan file credentials.json
+      if (!fs.existsSync(CREDENTIALS_PATH)) {
+        throw new Error('File credentials service account tidak ditemukan di: ' + CREDENTIALS_PATH + '. Untuk Vercel, atur environment variable GOOGLE_CREDENTIALS_JSON.');
+      }
+
+      auth = new google.auth.GoogleAuth({
+        keyFile: CREDENTIALS_PATH,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+    }
 
     const authClient = await auth.getClient();
     sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
@@ -681,17 +701,504 @@ app.put('/api/pengajuan/status', async (req, res) => {
   }
 });
 
+// ==========================================
+// 4. ENDPOINTS: MODUL ABSENSI & GEOFENCING HALIM PERDANAKUSUMA
+// ==========================================
+
+// Titik Terminal Bandara Internasional Halim Perdanakusuma (HLP)
+const HALIM_TERMINAL_LAT = -6.2652;
+const HALIM_TERMINAL_LNG = 106.8851;
+const GEOFENCE_RADIUS_METERS = 1000; // Radius absensi 1 km (1.000 meter)
+
+function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meter
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+// Otomatis Cek & Buat Semua Sheet Di Google Spreadsheet
+async function ensureAllSheetsExist() {
+  if (!SPREADSHEET_ID) return;
+  try {
+    const sheets = await getSheetsClient();
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const existingTitles = (meta.data.sheets || []).map(s => s.properties.title);
+
+    const requiredSheets = [
+      {
+        title: 'Users',
+        headers: ['Username', 'Password', 'Role', 'Nama Lengkap', 'NIK', 'Email', 'ResetToken', 'AccountStatus']
+      },
+      {
+        title: 'Form Responses 1',
+        headers: ['Timestamp', 'Tipe Formulir', 'Nama Karyawan / Anggota', 'NIK - Unit Kerja', 'No. Rekening', 'Atas Nama Rekening', 'Total Ditransfer (Rp)', 'Cicilan', 'Keterangan / Keperluan', 'Status']
+      },
+      {
+        title: 'absensi-harian',
+        headers: ['Timestamp', 'Tanggal', 'NIK', 'Nama Lengkap', 'Unit Kerja', 'Clock-In', 'Clock-Out', 'Status Kehadiran', 'Lokasi Lat/Long', 'Jarak Terminal Halim (meter)', 'Status Verifikasi Wajah']
+      },
+      {
+        title: 'wajah-karyawan',
+        headers: ['NIK', 'Nama Lengkap', 'FaceDescriptor', 'Waktu Pendaftaran']
+      }
+    ];
+
+    for (const s of requiredSheets) {
+      if (!existingTitles.includes(s.title)) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          requestBody: {
+            requests: [{
+              addSheet: {
+                properties: { title: s.title }
+              }
+            }]
+          }
+        });
+
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${s.title}'!A1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: {
+            values: [s.headers]
+          }
+        });
+        console.log(`[Google Sheets] Berhasil membuat sheet otomatis: '${s.title}'`);
+      }
+    }
+  } catch (err) {
+    console.error('[Google Sheets Auto-Setup Warning]:', err.message);
+  }
+}
+
+/**
+ * GET /api/absensi/config
+ * Mengembalikan data koordinat patokan & radius geofencing Halim Perdanakusuma
+ */
+app.get('/api/absensi/config', (req, res) => {
+  return res.json({
+    success: true,
+    data: {
+      locationName: 'Terminal Bandara Internasional Halim Perdanakusuma (HLP)',
+      halimLat: HALIM_TERMINAL_LAT,
+      halimLng: HALIM_TERMINAL_LNG,
+      radiusMeters: GEOFENCE_RADIUS_METERS
+    }
+  });
+});
+
+/**
+ * GET /api/absensi/face-descriptors
+ * Mengambil seluruh data descriptor wajah karyawan untuk face matching di browser
+ */
+app.get('/api/absensi/face-descriptors', async (req, res) => {
+  try {
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'wajah-karyawan'!A2:D"
+    });
+
+    const rows = response.data.values || [];
+    const descriptors = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      nik: String(r[0] || '').trim(),
+      nama: String(r[1] || '').trim(),
+      descriptor: r[2] || '',
+      updatedAt: r[3] || ''
+    })).filter(item => item.nik && item.descriptor);
+
+    return res.json({
+      success: true,
+      data: descriptors
+    });
+  } catch (error) {
+    console.error('Error /api/absensi/face-descriptors:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mengambil data descriptor wajah: ' + error.message });
+  }
+});
+
+/**
+ * POST /api/absensi/register-face
+ * Mendaftarkan descriptor wajah (128-float embedding) ke sheet wajah-karyawan
+ */
+app.post('/api/absensi/register-face', async (req, res) => {
+  try {
+    const { nik, nama, descriptor } = req.body;
+
+    if (!nik || !descriptor) {
+      return res.status(400).json({ success: false, message: 'NIK dan data descriptor wajah wajib disertakan.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'wajah-karyawan'!A2:D"
+    });
+
+    const rows = response.data.values || [];
+    const cleanNik = String(nik).trim().toLowerCase();
+    let foundRowIndex = -1;
+
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim().toLowerCase() === cleanNik) {
+        foundRowIndex = i + 2;
+        break;
+      }
+    }
+
+    const timestamp = getCurrentTimestamp();
+    const descriptorString = typeof descriptor === 'string' ? descriptor : JSON.stringify(descriptor);
+
+    if (foundRowIndex > 0) {
+      // Update data wajah yang sudah ada
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'wajah-karyawan'!B${foundRowIndex}:D${foundRowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[nama || '', descriptorString, timestamp]]
+        }
+      });
+    } else {
+      // Tambah data wajah baru
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'wajah-karyawan'!A:D",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[nik, nama || '', descriptorString, timestamp]]
+        }
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Wajah karyawan ${nama || nik} berhasil didaftarkan ke sistem!`
+    });
+  } catch (error) {
+    console.error('Error /api/absensi/register-face:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mendaftarkan wajah: ' + error.message });
+  }
+});
+
+/**
+ * POST /api/absensi/clock-in
+ * Mencatat jam masuk karyawan dengan validasi geofencing 1 km dari Terminal Bandara Halim
+ */
+app.post('/api/absensi/clock-in', async (req, res) => {
+  try {
+    const { nik, nama, unitKerja, latitude, longitude, faceVerified } = req.body;
+
+    if (!nik || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ success: false, message: 'NIK dan data koordinat GPS wajib disertakan.' });
+    }
+
+    const userLat = parseFloat(latitude);
+    const userLng = parseFloat(longitude);
+    const distanceMeters = calculateHaversineDistance(userLat, userLng, HALIM_TERMINAL_LAT, HALIM_TERMINAL_LNG);
+
+    // Validasi Geofencing 1 km
+    if (distanceMeters > GEOFENCE_RADIUS_METERS) {
+      return res.status(400).json({
+        success: false,
+        message: `Di luar radius absensi! Jarak Anda saat ini ${distanceMeters.toLocaleString('id-ID')} meter dari Terminal Bandara Halim Perdanakusuma (Maksimal radius 1.000 meter / 1 KM).`
+      });
+    }
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'absensi-harian'!A2:K"
+    });
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const timestampStr = getCurrentTimestamp();
+
+    const cleanNik = String(nik).trim().toLowerCase();
+    const rows = response.data.values || [];
+
+    // Cek apakah sudah Clock-In hari ini
+    for (let i = 0; i < rows.length; i++) {
+      const rowTanggal = String(rows[i][1] || '').trim();
+      const rowNik = String(rows[i][2] || '').trim().toLowerCase();
+
+      if (rowTanggal === dateStr && rowNik === cleanNik) {
+        return res.status(400).json({
+          success: false,
+          message: `Anda sudah melakukan Clock-In hari ini pada pukul ${rows[i][5] || '-'} WIB.`
+        });
+      }
+    }
+
+    // Status Kehadiran (Normal masuk kantor pk 08:30 WIB)
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const statusKehadiran = (hours * 60 + minutes) <= (8 * 60 + 30) ? 'Hadir Tepat Waktu' : 'Terlambat';
+    const faceStatus = faceVerified ? 'Terverifikasi Face-API ✅' : 'Wajah Tidak Dikenali ❌';
+    const lokasiStr = `Lat: ${userLat.toFixed(6)}, Lng: ${userLng.toFixed(6)}`;
+
+    const newRow = [
+      timestampStr,
+      dateStr,
+      nik,
+      nama || '-',
+      unitKerja || '-',
+      timeStr,
+      '-', // Clock-Out belum
+      statusKehadiran,
+      lokasiStr,
+      distanceMeters,
+      faceStatus
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'absensi-harian'!A:K",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [newRow]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `Clock-In berhasil dicatat pada pukul ${timeStr} WIB (${statusKehadiran})!`,
+      data: {
+        tanggal: dateStr,
+        clockIn: timeStr,
+        statusKehadiran,
+        distanceMeters,
+        faceStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error /api/absensi/clock-in:', error);
+    return res.status(500).json({ success: false, message: 'Gagal melakukan Clock-In: ' + error.message });
+  }
+});
+
+/**
+ * POST /api/absensi/clock-out
+ * Mencatat jam pulang karyawan ke sheet absensi-harian
+ */
+app.post('/api/absensi/clock-out', async (req, res) => {
+  try {
+    const { nik, latitude, longitude } = req.body;
+
+    if (!nik || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ success: false, message: 'NIK dan data koordinat GPS wajib disertakan.' });
+    }
+
+    const userLat = parseFloat(latitude);
+    const userLng = parseFloat(longitude);
+    const distanceMeters = calculateHaversineDistance(userLat, userLng, HALIM_TERMINAL_LAT, HALIM_TERMINAL_LNG);
+
+    // Validasi Geofencing 1 km
+    if (distanceMeters > GEOFENCE_RADIUS_METERS) {
+      return res.status(400).json({
+        success: false,
+        message: `Di luar radius absensi! Jarak Anda saat ini ${distanceMeters.toLocaleString('id-ID')} meter dari Terminal Bandara Halim Perdanakusuma (Maksimal radius 1.000 meter / 1 KM).`
+      });
+    }
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'absensi-harian'!A2:K"
+    });
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+    const cleanNik = String(nik).trim().toLowerCase();
+    const rows = response.data.values || [];
+    let foundRowIndex = -1;
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowTanggal = String(rows[i][1] || '').trim();
+      const rowNik = String(rows[i][2] || '').trim().toLowerCase();
+
+      if (rowTanggal === dateStr && rowNik === cleanNik) {
+        foundRowIndex = i + 2;
+        break;
+      }
+    }
+
+    if (foundRowIndex === -1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Anda belum melakukan Clock-In hari ini! Silakan Clock-In terlebih dahulu.'
+      });
+    }
+
+    // Update Kolom G (Clock-Out)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'absensi-harian'!G${foundRowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[timeStr]]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `Clock-Out berhasil dicatat pada pukul ${timeStr} WIB. Terima kasih atas dedikasi Anda hari ini!`,
+      data: {
+        tanggal: dateStr,
+        clockOut: timeStr,
+        distanceMeters
+      }
+    });
+  } catch (error) {
+    console.error('Error /api/absensi/clock-out:', error);
+    return res.status(500).json({ success: false, message: 'Gagal melakukan Clock-Out: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/absensi/today
+ * Mengambil status presensi hari ini untuk NIK yang sedang login
+ */
+app.get('/api/absensi/today', async (req, res) => {
+  try {
+    const { nik } = req.query;
+    if (!nik) return res.json({ success: true, data: null });
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'absensi-harian'!A2:K"
+    });
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const cleanNik = String(nik).trim().toLowerCase();
+    const rows = response.data.values || [];
+
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const rowTanggal = String(rows[i][1] || '').trim();
+      const rowNik = String(rows[i][2] || '').trim().toLowerCase();
+
+      if (rowTanggal === dateStr && rowNik === cleanNik) {
+        return res.json({
+          success: true,
+          data: {
+            rowIndex: i + 2,
+            timestamp: rows[i][0] || '',
+            tanggal: rows[i][1] || '',
+            nik: rows[i][2] || '',
+            nama: rows[i][3] || '',
+            unitKerja: rows[i][4] || '',
+            clockIn: rows[i][5] || '-',
+            clockOut: rows[i][6] || '-',
+            statusKehadiran: rows[i][7] || '-',
+            lokasi: rows[i][8] || '-',
+            jarakMeters: rows[i][9] || '0',
+            faceVerified: rows[i][10] || '-'
+          }
+        });
+      }
+    }
+
+    return res.json({ success: true, data: null });
+  } catch (error) {
+    console.error('Error /api/absensi/today:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mengambil status absensi: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/absensi/history
+ * Mengambil riwayat data presensi (User: milik sendiri, Pengurus/Admin: seluruh karyawan)
+ */
+app.get('/api/absensi/history', async (req, res) => {
+  try {
+    const { role, nik, nama } = req.query;
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'absensi-harian'!A2:K"
+    });
+
+    const rows = response.data.values || [];
+    let list = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      timestamp: r[0] || '',
+      tanggal: r[1] || '',
+      nik: r[2] || '',
+      nama: r[3] || '',
+      unitKerja: r[4] || '',
+      clockIn: r[5] || '-',
+      clockOut: r[6] || '-',
+      statusKehadiran: r[7] || '-',
+      lokasi: r[8] || '-',
+      jarakMeters: r[9] || '0',
+      faceVerified: r[10] || '-'
+    }));
+
+    if (role === 'User') {
+      const userNik = (nik || '').trim().toLowerCase();
+      const userNama = (nama || '').trim().toLowerCase();
+
+      list = list.filter(item => {
+        const itemNik = (item.nik || '').toLowerCase();
+        const itemNama = (item.nama || '').toLowerCase();
+        return (userNik && itemNik.includes(userNik)) || (userNama && itemNama.includes(userNama));
+      });
+    }
+
+    list.reverse(); // Terbaru di paling atas
+
+    return res.json({
+      success: true,
+      data: list
+    });
+  } catch (error) {
+    console.error('Error /api/absensi/history:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mengambil riwayat absensi: ' + error.message });
+  }
+});
+
 // Fallback route to serve frontend index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start Server
-app.listen(PORT, () => {
-  console.log('===================================================');
-  console.log(' Portal Koperasi Server running on port ' + PORT);
-  console.log(' URL: http://localhost:' + PORT);
-  console.log(' Spreadsheet ID: ' + (SPREADSHEET_ID ? SPREADSHEET_ID : 'BELUM DI-SET'));
-  console.log(' Credentials: ' + CREDENTIALS_PATH);
-  console.log('===================================================');
-});
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    console.log('===================================================');
+    console.log(' Portal Koperasi Server running on port ' + PORT);
+    console.log(' URL: http://localhost:' + PORT);
+    console.log(' Spreadsheet ID: ' + (SPREADSHEET_ID ? SPREADSHEET_ID : 'BELUM DI-SET'));
+    console.log(' Credentials: ' + (process.env.GOOGLE_CREDENTIALS_JSON ? '[Dari Environment Variable Vercel]' : CREDENTIALS_PATH));
+    console.log('===================================================');
+
+    // Jalankan inisialisasi sheet otomatis
+    try {
+      await ensureAllSheetsExist();
+    } catch (e) {
+      console.error('[Startup Sheet Setup Error]:', e.message);
+    }
+  });
+}
+
+module.exports = app;

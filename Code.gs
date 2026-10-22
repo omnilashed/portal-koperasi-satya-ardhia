@@ -1,8 +1,9 @@
 function doGet(e) {
+  setupAllSheets();
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Sistem Pengajuan & Monitoring Koperasi')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
+    .setTitle('Koperasi Satya Ardhia - Sistem Terpadu & Presensi')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -341,18 +342,387 @@ function updateStatusPengajuan(userRole, rowIndex, newStatus) {
   } catch (err) {
     return { status: 'error', message: 'Gagal update status: ' + err.toString() };
   }
-}             "• `/budget set <kategori> <limit>`\n" +
-             "• `/budget list` (Melihat status & progress bar)\n\n" +
-             "4️⃣ *Utang & Piutang:*\n" +
-             "• `/utang add -m \"<nama> - <ket>\" <nominal> [-tempo YYYY-MM-DD]`\n" +
-             "• `/piutang add -m \"<nama> - <ket>\" <nominal> [-tempo YYYY-MM-DD]`\n" +
-             "• `/utang list` | `/utang lunas <ID>` | `/piutang lunas <ID>`\n\n" +
-             "5️⃣ *Laporan & Saldo:*\n" +
-             "• `/summary` | `/summary hari-ini` | `/summary kemarin` | `/summary YYYY-MM` | `/summary -c <kategori>`\n" +
-             "• `/saldo` (Lihat saldo semua rekening)\n\n" +
-             "6️⃣ *AI Features:*\n" +
-             "• `/tanya <pertanyaan>` (Financial Advisor AI)\n" +
-             "• Pesan teks bebas (misal: *\"barusan beli kopi 25rb pake gopay\"*) langsung dicatat otomatis oleh AI!";
+}
 
-  sendTelegramMessage(chatId, help, msgId);
+// =========================================================================
+// AUTO-SETUP SPREADSHEET & FITUR ABSENSI FACE RECOGNITION + GEOFENCING HLP
+// =========================================================================
+
+// Titik Koordinat Terminal Bandara Internasional Halim Perdanakusuma (HLP)
+const HALIM_TERMINAL_LAT = -6.2652;
+const HALIM_TERMINAL_LNG = 106.8851;
+const GEOFENCE_RADIUS_METERS = 1000; // Radius lingkaran absensi 1 km (1.000 meter)
+
+/**
+ * 1. Otomatis Membuat Sheet & Header Lengkap Jika Belum Ada
+ */
+function setupAllSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // A. Sheet Users
+  let userSheet = ss.getSheetByName('Users');
+  if (!userSheet) {
+    userSheet = ss.insertSheet('Users');
+    userSheet.appendRow([
+      'Username', 'Password', 'Role', 'Nama Lengkap', 'NIK', 'Email', 'ResetToken', 'AccountStatus'
+    ]);
+    userSheet.getRange('A1:H1').setFontWeight('bold').setBackground('#059669').setFontColor('#ffffff');
+    userSheet.setFrozenRows(1);
+    
+    // Akun default Superadmin
+    userSheet.appendRow([
+      'admin', 'admin123', 'Admin', 'Super Admin Koperasi', '000000 - Kantor Pusat', 'admin@koperasi.co.id', '', 'Active'
+    ]);
+  }
+
+  // B. Sheet Form Responses 1 (Pengajuan Pinjaman)
+  let pengajuanSheet = ss.getSheetByName('Form Responses 1');
+  if (!pengajuanSheet) {
+    pengajuanSheet = ss.insertSheet('Form Responses 1');
+    pengajuanSheet.appendRow([
+      'Timestamp', 'Tipe Formulir', 'Nama Karyawan / Anggota', 'NIK - Unit Kerja', 'No. Rekening',
+      'Atas Nama Rekening', 'Total Ditransfer (Rp)', 'Cicilan', 'Keterangan / Keperluan', 'Status'
+    ]);
+    pengajuanSheet.getRange('A1:J1').setFontWeight('bold').setBackground('#0284c7').setFontColor('#ffffff');
+    pengajuanSheet.setFrozenRows(1);
+  }
+
+  // C. Sheet absensi-harian
+  let absensiSheet = ss.getSheetByName('absensi-harian');
+  if (!absensiSheet) {
+    absensiSheet = ss.insertSheet('absensi-harian');
+    absensiSheet.appendRow([
+      'Timestamp', 'Tanggal', 'NIK', 'Nama Lengkap', 'Unit Kerja', 
+      'Clock-In', 'Clock-Out', 'Status Kehadiran', 'Lokasi Lat/Long', 
+      'Jarak Terminal Halim (meter)', 'Status Verifikasi Wajah'
+    ]);
+    absensiSheet.getRange('A1:K1').setFontWeight('bold').setBackground('#10b981').setFontColor('#ffffff');
+    absensiSheet.setFrozenRows(1);
+  }
+
+  // D. Sheet wajah-karyawan (Descriptor 128D Face-API)
+  let wajahSheet = ss.getSheetByName('wajah-karyawan');
+  if (!wajahSheet) {
+    wajahSheet = ss.insertSheet('wajah-karyawan');
+    wajahSheet.appendRow([
+      'NIK', 'Nama Lengkap', 'FaceDescriptor', 'Waktu Pendaftaran'
+    ]);
+    wajahSheet.getRange('A1:D1').setFontWeight('bold').setBackground('#6366f1').setFontColor('#ffffff');
+    wajahSheet.setFrozenRows(1);
+  }
+
+  return { status: 'success', message: 'Semua sheet berhasil dicek & disiapkan otomatis!' };
+}
+
+/**
+ * 2. Hitung Jarak Menggunakan Rumus Haversine (Satuan Meter)
+ */
+function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Radius bumi dalam meter
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/**
+ * 3. Simpan / Registrasi Wajah Karyawan
+ */
+function registerFaceDescriptor(nik, nama, descriptorJson) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('wajah-karyawan');
+    if (!sheet) {
+      setupAllSheets();
+      sheet = ss.getSheetByName('wajah-karyawan');
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const cleanNik = String(nik).trim();
+    let foundRow = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === cleanNik) {
+        foundRow = i + 1;
+        break;
+      }
+    }
+
+    const timestamp = Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy HH:mm:ss');
+
+    if (foundRow > 0) {
+      sheet.getRange(foundRow, 2).setValue(nama);
+      sheet.getRange(foundRow, 3).setValue(descriptorJson);
+      sheet.getRange(foundRow, 4).setValue(timestamp);
+    } else {
+      sheet.appendRow([cleanNik, nama, descriptorJson, timestamp]);
+    }
+
+    return { status: 'success', message: 'Wajah karyawan ' + nama + ' berhasil didaftarkan!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal mendaftarkan wajah: ' + err.toString() };
+  }
+}
+
+/**
+ * 4. Ambil Semua Descriptor Wajah Karyawan untuk Face-API Matching
+ */
+function getAllFaceDescriptors() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('wajah-karyawan');
+    if (!sheet) return [];
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+
+    const list = [];
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] && data[i][2]) {
+        list.push({
+          nik: String(data[i][0]).trim(),
+          nama: String(data[i][1] || '').trim(),
+          descriptor: data[i][2],
+          updatedAt: data[i][3] || ''
+        });
+      }
+    }
+    return list;
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * 5. Clock-In Absensi Karyawan
+ */
+function submitClockIn(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('absensi-harian');
+    if (!sheet) {
+      setupAllSheets();
+      sheet = ss.getSheetByName('absensi-harian');
+    }
+
+    const now = new Date();
+    const dateStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const timeStr = Utilities.formatDate(now, 'GMT+7', 'HH:mm:ss');
+    const timestampStr = Utilities.formatDate(now, 'GMT+7', 'dd/MM/yyyy HH:mm:ss');
+
+    const cleanNik = String(payload.nik || '').trim();
+    const nama = String(payload.nama || '').trim();
+    const unitKerja = String(payload.unitKerja || '-').trim();
+    const userLat = parseFloat(payload.latitude);
+    const userLng = parseFloat(payload.longitude);
+    const faceVerified = payload.faceVerified ? 'Terverifikasi Face-API ✅' : 'Wajah Tidak Dikenali ❌';
+
+    // Validasi Geofencing 1 KM dari Terminal Bandara Halim Perdanakusuma
+    const distanceMeters = calculateHaversineDistance(userLat, userLng, HALIM_TERMINAL_LAT, HALIM_TERMINAL_LNG);
+    if (distanceMeters > GEOFENCE_RADIUS_METERS) {
+      return {
+        status: 'error',
+        message: 'Di luar radius absensi! Jarak Anda ' + distanceMeters + ' meter dari Terminal Bandara Halim Perdanakusuma (Maksimal radius 1.000 meter / 1 KM).'
+      };
+    }
+
+    // Cek apakah sudah Clock-In hari ini
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      const rowTanggal = String(data[i][1]).trim();
+      const rowNik = String(data[i][2]).trim();
+
+      if (rowTanggal === dateStr && rowNik === cleanNik) {
+        return {
+          status: 'error',
+          message: 'Anda sudah melakukan Clock-In hari ini pada pukul ' + (data[i][5] || '-') + ' WIB.'
+        };
+      }
+    }
+
+    // Status kehadiran (Jam masuk kantor normal 08:30 WIB)
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const totalMinutes = hours * 60 + minutes;
+    const statusKehadiran = totalMinutes <= (8 * 60 + 30) ? 'Hadir Tepat Waktu' : 'Terlambat';
+
+    const lokasiStr = 'Lat: ' + userLat.toFixed(6) + ', Lng: ' + userLng.toFixed(6);
+
+    sheet.appendRow([
+      timestampStr,
+      dateStr,
+      cleanNik,
+      nama,
+      unitKerja,
+      timeStr,
+      '-', // Clock-Out belum
+      statusKehadiran,
+      lokasiStr,
+      distanceMeters,
+      faceVerified
+    ]);
+
+    return {
+      status: 'success',
+      message: 'Clock-In berhasil dicatat pada pukul ' + timeStr + ' WIB (' + statusKehadiran + ')!',
+      data: {
+        tanggal: dateStr,
+        clockIn: timeStr,
+        statusKehadiran: statusKehadiran,
+        distanceMeters: distanceMeters,
+        faceVerified: faceVerified
+      }
+    };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal Clock-In: ' + err.toString() };
+  }
+}
+
+/**
+ * 6. Clock-Out Absensi Karyawan
+ */
+function submitClockOut(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('absensi-harian');
+    if (!sheet) {
+      setupAllSheets();
+      sheet = ss.getSheetByName('absensi-harian');
+    }
+
+    const now = new Date();
+    const dateStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const timeStr = Utilities.formatDate(now, 'GMT+7', 'HH:mm:ss');
+
+    const cleanNik = String(payload.nik || '').trim();
+    const userLat = parseFloat(payload.latitude);
+    const userLng = parseFloat(payload.longitude);
+
+    // Validasi Geofencing 1 KM
+    const distanceMeters = calculateHaversineDistance(userLat, userLng, HALIM_TERMINAL_LAT, HALIM_TERMINAL_LNG);
+    if (distanceMeters > GEOFENCE_RADIUS_METERS) {
+      return {
+        status: 'error',
+        message: 'Di luar radius absensi! Jarak Anda ' + distanceMeters + ' meter dari Terminal Bandara Halim Perdanakusuma (Maksimal radius 1.000 meter / 1 KM).'
+      };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    let foundRow = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      const rowTanggal = String(data[i][1]).trim();
+      const rowNik = String(data[i][2]).trim();
+
+      if (rowTanggal === dateStr && rowNik === cleanNik) {
+        foundRow = i + 1;
+        break;
+      }
+    }
+
+    if (foundRow === -1) {
+      return {
+        status: 'error',
+        message: 'Anda belum melakukan Clock-In hari ini! Silakan Clock-In terlebih dahulu.'
+      };
+    }
+
+    // Update kolom Clock-Out (Kolom 7 / G)
+    sheet.getRange(foundRow, 7).setValue(timeStr);
+
+    return {
+      status: 'success',
+      message: 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB. Terima kasih atas kerja keras hari ini!',
+      data: {
+        tanggal: dateStr,
+        clockOut: timeStr,
+        distanceMeters: distanceMeters
+      }
+    };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal Clock-Out: ' + err.toString() };
+  }
+}
+
+/**
+ * 7. Status Absensi Hari Ini
+ */
+function getTodayAbsensiStatus(nik) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('absensi-harian');
+    if (!sheet) return null;
+
+    const now = new Date();
+    const dateStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const cleanNik = String(nik).trim();
+
+    const data = sheet.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 1; i--) {
+      const rowTanggal = String(data[i][1]).trim();
+      const rowNik = String(data[i][2]).trim();
+
+      if (rowTanggal === dateStr && rowNik === cleanNik) {
+        return {
+          rowIndex: i + 1,
+          tanggal: data[i][1],
+          clockIn: data[i][5],
+          clockOut: data[i][6],
+          statusKehadiran: data[i][7],
+          lokasi: data[i][8],
+          jarakMeters: data[i][9],
+          faceVerified: data[i][10]
+        };
+      }
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * 8. Riwayat Absensi Karyawan
+ */
+function getAbsensiHistoryList(userRole, nik, nama) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('absensi-harian');
+    if (!sheet) return [];
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+
+    let list = data.slice(1).map((r, idx) => ({
+      rowIndex: idx + 2,
+      timestamp: r[0],
+      tanggal: r[1],
+      nik: r[2],
+      nama: r[3],
+      unitKerja: r[4],
+      clockIn: r[5],
+      clockOut: r[6],
+      statusKehadiran: r[7],
+      lokasi: r[8],
+      jarakMeters: r[9],
+      faceVerified: r[10]
+    })).reverse();
+
+    if (userRole === 'User') {
+      const cleanNik = String(nik || '').trim().toLowerCase();
+      const cleanNama = String(nama || '').trim().toLowerCase();
+      list = list.filter(item => {
+        const itemNik = String(item.nik || '').toLowerCase();
+        const itemNama = String(item.nama || '').toLowerCase();
+        return (cleanNik && itemNik.includes(cleanNik)) || (cleanNama && itemNama.includes(cleanNama));
+      });
+    }
+
+    return list;
+  } catch (err) {
+    return [];
+  }
 }
