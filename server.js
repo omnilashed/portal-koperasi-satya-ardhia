@@ -15,7 +15,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const DEFAULT_SPREADSHEET_ID = '1mFlMWzoKkEeBxidakZSZz_yMZgK3qzk8nbPMSGIujJ0';
+const SPREADSHEET_ID = (process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID.trim()) ? process.env.SPREADSHEET_ID.trim() : DEFAULT_SPREADSHEET_ID;
 const CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, 'credentials.json');
 
 // Middleware
@@ -33,42 +34,67 @@ let sheetsInstance = null;
 async function getSheetsClient() {
   if (sheetsInstance) return sheetsInstance;
 
-  try {
-    let auth;
+  let resolvedPath = CREDENTIALS_PATH;
+  if (!fs.existsSync(resolvedPath)) {
+    resolvedPath = path.join(__dirname, 'credentials.json');
+  }
 
-    // 1. Prioritas Vercel / Cloud: Gunakan Environment Variable GOOGLE_CREDENTIALS_JSON
-    if (process.env.GOOGLE_CREDENTIALS_JSON) {
-      let credentials;
+  // Attempt 1: Try GOOGLE_CREDENTIALS_JSON if provided in Vercel Environment Variables
+  if (process.env.GOOGLE_CREDENTIALS_JSON) {
+    try {
+      let rawEnv = process.env.GOOGLE_CREDENTIALS_JSON.trim();
+      let credsObj;
       try {
-        credentials = typeof process.env.GOOGLE_CREDENTIALS_JSON === 'string'
-          ? JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON)
-          : process.env.GOOGLE_CREDENTIALS_JSON;
-      } catch (e) {
-        throw new Error('Format GOOGLE_CREDENTIALS_JSON di Environment Variables Vercel tidak valid (bukan JSON string valid)');
+        credsObj = JSON.parse(rawEnv);
+      } catch (e1) {
+        try {
+          credsObj = JSON.parse(rawEnv.replace(/\r?\n/g, '\\n'));
+        } catch (e2) {
+          throw new Error('Format GOOGLE_CREDENTIALS_JSON tidak valid: ' + e1.message);
+        }
       }
 
-      auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
-      });
-    } else {
-      // 2. Mode Lokal: Gunakan file credentials.json
-      if (!fs.existsSync(CREDENTIALS_PATH)) {
-        throw new Error('File credentials service account tidak ditemukan di: ' + CREDENTIALS_PATH + '. Untuk Vercel, atur environment variable GOOGLE_CREDENTIALS_JSON.');
+      if (typeof credsObj === 'string') {
+        credsObj = JSON.parse(credsObj);
       }
 
-      auth = new google.auth.GoogleAuth({
-        keyFile: CREDENTIALS_PATH,
+      if (credsObj && credsObj.private_key) {
+        credsObj.private_key = credsObj.private_key.replace(/\\n/g, '\n');
+      }
+
+      const auth = new google.auth.GoogleAuth({
+        credentials: credsObj,
         scopes: ['https://www.googleapis.com/auth/spreadsheets']
       });
+
+      const authClient = await auth.getClient();
+      sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
+      return sheetsInstance;
+    } catch (envError) {
+      console.error('[Google Auth Error (GOOGLE_CREDENTIALS_JSON)]:', envError.message);
+      if (!fs.existsSync(resolvedPath)) {
+        throw envError;
+      }
     }
+  }
+
+  // Attempt 2: Use local credentials.json directly (for local development)
+  try {
+    if (!fs.existsSync(resolvedPath)) {
+      throw new Error('Kredensial Google belum disiapkan. Di Vercel, pastikan Environment Variable GOOGLE_CREDENTIALS_JSON sudah diisi.');
+    }
+
+    const auth = new google.auth.GoogleAuth({
+      keyFile: resolvedPath,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
 
     const authClient = await auth.getClient();
     sheetsInstance = google.sheets({ version: 'v4', auth: authClient });
     return sheetsInstance;
-  } catch (error) {
-    console.error('[Google Sheets Auth Error]:', error.message);
-    throw error;
+  } catch (fileError) {
+    console.error('[Google Sheets Auth Error]:', fileError.message);
+    throw fileError;
   }
 }
 
@@ -523,15 +549,45 @@ app.get('/api/pengajuan', async (req, res) => {
       status: r[9] || 'Created'
     }));
 
-    // Jika role adalah User, filter data milik sendiri
+    // Jika role adalah User, filter data milik sendiri secara akurat
     if (role === 'User') {
       const userNik = (nik || '').trim().toLowerCase();
       const userNama = (nama || '').trim().toLowerCase();
 
+      // Ekstrak angka unik jika NIK mengandung nomor identitas (misal: "20246808")
+      const nikNumberMatch = userNik.match(/\d{4,}/);
+      const nikOnly = nikNumberMatch ? nikNumberMatch[0] : '';
+
       list = list.filter(item => {
         const itemNik = (item.nikUnitKerja || '').toLowerCase();
         const itemNama = (item.namaKaryawan || '').toLowerCase();
-        return (userNik && itemNik.includes(userNik)) || (userNama && itemNama.includes(userNama));
+
+        // 1. Cek kesesuaian Nama Lengkap (Karyawan)
+        const isNameMatch = Boolean(
+          userNama && (
+            itemNama === userNama ||
+            itemNama.includes(userNama) ||
+            userNama.includes(itemNama)
+          )
+        );
+
+        // 2. Cek kesesuaian NIK angka unik (jika ada nomor minimal 4 digit)
+        let isNikMatch = false;
+        if (nikOnly) {
+          isNikMatch = itemNik.includes(nikOnly);
+        } else if (userNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(userNik)) {
+          isNikMatch = itemNik === userNik || itemNik.startsWith(userNik + ' ') || itemNik.endsWith(' ' + userNik);
+        }
+
+        // Jika Nama cocok, sertakan data
+        if (isNameMatch) return true;
+
+        // Jika hanya NIK yang cocok tanpa nama, hanya izinkan jika NIK berupa nomor identitas unik (bukan teks nama unit)
+        if (isNikMatch && nikOnly) {
+          return true;
+        }
+
+        return false;
       });
     }
 
@@ -698,6 +754,119 @@ app.put('/api/pengajuan/status', async (req, res) => {
   } catch (error) {
     console.error('Error /api/pengajuan/status:', error);
     return res.status(500).json({ success: false, message: 'Gagal memperbarui status pengajuan: ' + error.message });
+  }
+});
+
+/**
+ * PUT /api/pengajuan
+ * Body: { rowIndex, role, tipeFormulir, namaKaryawan, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, status }
+ * Khusus Admin: Edit data pengajuan
+ */
+app.put('/api/pengajuan', async (req, res) => {
+  try {
+    const {
+      rowIndex,
+      role,
+      tipeFormulir,
+      namaKaryawan,
+      nikUnitKerja,
+      noRekening,
+      atasNamaRekening,
+      totalDitransfer,
+      cicilan,
+      keterangan,
+      status
+    } = req.body;
+
+    if (!rowIndex || parseInt(rowIndex, 10) < 2) {
+      return res.status(400).json({ success: false, message: 'Index baris (rowIndex) tidak valid.' });
+    }
+
+    if (role !== 'Admin') {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses untuk mengubah data pengajuan.' });
+    }
+
+    const sheets = await getSheetsClient();
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'Form Responses 1'!B${rowIndex}:J${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          tipeFormulir || '',
+          namaKaryawan || '',
+          nikUnitKerja || '',
+          String(noRekening || ''),
+          atasNamaRekening || '',
+          totalDitransfer || '0',
+          cicilan || '-',
+          keterangan || '-',
+          status || 'Created'
+        ]]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Data pengajuan baris ke-' + rowIndex + ' berhasil diperbarui.'
+    });
+  } catch (error) {
+    console.error('Error PUT /api/pengajuan:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui data pengajuan: ' + error.message });
+  }
+});
+
+/**
+ * DELETE /api/pengajuan
+ * Body: { rowIndex, role }
+ * Khusus Admin: Hapus pengajuan dari spreadsheet
+ */
+app.delete('/api/pengajuan', async (req, res) => {
+  try {
+    const { rowIndex, role } = req.body;
+
+    if (!rowIndex || parseInt(rowIndex, 10) < 2) {
+      return res.status(400).json({ success: false, message: 'Index baris (rowIndex) tidak valid.' });
+    }
+
+    if (role !== 'Admin') {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses untuk menghapus data pengajuan.' });
+    }
+
+    const targetRow = parseInt(rowIndex, 10);
+    const sheets = await getSheetsClient();
+
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID
+    });
+    const targetSheet = (meta.data.sheets || []).find(s => s.properties.title === 'Form Responses 1');
+    const sheetId = targetSheet ? targetSheet.properties.sheetId : 0;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetId,
+                dimension: 'ROWS',
+                startIndex: targetRow - 1,
+                endIndex: targetRow
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Data pengajuan baris ke-' + rowIndex + ' berhasil dihapus.'
+    });
+  } catch (error) {
+    console.error('Error DELETE /api/pengajuan:', error);
+    return res.status(500).json({ success: false, message: 'Gagal menghapus pengajuan: ' + error.message });
   }
 });
 
@@ -1182,8 +1351,11 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server
-if (require.main === module) {
+// Export Express app for Vercel Serverless Functions
+module.exports = app;
+
+// Start local server if not running on Vercel
+if (require.main === module && process.env.VERCEL !== '1') {
   app.listen(PORT, async () => {
     console.log('===================================================');
     console.log(' Portal Koperasi Server running on port ' + PORT);
@@ -1192,7 +1364,7 @@ if (require.main === module) {
     console.log(' Credentials: ' + (process.env.GOOGLE_CREDENTIALS_JSON ? '[Dari Environment Variable Vercel]' : CREDENTIALS_PATH));
     console.log('===================================================');
 
-    // Jalankan inisialisasi sheet otomatis
+    // Inisialisasi sheet otomatis jika belum ada
     try {
       await ensureAllSheetsExist();
     } catch (e) {
@@ -1200,5 +1372,3 @@ if (require.main === module) {
     }
   });
 }
-
-module.exports = app;
