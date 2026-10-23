@@ -19,6 +19,85 @@
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
     #absensiMap { z-index: 10; }
+
+    /* Animated Checkmark and Cross */
+    @keyframes checkmarkCircle {
+      0% { stroke-dashoffset: 166; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes checkmarkCheck {
+      0% { stroke-dashoffset: 48; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes crossCheck {
+      0% { stroke-dashoffset: 48; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes scaleBounce {
+      0% { transform: scale(0.6); opacity: 0; }
+      60% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes shakeAnimation {
+      0%, 100% { transform: translateX(0); }
+      15%, 45%, 75% { transform: translateX(-8px); }
+      30%, 60%, 90% { transform: translateX(8px); }
+    }
+    @keyframes shimmerWave {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes fadeInUpRow {
+      0% { opacity: 0; transform: translateY(6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toastProgress {
+      0% { width: 100%; }
+      100% { width: 0%; }
+    }
+
+    .svg-check-circle {
+      stroke-dasharray: 166;
+      stroke-dashoffset: 166;
+      animation: checkmarkCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .svg-check-tick {
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+      animation: checkmarkCheck 0.4s 0.45s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .svg-cross-circle {
+      stroke-dasharray: 166;
+      stroke-dashoffset: 166;
+      animation: checkmarkCircle 0.5s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .svg-cross-line1 {
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+      animation: crossCheck 0.3s 0.35s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .svg-cross-line2 {
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+      animation: crossCheck 0.3s 0.55s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .animate-scale-bounce {
+      animation: scaleBounce 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .animate-shake {
+      animation: shakeAnimation 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%;
+      animation: shimmerWave 1.6s infinite ease-in-out;
+    }
+    .animate-row-in {
+      animation: fadeInUpRow 0.35s ease-out forwards;
+    }
+    .toast-progress-bar {
+      animation: toastProgress 4s linear forwards;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
@@ -946,6 +1025,108 @@
         </div>
 </div>
 
+      <!-- MODAL CLOCK-IN/OUT SUKSES ANIMASI -->
+      <div id="modalClockSuccess" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-8 animate-scale-bounce overflow-hidden text-center">
+          <!-- Canvas Confetti -->
+          <canvas id="confettiCanvas" class="absolute inset-0 pointer-events-none z-10 w-full h-full"></canvas>
+
+          <!-- SVG Animated Checkmark -->
+          <div class="relative z-20 flex justify-center mb-4">
+            <div class="w-20 h-20 rounded-full bg-emerald-50 border-4 border-emerald-100 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <svg class="w-12 h-12" viewBox="0 0 52 52">
+                <circle class="svg-check-circle" cx="26" cy="26" r="24" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+                <path class="svg-check-tick" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+              </svg>
+            </div>
+          </div>
+
+          <h3 id="clockSuccessTitle" class="relative z-20 text-2xl font-black text-slate-800 tracking-tight mb-1">Clock-In Berhasil!</h3>
+          <p id="clockSuccessSubtitle" class="relative z-20 text-sm text-slate-500 mb-5">Presensi masuk berhasil dicatat ke sistem</p>
+
+          <!-- Data Card -->
+          <div class="relative z-20 bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-2.5 mb-6 text-sm">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status Kehadiran</span>
+              <span id="clockSuccessStatusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Tepat Waktu</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Nama Pegawai</span>
+              <span id="clockSuccessNama" class="font-bold text-slate-800">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Waktu & Tanggal</span>
+              <span id="clockSuccessWaktu" class="font-semibold text-slate-800">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Radius Lokasi</span>
+              <span id="clockSuccessJarak" class="font-semibold text-emerald-600">-</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Biometrik Wajah</span>
+              <span id="clockSuccessFace" class="font-semibold text-emerald-600 flex items-center">
+                <i data-lucide="check-circle-2" class="w-3.5 h-3.5 mr-1"></i> Terverifikasi
+              </span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="relative z-20 flex flex-col sm:flex-row gap-3">
+            <button id="btnClockSuccessWa" onclick="handleClockSuccessShareWa()" class="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/25 transition-all flex items-center justify-center space-x-2">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+              <span>Bagikan WhatsApp</span>
+            </button>
+            <button onclick="closeClockSuccessModal()" class="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-all">
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CLOCK-IN/OUT GAGAL ANIMASI -->
+      <div id="modalClockError" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="relative bg-white rounded-3xl border border-rose-200 shadow-2xl max-w-md w-full p-6 sm:p-8 animate-shake overflow-hidden text-center">
+          <!-- SVG Animated Cross -->
+          <div class="flex justify-center mb-4">
+            <div class="w-20 h-20 rounded-full bg-rose-50 border-4 border-rose-100 flex items-center justify-center shadow-lg shadow-rose-500/20">
+              <svg class="w-12 h-12" viewBox="0 0 52 52">
+                <circle class="svg-cross-circle" cx="26" cy="26" r="24" fill="none" stroke="#f43f5e" stroke-width="4" stroke-linecap="round"/>
+                <path class="svg-cross-line1" fill="none" stroke="#f43f5e" stroke-width="4" stroke-linecap="round" d="M17 17l18 18"/>
+                <path class="svg-cross-line2" fill="none" stroke="#f43f5e" stroke-width="4" stroke-linecap="round" d="M35 17L17 35"/>
+              </svg>
+            </div>
+          </div>
+
+          <h3 id="clockErrorTitle" class="text-2xl font-black text-slate-800 tracking-tight mb-1">Presensi Ditolak</h3>
+          <p id="clockErrorReason" class="text-sm font-semibold text-rose-600 mb-4">Wajah Tidak Cocok Dengan Akun</p>
+
+          <!-- Error Details & Advice Card -->
+          <div class="bg-rose-50/60 border border-rose-200/80 rounded-2xl p-4 text-left space-y-2 mb-6 text-xs text-rose-900">
+            <div class="flex items-start space-x-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500 shrink-0 mt-0.5"></i>
+              <span id="clockErrorDetail" class="font-medium text-slate-700">Wajah di depan kamera tidak sesuai dengan biometrik yang terdaftar pada akun Anda.</span>
+            </div>
+            <div class="pt-2 border-t border-rose-200/60 text-slate-500">
+              <span class="font-bold text-slate-700">Tips Perbaikan:</span>
+              <ul class="list-disc list-inside mt-1 space-y-1 text-slate-600">
+                <li>Pastikan wajah Anda berada di tengah kotak kamera</li>
+                <li>Hindari backlight/cahaya redup dan lepas kacamata hitam/topi</li>
+                <li>Pastikan hanya 1 orang di depan kamera (anti-joki)</li>
+                <li>Pastikan GPS aktif dan berada &le; 1 KM dari kantor Halim</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3">
+            <button onclick="closeClockErrorModal()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center space-x-2">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span>Coba Lagi</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- MODAL 1: BUKTI ABSENSI & SHARE WHATSAPP -->
       <div id="modalShareWa" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8 animate-in fade-in zoom-in duration-200">
@@ -1269,10 +1450,23 @@
     </div>
   </div>
 
-  <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-6 right-6 hidden bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-3 z-50 transition-all">
-    <i id="toastIcon" data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
-    <span id="toastMsg" class="text-sm font-medium">Notifikasi</span>
+  <!-- Toast Notification Modern Glassmorphic -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden z-50 transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none">
+    <div id="toastCard" class="pointer-events-auto flex flex-col bg-slate-900/95 text-white backdrop-blur-md px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/60 min-w-[280px] max-w-md overflow-hidden relative">
+      <div class="flex items-center space-x-3">
+        <div id="toastIconWrapper" class="p-1.5 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
+          <i id="toastIcon" data-lucide="check-circle" class="w-5 h-5"></i>
+        </div>
+        <div class="flex-1 text-sm font-medium pr-2" id="toastMsg">Notifikasi</div>
+        <button onclick="hideToast()" class="text-slate-400 hover:text-white transition-colors p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <!-- Countdown Progress Bar -->
+      <div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-800">
+        <div id="toastProgressBar" class="h-full bg-emerald-500 toast-progress-bar"></div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1852,15 +2046,7 @@
       if (!currentUser || (!isRoleAdmin(currentUser.role) && !isRoleKetua(currentUser.role))) return;
 
       const tbody = document.getElementById('userTableBody');
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7" class="py-8 text-center text-slate-400">
-            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
-            Memuat daftar user...
-          </td>
-        </tr>
-      `;
-      lucide.createIcons();
+      tbody.innerHTML = getSkeletonShimmerRows(7, 4);
 
       try {
         const res = await fetch(API_BASE + '/api/users?role=' + encodeURIComponent(currentUser.role));
@@ -1962,7 +2148,7 @@
         }
 
         return `
-          <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+          <tr class="animate-row-in hover:bg-slate-50/80 transition border-b border-slate-100">
             <td class="py-3.5 px-4">${statusBadge}</td>
             <td class="py-3.5 px-4 font-semibold text-slate-900">${u.nama}</td>
             <td class="py-3.5 px-4 text-slate-600 text-xs">${u.nik}</td>
@@ -2039,15 +2225,7 @@
     // ================= DATA PENGAJUAN & STATUS FLOW =================
     async function fetchData() {
       const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="py-12 text-center text-slate-400">
-            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
-            Memperbarui data dari Spreadsheet...
-          </td>
-        </tr>
-      `;
-      lucide.createIcons();
+      tbody.innerHTML = getSkeletonShimmerRows(8, 5);
 
       if (!currentUser) return;
 
@@ -2321,7 +2499,7 @@
       } else {
         tbody.innerHTML = pageData.map(row => {
           return `
-            <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+            <tr class="animate-row-in hover:bg-slate-50/80 transition border-b border-slate-100">
               <td class="py-3.5 px-4 whitespace-nowrap">${getStatusBadge(row.status, row.rowIndex)}</td>
               <td class="py-3.5 px-4 text-xs text-slate-500 font-mono whitespace-nowrap">${row.datetime || '-'}</td>
               <td class="py-3.5 px-4">
@@ -2607,18 +2785,288 @@
       }
     }
 
+    // =========================================================================
+    // NATIVE WEB AUDIO API SYNTHESIZER (Tanpa File External)
+    // =========================================================================
+    const SoundFx = {
+      ctx: null,
+      init() {
+        if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      },
+      playSuccess() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          const now = this.ctx.currentTime;
+          // Arpeggiated cheerful chime: C5 (523Hz), E5 (659Hz), G5 (784Hz), C6 (1046Hz)
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+            gain.gain.setValueAtTime(0, now + idx * 0.08);
+            gain.gain.linearRampToValueAtTime(0.22, now + idx * 0.08 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.08);
+            osc.stop(now + idx * 0.08 + 0.5);
+          });
+        } catch (e) { console.warn('Audio FX:', e); }
+      },
+      playError() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          const now = this.ctx.currentTime;
+          // Warning gentle double-buzz
+          [0, 0.15].forEach(delay => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220, now + delay);
+            osc.frequency.linearRampToValueAtTime(170, now + delay + 0.12);
+            gain.gain.setValueAtTime(0.22, now + delay);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.14);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + delay);
+            osc.stop(now + delay + 0.15);
+          });
+        } catch (e) { console.warn('Audio FX:', e); }
+      },
+      playToast() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.16);
+        } catch (e) {}
+      }
+    };
+
+    // =========================================================================
+    // CANVAS CONFETTI EFFECT (Tanpa External Library)
+    // =========================================================================
+    function launchConfetti(canvasId = 'confettiCanvas') {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const parent = canvas.parentElement;
+      canvas.width = parent.clientWidth || 400;
+      canvas.height = parent.clientHeight || 450;
+
+      const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+      const particles = [];
+      const particleCount = 60;
+
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: canvas.width / 2,
+          y: canvas.height / 3,
+          r: Math.random() * 6 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          tilt: Math.random() * 10 - 5,
+          tiltAngle: 0,
+          tiltAngleInc: Math.random() * 0.08 + 0.05,
+          vx: (Math.random() - 0.5) * 12,
+          vy: Math.random() * -10 - 4,
+          gravity: 0.35,
+          opacity: 1
+        });
+      }
+
+      let animFrame;
+      const startTime = Date.now();
+
+      function update() {
+        const elapsed = Date.now() - startTime;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += p.gravity;
+          p.vx *= 0.98;
+          p.tiltAngle += p.tiltAngleInc;
+          p.tilt = Math.sin(p.tiltAngle) * 8;
+          p.opacity = Math.max(0, 1 - (elapsed / 3000));
+
+          ctx.save();
+          ctx.globalAlpha = p.opacity;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.r, Math.abs(p.tilt), 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+
+        if (elapsed < 3000) {
+          animFrame = requestAnimationFrame(update);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          cancelAnimationFrame(animFrame);
+        }
+      }
+
+      update();
+    }
+
+    // =========================================================================
+    // MODAL ANIMASI CLOCK-IN / CLOCK-OUT SUKSES & GAGAL
+    // =========================================================================
+    function showClockSuccessModal(data) {
+      const modal = document.getElementById('modalClockSuccess');
+      if (!modal) return;
+
+      const isClockIn = (data.jenis || '').includes('Clock-In');
+      document.getElementById('clockSuccessTitle').innerText = isClockIn ? 'Clock-In Berhasil! 🎉' : 'Clock-Out Berhasil! 🎉';
+      document.getElementById('clockSuccessSubtitle').innerText = isClockIn ? 'Presensi masuk kantor berhasil dicatat ke sistem' : 'Presensi pulang kerja berhasil dicatat ke sistem';
+
+      const statusBadge = document.getElementById('clockSuccessStatusBadge');
+      statusBadge.innerText = data.status || 'Tepat Waktu';
+      if (data.status && data.status.toLowerCase().includes('terlambat')) {
+        statusBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700';
+      } else {
+        statusBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700';
+      }
+
+      document.getElementById('clockSuccessNama').innerText = data.nama || '-';
+      document.getElementById('clockSuccessWaktu').innerText = `${data.waktu} WIB (${data.tanggal})`;
+      document.getElementById('clockSuccessJarak').innerText = `${data.jarak} m dari Kantor (Aman)`;
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+
+      // Trigger Sound & Confetti
+      SoundFx.playSuccess();
+      launchConfetti('confettiCanvas');
+    }
+
+    function closeClockSuccessModal() {
+      const modal = document.getElementById('modalClockSuccess');
+      if (!modal) return;
+      modal.classList.add('hidden');
+    }
+
+    function handleClockSuccessShareWa() {
+      closeClockSuccessModal();
+      if (lastTicketData) {
+        showTicketModal(lastTicketData);
+      }
+    }
+
+    function showClockErrorModal({ title = 'Presensi Ditolak', reason = 'Gagal Validasi', detail = '' }) {
+      const modal = document.getElementById('modalClockError');
+      if (!modal) return;
+
+      document.getElementById('clockErrorTitle').innerText = title;
+      document.getElementById('clockErrorReason').innerText = reason;
+      if (detail) {
+        document.getElementById('clockErrorDetail').innerText = detail;
+      }
+
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+
+      SoundFx.playError();
+    }
+
+    function closeClockErrorModal() {
+      const modal = document.getElementById('modalClockError');
+      if (!modal) return;
+      modal.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // SKELETON SHIMMER ROW LOADER UNTUK TABEL
+    // =========================================================================
+    function getSkeletonShimmerRows(cols = 8, rows = 4) {
+      let html = '';
+      for (let r = 0; r < rows; r++) {
+        html += '<tr class="border-b border-slate-100">';
+        for (let c = 0; c < cols; c++) {
+          const widthClass = c === 0 ? 'w-10' : (c % 2 === 0 ? 'w-24' : 'w-36');
+          html += `
+            <td class="py-3 px-4">
+              <div class="h-4 ${widthClass} skeleton-shimmer rounded-md"></div>
+            </td>
+          `;
+        }
+        html += '</tr>';
+      }
+      return html;
+    }
+
+    // =========================================================================
+    // MODERN GLASSMORPHIIC TOAST WITH PROGRESS COUNTDOWN & SOUND
+    // =========================================================================
+    let toastTimer = null;
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
       const toastMsg = document.getElementById('toastMsg');
       const toastIcon = document.getElementById('toastIcon');
+      const toastIconWrapper = document.getElementById('toastIconWrapper');
+      const toastProgressBar = document.getElementById('toastProgressBar');
+      if (!toast || !toastMsg) return;
+
+      clearTimeout(toastTimer);
 
       toastMsg.innerText = msg;
-      toastIcon.setAttribute('data-lucide', isError ? 'alert-circle' : 'check-circle');
-      toastIcon.className = isError ? "w-5 h-5 text-red-400" : "w-5 h-5 text-emerald-400";
+      if (isError) {
+        toastIcon.setAttribute('data-lucide', 'alert-circle');
+        if (toastIconWrapper) toastIconWrapper.className = 'p-1.5 rounded-full bg-rose-500/20 text-rose-400 shrink-0';
+        if (toastProgressBar) toastProgressBar.className = 'h-full bg-rose-500 toast-progress-bar';
+        SoundFx.playError();
+      } else {
+        toastIcon.setAttribute('data-lucide', 'check-circle');
+        if (toastIconWrapper) toastIconWrapper.className = 'p-1.5 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0';
+        if (toastProgressBar) toastProgressBar.className = 'h-full bg-emerald-500 toast-progress-bar';
+        SoundFx.playToast();
+      }
       lucide.createIcons();
 
+      // Reset countdown animation
+      if (toastProgressBar) {
+        toastProgressBar.style.animation = 'none';
+        void toastProgressBar.offsetHeight;
+        toastProgressBar.style.animation = null;
+      }
+
       toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 4000);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+      });
+
+      toastTimer = setTimeout(() => {
+        hideToast();
+      }, 4000);
+    }
+
+    function hideToast() {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.classList.add('translate-y-4', 'opacity-0');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 300);
     }
 
     // =========================================================================
@@ -2791,16 +3239,7 @@
     async function fetchTodayEmployeesList() {
       const tbody = document.getElementById('todayEmployeesTableBody');
       if (!tbody) return;
-
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="py-8 text-center text-slate-400">
-            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
-            Memuat daftar pegawai yang hadir hari ini...
-          </td>
-        </tr>
-      `;
-      lucide.createIcons();
+      tbody.innerHTML = getSkeletonShimmerRows(8, 4);
 
       try {
         const roleParam = encodeURIComponent(currentUser ? currentUser.role : 'Admin');
@@ -2846,7 +3285,7 @@
             const badgeColor = isTepat ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200';
 
             return `
-              <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+              <tr class="animate-row-in hover:bg-slate-50/80 transition border-b border-slate-100">
                 <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-900">${item.nik || '-'}</td>
                 <td class="py-3.5 px-4 font-bold text-slate-900">${item.nama || '-'}</td>
                 <td class="py-3.5 px-4 text-xs text-slate-600">${item.unitKerja || '-'}</td>
@@ -2884,15 +3323,7 @@
       const endDate = document.getElementById('filterAbsensiEnd') ? document.getElementById('filterAbsensiEnd').value : '';
       const search = document.getElementById('filterAbsensiSearch') ? document.getElementById('filterAbsensiSearch').value.trim() : '';
 
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="9" class="py-8 text-center text-slate-400">
-            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
-            Memuat riwayat presensi pegawai...
-          </td>
-        </tr>
-      `;
-      lucide.createIcons();
+      tbody.innerHTML = getSkeletonShimmerRows(9, 4);
 
       try {
         const roleParam = encodeURIComponent(currentUser ? currentUser.role : 'Admin');
@@ -2934,7 +3365,7 @@
             const badgeColor = isTepat ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200';
 
             return `
-              <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+              <tr class="animate-row-in hover:bg-slate-50/80 transition border-b border-slate-100">
                 <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-900 whitespace-nowrap">${item.tanggal || '-'}</td>
                 <td class="py-3.5 px-4">
                   <div class="font-bold text-slate-900">${item.nama || '-'}</div>
@@ -3608,7 +4039,12 @@
       }
 
       if (!isFaceVerified) {
-        showToast('Presensi ditolak: Wajah di depan kamera tidak cocok dengan biometrik akun Anda!', true);
+        showClockErrorModal({
+          title: 'Presensi Ditolak',
+          reason: 'Wajah Tidak Terverifikasi',
+          detail: 'Wajah di depan kamera tidak cocok dengan biometrik akun Anda atau terdeteksi lebih dari satu orang.'
+        });
+        showToast('Presensi ditolak: Wajah tidak cocok!', true);
         return;
       }
 
@@ -3635,7 +4071,7 @@
         if (json.success) {
           showToast(json.message);
           
-          // Buka Modal Tiket Presensi & WhatsApp
+          // Buka Modal Animasi Sukses Clock-In
           lastTicketData = {
             nama: currentUser.nama || currentUser.username,
             nik: currentUser.nik || currentUser.username,
@@ -3647,10 +4083,15 @@
             faceStatus: json.data.faceStatus
           };
 
-          showTicketModal(lastTicketData);
+          showClockSuccessModal(lastTicketData);
           fetchTodayAbsensi();
           fetchAbsensiHistory();
         } else {
+          showClockErrorModal({
+            title: 'Gagal Clock-In',
+            reason: 'Ditolak oleh Server',
+            detail: json.message || 'Verifikasi server gagal. Pastikan data akun valid.'
+          });
           showToast(json.message || 'Gagal Clock-In', true);
         }
       } catch (err) {
@@ -3691,7 +4132,12 @@
       }
 
       if (!isFaceVerified) {
-        showToast('Clock-Out ditolak: Wajah di depan kamera tidak cocok dengan biometrik akun Anda!', true);
+        showClockErrorModal({
+          title: 'Clock-Out Ditolak',
+          reason: 'Wajah Tidak Terverifikasi',
+          detail: 'Wajah di depan kamera tidak cocok dengan biometrik akun Anda atau terdeteksi lebih dari satu orang.'
+        });
+        showToast('Clock-Out ditolak: Wajah tidak cocok!', true);
         return;
       }
 
@@ -3727,10 +4173,15 @@
             faceStatus: 'Terverifikasi Face-API ✅'
           };
 
-          showTicketModal(lastTicketData);
+          showClockSuccessModal(lastTicketData);
           fetchTodayAbsensi();
           fetchAbsensiHistory();
         } else {
+          showClockErrorModal({
+            title: 'Gagal Clock-Out',
+            reason: 'Ditolak oleh Server',
+            detail: json.message || 'Verifikasi server gagal saat memproses Clock-Out.'
+          });
           showToast(json.message || 'Gagal Clock-Out', true);
         }
       } catch (err) {
@@ -3840,16 +4291,7 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
     async function fetchAbsensiHistory() {
       const tbody = document.getElementById('absensiTableBody');
       if (!tbody) return;
-
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="9" class="py-8 text-center text-slate-400">
-            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
-            Memuat riwayat data absensi...
-          </td>
-        </tr>
-      `;
-      lucide.createIcons();
+      tbody.innerHTML = getSkeletonShimmerRows(9, 4);
 
       if (!currentUser) return;
 
@@ -3883,7 +4325,7 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
             const ticketJson = encodeURIComponent(JSON.stringify(ticketObj));
 
             return `
-              <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+              <tr class="animate-row-in hover:bg-slate-50/80 transition border-b border-slate-100">
                 <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-900 whitespace-nowrap">${item.tanggal || '-'}</td>
                 <td class="py-3.5 px-4">
                   <div class="font-bold text-slate-900">${item.nama || '-'}</div>
