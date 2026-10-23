@@ -1185,6 +1185,34 @@ app.post('/api/absensi/clock-in', async (req, res) => {
     }
 
     const sheets = await getSheetsClient();
+    // Best Practice: Validasi Wajib Biometrik Wajah Lolos
+    if (!faceVerified || faceVerified === false || faceVerified === 'false') {
+      return res.status(400).json({
+        success: false,
+        message: 'Presensi ditolak: Verifikasi biometrik wajah tidak valid atau wajah tidak cocok dengan data biometrik akun Anda!'
+      });
+    }
+
+    // Best Practice: Validasi akun wajib sudah mendaftarkan wajah di sheet wajah-karyawan
+    const wajahResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'wajah-karyawan'!A2:D"
+    });
+    const cleanNikCheck = String(nik).trim().toLowerCase();
+    const cleanNamaCheck = String(nama || '').trim().toLowerCase();
+    const wajahRows = wajahResponse.data.values || [];
+    const isEnrolled = wajahRows.some(r => {
+      const rNik = String(r[0] || '').trim().toLowerCase();
+      const rNama = String(r[1] || '').trim().toLowerCase();
+      return (cleanNikCheck && rNik === cleanNikCheck) || (cleanNamaCheck && rNama === cleanNamaCheck);
+    });
+
+    if (!isEnrolled) {
+      return res.status(400).json({
+        success: false,
+        message: 'Presensi ditolak: Akun Anda belum mendaftarkan biometrik wajah! Silakan lakukan pendaftaran wajah terlebih dahulu.'
+      });
+    }
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: "'absensi-harian'!A2:K"
@@ -1267,6 +1295,10 @@ app.post('/api/absensi/clock-in', async (req, res) => {
 app.post('/api/absensi/clock-out', async (req, res) => {
   try {
     const { nik, latitude, longitude, userRole, role } = req.body;
+    const { faceVerified } = req.body;
+    if (faceVerified !== undefined && (faceVerified === false || faceVerified === 'false')) {
+      return res.status(400).json({ success: false, message: 'Clock-Out ditolak: Verifikasi biometrik wajah tidak cocok dengan akun Anda!' });
+    }
     const currentRole = userRole || role;
 
     if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole)) {

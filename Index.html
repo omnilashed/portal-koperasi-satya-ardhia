@@ -3267,14 +3267,65 @@
       }
     }
 
-    // Analisis Deteksi Wajah Real-Time Menggunakan Face-API
+    // ================= FACE RECOGNITION BEST PRACTICES =================
+    let consecutiveFaceMatches = 0;
+    const REQUIRED_STABLE_FRAMES = 2; // Wajib stabil cocok minimal 2 frame berturut-turut (~600ms)
+    const STRICT_DISTANCE_THRESHOLD = 0.52; // Threshold Euclidean ketat: < 0.52 = identik, >= 0.52 = orang lain
+
+    // Helper: Temukan data biometrik wajah milik user yang sedang login
+    function findUserRegisteredFace() {
+      if (!currentUser || !registeredDescriptors || registeredDescriptors.length === 0) return null;
+      const userNik = String(currentUser.nik || '').trim().toLowerCase();
+      const userName = String(currentUser.nama || '').trim().toLowerCase();
+      const userUname = String(currentUser.username || '').trim().toLowerCase();
+
+      return registeredDescriptors.find(d => {
+        const dNik = String(d.nik || '').trim().toLowerCase();
+        const dNama = String(d.nama || '').trim().toLowerCase();
+        if (userNik && dNik === userNik) return true;
+        if (userUname && dNik === userUname) return true;
+        if (userName && dNama === userName) return true;
+        // Cocokkan NIK angka unik
+        const numUser = userNik.match(/\d{4,}/);
+        const numD = dNik.match(/\d{4,}/);
+        if (numUser && numD && numUser[0] === numD[0]) return true;
+        return false;
+      }) || null;
+    }
+
+    // Helper: Update status kesiapan tombol presensi
+    function updateClockButtonsReadiness() {
+      const warningEl = document.getElementById('readinessWarning');
+      const userFace = findUserRegisteredFace();
+
+      if (warningEl) {
+        if (!isWithinGeofence && !isFaceVerified) {
+          warningEl.innerHTML = '<span class="text-amber-600 font-semibold">⚠️ Anda di luar radius Terminal Halim (> 1 KM) dan wajah belum terverifikasi.</span>';
+        } else if (!isWithinGeofence) {
+          warningEl.innerHTML = '<span class="text-amber-600 font-semibold">⚠️ Anda berada di luar radius presensi Terminal Bandara Halim (> 1 KM).</span>';
+        } else if (!userFace) {
+          warningEl.innerHTML = '<span class="text-amber-600 font-semibold">⚠️ Anda belum mendaftarkan biometrik wajah. Klik tombol "Daftar Wajah" di atas.</span>';
+        } else if (!isFaceVerified) {
+          warningEl.innerHTML = '<span class="text-red-600 font-semibold">❌ Arahkan kamera ke wajah Anda sendiri yang terdaftar untuk mengaktifkan tombol absen.</span>';
+        } else {
+          warningEl.innerHTML = '<span class="text-emerald-700 font-bold">✅ Siap Presensi: Lokasi valid (≤ 1 KM) dan biometrik wajah terverifikasi!</span>';
+        }
+      }
+    }
+
+    // Analisis Deteksi Wajah Real-Time Menggunakan Face-API (Best Practice Anti-Spoofing & Multi-Face Prevention)
     function startRealtimeFaceRecognition(video) {
       const canvas = document.getElementById('absensiCanvas');
       const msgEl = document.getElementById('faceDetectMessage');
       const scoreEl = document.getElementById('faceScoreText');
       const dotEl = document.getElementById('faceDetectDot');
+      const cardStatus = document.getElementById('todayFaceStatusText');
+      const cardBadge = document.getElementById('todayFaceBadge');
 
       if (!canvas || !video) return;
+
+      consecutiveFaceMatches = 0;
+      isFaceVerified = false;
 
       faceDetectInterval = setInterval(async () => {
         if (!isWebcamActive || video.paused || video.ended) return;
@@ -3282,65 +3333,155 @@
         try {
           const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
           faceapi.matchDimensions(canvas, displaySize);
-
-          const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
-            .withFaceLandmarks()
-            .withFaceDescriptor();
-
           const ctx = canvas.getContext('2d');
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          if (detection) {
-            const resizedDetection = faceapi.resizeResults(detection, displaySize);
-            
-            // Gambar kotak wajah
-            const box = resizedDetection.detection.box;
-            ctx.strokeStyle = '#10b981';
-            ctx.lineWidth = 3;
+          // 1. Deteksi semua wajah untuk mencegah multi-face / joki absensi
+          const allDetections = await faceapi.detectAllFaces(
+            video, 
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.55 })
+          ).withFaceLandmarks().withFaceDescriptors();
+
+          // KASUS A: Tidak ada wajah di depan kamera
+          if (!allDetections || allDetections.length === 0) {
+            consecutiveFaceMatches = 0;
+            isFaceVerified = false;
+            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+            if (msgEl) msgEl.innerText = 'Posisikan wajah menghadap lurus ke kamera...';
+            if (scoreEl) scoreEl.innerText = '-';
+            updateClockButtonsReadiness();
+            return;
+          }
+
+          // KASUS B: Terdeteksi lebih dari 1 wajah (Anti-Joki / Kerumunan)
+          if (allDetections.length > 1) {
+            consecutiveFaceMatches = 0;
+            isFaceVerified = false;
+            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse';
+            if (msgEl) msgEl.innerText = `⚠️ Terdeteksi ${allDetections.length} wajah! Hanya 1 orang yang diperbolehkan di depan kamera.`;
+            if (scoreEl) scoreEl.innerText = 'Ditolak';
+
+            const resizedAll = faceapi.resizeResults(allDetections, displaySize);
+            resizedAll.forEach(det => {
+              const b = det.detection.box;
+              ctx.strokeStyle = '#ef4444';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(b.x, b.y, b.width, b.height);
+            });
+            updateClockButtonsReadiness();
+            return;
+          }
+
+          // KASUS C: Wajah tunggal terdeteksi
+          const singleDetection = allDetections[0];
+          const resized = faceapi.resizeResults(singleDetection, displaySize);
+          const box = resized.detection.box;
+
+          // Cek ukuran wajah (mencegah wajah terlalu jauh atau buram)
+          if (box.width < 75 || box.height < 75) {
+            consecutiveFaceMatches = 0;
+            isFaceVerified = false;
+            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+            if (msgEl) msgEl.innerText = '⚠️ Dekatkan wajah Anda ke kamera...';
+            if (scoreEl) scoreEl.innerText = 'Terlalu Jauh';
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
             ctx.strokeRect(box.x, box.y, box.width, box.height);
+            ctx.setLineDash([]);
+            updateClockButtonsReadiness();
+            return;
+          }
 
-            // Verifikasi dengan descriptor wajah user saat ini
-            let matched = false;
-            let matchScore = 0;
+          // Ambil data biometrik user yang sedang login
+          const userFace = findUserRegisteredFace();
 
-            if (currentUser && registeredDescriptors.length > 0) {
-              const userFace = registeredDescriptors.find(d => String(d.nik).trim() === String(currentUser.nik).trim());
-              if (userFace && userFace.descriptor) {
-                const dist = faceapi.euclideanDistance(detection.descriptor, userFace.descriptor);
-                // Jarak Euclidean < 0.6 dianggap orang yang sama
-                if (dist < 0.6) {
-                  matched = true;
-                  matchScore = Math.round((1 - dist) * 100);
-                }
-              }
+          // KASUS D: User BELUM mendaftarkan biometrik wajah
+          if (!userFace || !userFace.descriptor) {
+            consecutiveFaceMatches = 0;
+            isFaceVerified = false;
+            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-500';
+            if (msgEl) msgEl.innerText = '⚠️ Wajah Anda belum terdaftar! Klik tombol "Daftar Wajah" di atas.';
+            if (scoreEl) scoreEl.innerText = 'Belum Daftar';
+
+            if (cardStatus) cardStatus.innerText = 'Wajib Daftar Wajah';
+            if (cardBadge) {
+              cardBadge.className = 'inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md font-semibold bg-amber-50 text-amber-700 border border-amber-200';
+              cardBadge.innerText = 'Belum Terdaftar ⚠️';
             }
 
-            if (matched) {
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('Wajah Belum Terdaftar di Sistem', box.x, Math.max(15, box.y - 8));
+            updateClockButtonsReadiness();
+            return;
+          }
+
+          // KASUS E: User SUDAH terdaftar -> Hitung Jarak Euclidean ke Wajah Pemilik Akun
+          const dist = faceapi.euclideanDistance(singleDetection.descriptor, userFace.descriptor);
+          const isMatch = dist < STRICT_DISTANCE_THRESHOLD;
+
+          if (isMatch) {
+            consecutiveFaceMatches++;
+            const matchScore = Math.min(99, Math.max(65, Math.round((1 - (dist / 0.72)) * 100)));
+
+            if (consecutiveFaceMatches >= REQUIRED_STABLE_FRAMES) {
               isFaceVerified = true;
               if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
               if (msgEl) msgEl.innerText = `Wajah Terverifikasi: ${currentUser.nama || currentUser.username} ✅`;
               if (scoreEl) scoreEl.innerText = `Cocok: ${matchScore}%`;
 
-              // Update Card Status Wajah
-              const cardStatus = document.getElementById('todayFaceStatusText');
               if (cardStatus) cardStatus.innerText = 'Terverifikasi ✅';
+              if (cardBadge) {
+                cardBadge.className = 'inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+                cardBadge.innerText = 'Wajah Cocok ✅';
+              }
+
+              // Visual Kotak Hijau Terverifikasi
+              ctx.strokeStyle = '#10b981';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(box.x, box.y, box.width, box.height);
+              ctx.fillStyle = '#10b981';
+              ctx.font = 'bold 12px sans-serif';
+              ctx.fillText(`✓ ${currentUser.nama || currentUser.username} (${matchScore}%)`, box.x, Math.max(15, box.y - 8));
             } else {
-              // Jika user belum mendaftar, tetap izinkan dengan deteksi wajah valid
-              isFaceVerified = true;
-              if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
-              if (msgEl) msgEl.innerText = 'Wajah Terdeteksi Jelas (Siap Absen) ✅';
-              if (scoreEl) scoreEl.innerText = 'Deteksi OK';
+              // Frame validasi stabilitas
+              if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+              if (msgEl) msgEl.innerText = 'Memverifikasi kestabilan biometrik...';
             }
           } else {
+            // KASUS F: DIARAHKAN KE ORANG LAIN / WAJAH TIDAK COCOK!
+            consecutiveFaceMatches = 0;
             isFaceVerified = false;
-            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
-            if (msgEl) msgEl.innerText = 'Posisikan wajah menghadap kamera...';
-            if (scoreEl) scoreEl.innerText = '-';
+
+            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse';
+            if (msgEl) msgEl.innerText = '❌ Wajah Tidak Cocok! Bukan pemilik akun terdaftar.';
+            if (scoreEl) scoreEl.innerText = 'Tidak Cocok';
+
+            if (cardStatus) cardStatus.innerText = 'Wajah Tidak Cocok ❌';
+            if (cardBadge) {
+              cardBadge.className = 'inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md font-semibold bg-red-50 text-red-700 border border-red-200';
+              cardBadge.innerText = 'Bukan Pemilik Akun ❌';
+            }
+
+            // Visual Kotak Merah Ditolak
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('❌ Akses Ditolak: Wajah Tidak Cocok', box.x, Math.max(15, box.y - 8));
           }
+
+          updateClockButtonsReadiness();
         } catch (err) {
-          // Fallback tanpa error
+          console.error('Face detection loop error:', err);
         }
-      }, 350);
+      }, 300);
     }
 
     // Buka Modal Pendaftaran Wajah
@@ -3371,19 +3512,36 @@
       }
 
       btn.disabled = true;
-      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memindai Wajah...`;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memindai Wajah...';
       lucide.createIcons();
 
       try {
         await preloadFaceApiModels();
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-          .withFaceLandmarks()
-          .withFaceDescriptor();
 
-        if (!detection || !detection.descriptor) {
-          statusEl.innerText = '❌ Gagal mendeteksi wajah! Harap menghadap lurus ke kamera dengan cahaya cukup.';
+        // Best Practice: Cek apakah ada multi-face saat pendaftaran
+        const allFaces = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+
+        if (!allFaces || allFaces.length === 0) {
+          statusEl.innerText = '❌ Gagal mendeteksi wajah! Harap menghadap lurus ke kamera dengan pencahayaan cukup.';
           statusEl.className = 'p-2.5 rounded-xl text-center text-xs font-semibold bg-red-50 text-red-700 border border-red-200';
           showToast('Wajah tidak terdeteksi jelas!', true);
+          return;
+        }
+
+        if (allFaces.length > 1) {
+          statusEl.innerText = '❌ Terdeteksi lebih dari satu orang! Pastikan hanya Anda sendiri di depan kamera saat mendaftar.';
+          statusEl.className = 'p-2.5 rounded-xl text-center text-xs font-semibold bg-red-50 text-red-700 border border-red-200';
+          showToast('Hanya 1 wajah yang diizinkan saat mendaftar!', true);
+          return;
+        }
+
+        const detection = allFaces[0];
+        if (detection.detection.box.width < 90 || detection.detection.box.height < 90) {
+          statusEl.innerText = '❌ Wajah terlalu jauh! Harap dekatkan wajah Anda ke tengah bingkai kamera.';
+          statusEl.className = 'p-2.5 rounded-xl text-center text-xs font-semibold bg-red-50 text-red-700 border border-red-200';
+          showToast('Wajah terlalu jauh!', true);
           return;
         }
 
@@ -3438,6 +3596,19 @@
       if (!isWebcamActive) {
         showToast('Harap aktifkan kamera sebelum Clock-In!', true);
         startWebcam();
+        return;
+      }
+
+      // 3. BEST PRACTICE: Validasi Biometrik Wajah Wajib Lolos
+      const userFace = findUserRegisteredFace();
+      if (!userFace) {
+        showToast('Akun Anda belum mendaftarkan biometrik wajah! Silakan klik tombol "Daftar Wajah" terlebih dahulu.', true);
+        handleRegisterFaceModal();
+        return;
+      }
+
+      if (!isFaceVerified) {
+        showToast('Presensi ditolak: Wajah di depan kamera tidak cocok dengan biometrik akun Anda!', true);
         return;
       }
 
@@ -3506,6 +3677,24 @@
         return;
       }
 
+      if (!isWebcamActive) {
+        showToast('Harap aktifkan kamera sebelum Clock-Out!', true);
+        startWebcam();
+        return;
+      }
+
+      // BEST PRACTICE: Validasi Biometrik Wajah Wajib Lolos saat Clock-Out
+      const userFaceOut = findUserRegisteredFace();
+      if (!userFaceOut) {
+        showToast('Akun Anda belum mendaftarkan biometrik wajah! Silakan daftarkan wajah Anda terlebih dahulu.', true);
+        return;
+      }
+
+      if (!isFaceVerified) {
+        showToast('Clock-Out ditolak: Wajah di depan kamera tidak cocok dengan biometrik akun Anda!', true);
+        return;
+      }
+
       const btn = document.getElementById('btnClockOut');
       btn.disabled = true;
       btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
@@ -3518,7 +3707,8 @@
           body: JSON.stringify({
             nik: currentUser.nik || currentUser.username,
             latitude: currentUserLat,
-            longitude: currentUserLng
+            longitude: currentUserLng,
+            faceVerified: isFaceVerified
           })
         });
 

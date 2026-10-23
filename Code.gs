@@ -648,6 +648,30 @@ function submitClockIn(payload) {
 
     // Cek apakah sudah Clock-In hari ini
     const data = sheet.getDataRange().getValues();
+    // Best Practice: Validasi Wajib Biometrik Wajah Lolos
+    if (!payload.faceVerified || payload.faceVerified === false || payload.faceVerified === 'false') {
+      return {
+        status: 'error',
+        message: 'Presensi ditolak: Verifikasi biometrik wajah tidak valid atau wajah tidak cocok dengan data biometrik akun Anda!'
+      };
+    }
+
+    // Best Practice: Validasi akun wajib sudah mendaftarkan wajah di sheet wajah-karyawan
+    let wajahSheet = ss.getSheetByName('wajah-karyawan');
+    if (wajahSheet) {
+      const wData = wajahSheet.getDataRange().getValues();
+      const isEnrolled = wData.slice(1).some(r => {
+        const rNik = String(r[0] || '').trim().toLowerCase();
+        const rNama = String(r[1] || '').trim().toLowerCase();
+        return (cleanNik && rNik === cleanNik.toLowerCase()) || (nama && rNama === nama.toLowerCase());
+      });
+      if (!isEnrolled) {
+        return {
+          status: 'error',
+          message: 'Presensi ditolak: Akun Anda belum mendaftarkan biometrik wajah! Silakan lakukan pendaftaran wajah terlebih dahulu.'
+        };
+      }
+    }
     for (let i = 1; i < data.length; i++) {
       const rowTanggal = String(data[i][1]).trim();
       const rowNik = String(data[i][2]).trim();
@@ -728,7 +752,13 @@ function submitClockOut(payload) {
       return {
         status: 'error',
         message: 'Di luar radius absensi! Jarak Anda ' + distanceMeters + ' meter dari Terminal Bandara Halim Perdanakusuma (Maksimal radius 1.000 meter / 1 KM).'
+      }
+    if (payload.faceVerified !== undefined && (payload.faceVerified === false || payload.faceVerified === 'false')) {
+      return {
+        status: 'error',
+        message: 'Clock-Out ditolak: Verifikasi biometrik wajah tidak cocok dengan akun Anda!'
       };
+    };
     }
 
     const data = sheet.getDataRange().getValues();
