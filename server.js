@@ -123,6 +123,17 @@ function getCurrentTimestamp() {
   return d + '/' + m + '/' + y + ' ' + hr + ':' + min;
 }
 
+// Helper: Normalisasi & Pengecekan Hierarki Role
+function normalizeRole(r) {
+  return String(r || '').trim().toLowerCase();
+}
+function isRoleAdmin(r) { return normalizeRole(r) === 'admin'; }
+function isRoleKetua(r) { return ['ketua koperasi', 'ketua'].includes(normalizeRole(r)); }
+function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
+function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
+function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
+function isRoleAnggota(r) { return ['user', 'anggota', ''].includes(normalizeRole(r)); }
+
 // ==========================================
 // 1. ENDPOINTS: AUTENTIKASI & AKUN
 // ==========================================
@@ -426,15 +437,20 @@ app.post('/api/auth/reset-password', async (req, res) => {
 });
 
 // ==========================================
-// 2. ENDPOINTS: MANAJEMEN USER (ADMIN ONLY)
+// 2. ENDPOINTS: MANAJEMEN USER (ADMIN & KETUA KOPERASI)
 // ==========================================
 
 /**
  * GET /api/users
- * Query: ?role=Admin (atau header autentikasi)
+ * Query: ?role=Admin (atau Ketua Koperasi)
  */
 app.get('/api/users', async (req, res) => {
   try {
+    const { role } = req.query;
+    if (role && !isRoleAdmin(role) && !isRoleKetua(role)) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengakses data pengguna.' });
+    }
+
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -461,13 +477,17 @@ app.get('/api/users', async (req, res) => {
 
 /**
  * PUT /api/users/status
- * Body: { username, status }  --> status: 'Active' | 'Rejected' | 'Deactive' | 'Pending'
+ * Body: { username, status, requestingRole }  --> status: 'Active' | 'Rejected' | 'Deactive' | 'Pending'
  */
 app.put('/api/users/status', async (req, res) => {
   try {
-    const { username, status } = req.body;
+    const { username, status, requestingRole } = req.body;
     if (!username || !status) {
       return res.status(400).json({ success: false, message: 'Username dan status baru wajib disediakan.' });
+    }
+
+    if (requestingRole && !isRoleAdmin(requestingRole) && !isRoleKetua(requestingRole)) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengubah status akun.' });
     }
 
     const validStatuses = ['Active', 'Pending', 'Deactive', 'Rejected'];
@@ -516,6 +536,63 @@ app.put('/api/users/status', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/users/role
+ * Body: { username, newRole, requestingRole }
+ * Khusus: Admin & Ketua Koperasi untuk mengubah peran user (Pegawai, Financial, Pengurus, Ketua Koperasi, Admin, User)
+ */
+app.put('/api/users/role', async (req, res) => {
+  try {
+    const { username, newRole, requestingRole } = req.body;
+    if (!username || !newRole) {
+      return res.status(400).json({ success: false, message: 'Username dan Role baru wajib disediakan.' });
+    }
+
+    if (requestingRole && !isRoleAdmin(requestingRole) && !isRoleKetua(requestingRole)) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengubah role akun.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Users!A2:H'
+    });
+
+    const rows = response.data.values || [];
+    const normalizedUsername = String(username).trim().toLowerCase();
+
+    let targetRowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if ((rows[i][0] || '').toLowerCase() === normalizedUsername) {
+        targetRowIndex = i + 2;
+        break;
+      }
+    }
+
+    if (targetRowIndex === -1) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    // Update Kolom C (Role)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Users!C' + targetRowIndex,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[newRole]]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Role user ' + username + ' berhasil diperbarui menjadi ' + newRole + '.'
+    });
+  } catch (error) {
+    console.error('Error /api/users/role:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui role user: ' + error.message });
+  }
+});
+
 // ==========================================
 // 3. ENDPOINTS: MODUL PENGAJUAN PINJAMAN/BIAYA
 // ==========================================
@@ -549,8 +626,8 @@ app.get('/api/pengajuan', async (req, res) => {
       status: r[9] || 'Created'
     }));
 
-    // Jika role adalah User, filter data milik sendiri secara akurat
-    if (role === 'User') {
+    // Jika role adalah User/Anggota atau Pegawai, filter data milik sendiri secara akurat
+    if (isRoleAnggota(role) || isRolePegawai(role)) {
       const userNik = (nik || '').trim().toLowerCase();
       const userNama = (nama || '').trim().toLowerCase();
 
@@ -636,7 +713,7 @@ app.get('/api/pengajuan', async (req, res) => {
 
 /**
  * POST /api/pengajuan
- * Body: { tipeFormulir, namaKaryawan, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan }
+ * Body: { tipeFormulir, namaKaryawan, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, userRole }
  */
 app.post('/api/pengajuan', async (req, res) => {
   try {
@@ -648,8 +725,17 @@ app.post('/api/pengajuan', async (req, res) => {
       atasNamaRekening,
       totalDitransfer,
       cicilan,
-      keterangan
+      keterangan,
+      userRole
     } = req.body;
+
+    // Role Guard: Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman
+    if (userRole && !isRoleAdmin(userRole) && !isRoleKetua(userRole) && !isRoleFinancial(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman/biaya.'
+      });
+    }
 
     if (!tipeFormulir || !namaKaryawan || !nikUnitKerja || !noRekening || !atasNamaRekening || !totalDitransfer) {
       return res.status(400).json({ success: false, message: 'Lengkapi semua field wajib pada formulir pengajuan.' });
@@ -715,24 +801,24 @@ app.put('/api/pengajuan/status', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Status tidak valid. Pilihan: ' + validStatuses.join(', ') });
     }
 
-    if (userRole === 'User') {
-      return res.status(403).json({ success: false, message: 'Anggota (User) tidak memiliki hak untuk mengubah status pengajuan.' });
+    if (isRoleAnggota(userRole) || isRolePegawai(userRole)) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak: Anggota dan Pegawai tidak memiliki hak untuk mengubah status pengajuan.' });
     }
 
-    if (userRole === 'Pengurus') {
+    if (isRolePengurus(userRole) || isRoleKetua(userRole)) {
       if (!['On Process', 'Rejected'].includes(newStatus)) {
         return res.status(403).json({
           success: false,
-          message: 'Role Pengurus hanya memiliki otoritas untuk Persetujuan (On Process) atau Penolakan (Rejected).'
+          message: 'Role Pengurus dan Ketua Koperasi hanya memiliki otoritas untuk Persetujuan (On Process) atau Penolakan (Rejected).'
         });
       }
     }
 
-    if (userRole === 'Financial') {
+    if (isRoleFinancial(userRole)) {
       if (!['Done', 'On Process'].includes(newStatus)) {
         return res.status(403).json({
           success: false,
-          message: 'Role Financial berwenang memvalidasi transfer selesai (Done) atau memproses status pengajuan.'
+          message: 'Role Financial hanya dapat memproses pembayaran (Done) atau pengajuan diproses (On Process).'
         });
       }
     }
@@ -999,7 +1085,15 @@ app.get('/api/absensi/face-descriptors', async (req, res) => {
  */
 app.post('/api/absensi/register-face', async (req, res) => {
   try {
-    const { nik, nama, descriptor } = req.body;
+    const { nik, nama, descriptor, userRole, role } = req.body;
+    const currentRole = userRole || role;
+
+    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Pendaftaran wajah hanya diperuntukkan bagi Pegawai, Financial, dan Admin.'
+      });
+    }
 
     if (!nik || !descriptor) {
       return res.status(400).json({ success: false, message: 'NIK dan data descriptor wajah wajib disertakan.' });
@@ -1064,7 +1158,15 @@ app.post('/api/absensi/register-face', async (req, res) => {
  */
 app.post('/api/absensi/clock-in', async (req, res) => {
   try {
-    const { nik, nama, unitKerja, latitude, longitude, faceVerified } = req.body;
+    const { nik, nama, unitKerja, latitude, longitude, faceVerified, userRole, role } = req.body;
+    const currentRole = userRole || role;
+
+    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Fitur presensi clock-in hanya dapat digunakan oleh Pegawai, Financial, dan Admin.'
+      });
+    }
 
     if (!nik || latitude === undefined || longitude === undefined) {
       return res.status(400).json({ success: false, message: 'NIK dan data koordinat GPS wajib disertakan.' });
@@ -1164,7 +1266,15 @@ app.post('/api/absensi/clock-in', async (req, res) => {
  */
 app.post('/api/absensi/clock-out', async (req, res) => {
   try {
-    const { nik, latitude, longitude } = req.body;
+    const { nik, latitude, longitude, userRole, role } = req.body;
+    const currentRole = userRole || role;
+
+    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Fitur presensi clock-out hanya dapat digunakan oleh Pegawai, Financial, dan Admin.'
+      });
+    }
 
     if (!nik || latitude === undefined || longitude === undefined) {
       return res.status(400).json({ success: false, message: 'NIK dan data koordinat GPS wajib disertakan.' });
@@ -1295,11 +1405,20 @@ app.get('/api/absensi/today', async (req, res) => {
 
 /**
  * GET /api/absensi/history
- * Mengambil riwayat data presensi (User: milik sendiri, Pengurus/Admin: seluruh karyawan)
+ * Mengambil riwayat data presensi
+ * - Pegawai & Financial: data milik sendiri
+ * - Admin, Ketua Koperasi, Pengurus: seluruh karyawan + filter tanggal/search
  */
 app.get('/api/absensi/history', async (req, res) => {
   try {
-    const { role, nik, nama } = req.query;
+    const { role, nik, nama, startDate, endDate, search, todayOnly } = req.query;
+
+    if (isRoleAnggota(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anggota koperasi tidak memiliki akses ke fitur absensi.'
+      });
+    }
 
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
@@ -1323,7 +1442,8 @@ app.get('/api/absensi/history', async (req, res) => {
       faceVerified: r[10] || '-'
     }));
 
-    if (role === 'User') {
+    // 1. Pegawai dan Financial hanya melihat data absensi milik sendiri
+    if (isRolePegawai(role) || isRoleFinancial(role)) {
       const userNik = (nik || '').trim().toLowerCase();
       const userNama = (nama || '').trim().toLowerCase();
 
@@ -1332,6 +1452,32 @@ app.get('/api/absensi/history', async (req, res) => {
         const itemNama = (item.nama || '').toLowerCase();
         return (userNik && itemNik.includes(userNik)) || (userNama && itemNama.includes(userNama));
       });
+    }
+
+    // 2. Filter Tanggal: todayOnly atau rentang startDate s/d endDate
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    if (todayOnly === 'true') {
+      list = list.filter(item => String(item.tanggal).trim() === todayStr);
+    } else {
+      if (startDate) {
+        list = list.filter(item => String(item.tanggal).trim() >= startDate);
+      }
+      if (endDate) {
+        list = list.filter(item => String(item.tanggal).trim() <= endDate);
+      }
+    }
+
+    // 3. Filter Search (Nama / NIK / Unit Kerja)
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(item => 
+        (item.nama && item.nama.toLowerCase().includes(q)) ||
+        (item.nik && item.nik.toLowerCase().includes(q)) ||
+        (item.unitKerja && item.unitKerja.toLowerCase().includes(q))
+      );
     }
 
     list.reverse(); // Terbaru di paling atas
@@ -1343,6 +1489,76 @@ app.get('/api/absensi/history', async (req, res) => {
   } catch (error) {
     console.error('Error /api/absensi/history:', error);
     return res.status(500).json({ success: false, message: 'Gagal mengambil riwayat absensi: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/absensi/today-employees
+ * Mengambil rekap daftar seluruh pegawai yang masuk pada hari ini
+ * Khusus: Admin, Ketua Koperasi, Pengurus
+ */
+app.get('/api/absensi/today-employees', async (req, res) => {
+  try {
+    const { role } = req.query;
+    if (isRoleAnggota(role) || isRolePegawai(role) || isRoleFinancial(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses monitoring presensi hanya untuk Admin, Ketua Koperasi, dan Pengurus.'
+      });
+    }
+
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'absensi-harian'!A2:K"
+    });
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const rows = response.data.values || [];
+    const todayRows = rows
+      .map((r, idx) => ({
+        rowIndex: idx + 2,
+        timestamp: r[0] || '',
+        tanggal: r[1] || '',
+        nik: r[2] || '',
+        nama: r[3] || '',
+        unitKerja: r[4] || '',
+        clockIn: r[5] || '-',
+        clockOut: r[6] || '-',
+        statusKehadiran: r[7] || '-',
+        lokasi: r[8] || '-',
+        jarakMeters: r[9] || '0',
+        faceVerified: r[10] || '-'
+      }))
+      .filter(item => String(item.tanggal).trim() === todayStr)
+      .reverse();
+
+    let tepatWaktu = 0;
+    let terlambat = 0;
+    todayRows.forEach(item => {
+      if (item.statusKehadiran && item.statusKehadiran.toLowerCase().includes('tepat waktu')) {
+        tepatWaktu++;
+      } else {
+        terlambat++;
+      }
+    });
+
+    return res.json({
+      success: true,
+      date: todayStr,
+      summary: {
+        totalHadir: todayRows.length,
+        tepatWaktu,
+        terlambat
+      },
+      data: todayRows
+    });
+  } catch (error) {
+    console.error('Error /api/absensi/today-employees:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memuat data pegawai masuk hari ini: ' + error.message });
   }
 });
 

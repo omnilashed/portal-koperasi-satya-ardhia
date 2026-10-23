@@ -7,6 +7,18 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+
+// Helper: Normalisasi & Pengecekan Hierarki Role
+function normalizeRole(r) {
+  return String(r || '').trim().toLowerCase();
+}
+function isRoleAdmin(r) { return normalizeRole(r) === 'admin'; }
+function isRoleKetua(r) { return ['ketua koperasi', 'ketua'].includes(normalizeRole(r)); }
+function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
+function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
+function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
+function isRoleAnggota(r) { return ['user', 'anggota', ''].includes(normalizeRole(r)); }
+
 // ================= AUTHENTICATION & USER MANAGEMENT =================
 
 // 1. Login User dengan Validasi Status Lengkap (Active, Pending, Deactive, Rejected)
@@ -125,8 +137,8 @@ function registerUser(userData) {
 
 // 3. Khusus Admin: Ambil Seluruh Data User
 function getAllUsersList(requestingUserRole) {
-  if (requestingUserRole !== 'Admin') {
-    return []; // Tolak akses jika bukan admin
+  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole)) {
+    return []; // Khusus Admin & Ketua Koperasi
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -151,8 +163,8 @@ function getAllUsersList(requestingUserRole) {
 
 // 4. Update Status Akun User oleh Admin
 function updateUserAccountStatus(requestingUserRole, rowIndex, newStatus) {
-  if (requestingUserRole !== 'Admin') {
-    return { status: 'error', message: 'Akses ditolak! Hanya Admin yang memiliki hak ini.' };
+  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole)) {
+    return { status: 'error', message: 'Akses ditolak! Hanya Admin dan Ketua Koperasi yang memiliki hak ini.' };
   }
 
   try {
@@ -168,6 +180,23 @@ function updateUserAccountStatus(requestingUserRole, rowIndex, newStatus) {
     return { status: 'success', message: msg };
   } catch (err) {
     return { status: 'error', message: 'Gagal update status: ' + err.toString() };
+  }
+}
+
+
+// Update Role Akun User oleh Admin / Ketua Koperasi
+function updateUserRole(requestingUserRole, rowIndex, newRole) {
+  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole)) {
+    return { status: 'error', message: 'Akses ditolak! Hanya Admin dan Ketua Koperasi yang dapat mengubah role.' };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const userSheet = ss.getSheetByName('Users');
+    userSheet.getRange(Number(rowIndex), 3).setValue(newRole);
+    return { status: 'success', message: 'Role akun berhasil diubah menjadi ' + newRole };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal update role: ' + err.toString() };
   }
 }
 
@@ -278,7 +307,7 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
     };
   }).reverse();
 
-  if (userRole === 'User') {
+  if (isRoleAnggota(userRole) || isRolePegawai(userRole)) {
     const cleanNik = String(userNik || '').trim().toLowerCase();
     const cleanName = String(userName || '').trim().toLowerCase();
     const cleanUname = String(userUsername || '').trim().toLowerCase();
@@ -320,6 +349,10 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
 
 function simpanPengajuan(form) {
   try {
+    const role = form.userRole || form.role;
+    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRoleFinancial(role)) {
+      return { status: 'error', message: 'Akses ditolak! Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman/biaya.' };
+    }
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
     const timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm:ss");
     
@@ -343,9 +376,18 @@ function simpanPengajuan(form) {
 }
 
 function updateStatusPengajuan(userRole, rowIndex, newStatus) {
-  // Validasi: User biasa tidak diizinkan mengubah status
-  if (userRole === 'User') {
-    return { status: 'error', message: 'Akses ditolak! Anda tidak memiliki wewenang mengubah status.' };
+  if (isRoleAnggota(userRole) || isRolePegawai(userRole)) {
+    return { status: 'error', message: 'Akses ditolak! Anggota dan Pegawai tidak memiliki wewenang mengubah status pengajuan.' };
+  }
+  if (isRolePengurus(userRole) || isRoleKetua(userRole)) {
+    if (!['On Process', 'Rejected'].includes(newStatus)) {
+      return { status: 'error', message: 'Pengurus dan Ketua Koperasi hanya memiliki otoritas untuk Persetujuan (On Process) atau Penolakan (Rejected).' };
+    }
+  }
+  if (isRoleFinancial(userRole)) {
+    if (!['Done', 'On Process'].includes(newStatus)) {
+      return { status: 'error', message: 'Financial hanya dapat memproses pembayaran (Done) atau status diproses (On Process).' };
+    }
   }
 
   try {
@@ -499,8 +541,11 @@ function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
 /**
  * 3. Simpan / Registrasi Wajah Karyawan
  */
-function registerFaceDescriptor(nik, nama, descriptorJson) {
+function registerFaceDescriptor(nik, nama, descriptorJson, userRole) {
   try {
+    if (userRole && !isRoleAdmin(userRole) && !isRoleFinancial(userRole) && !isRolePegawai(userRole)) {
+      return { status: 'error', message: 'Akses ditolak! Pendaftaran wajah hanya diperuntukkan bagi Pegawai, Financial, dan Admin.' };
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('wajah-karyawan');
     if (!sheet) {
@@ -569,6 +614,10 @@ function getAllFaceDescriptors() {
  */
 function submitClockIn(payload) {
   try {
+    const role = payload.userRole || payload.role;
+    if (role && !isRoleAdmin(role) && !isRoleFinancial(role) && !isRolePegawai(role)) {
+      return { status: 'error', message: 'Akses ditolak: Fitur presensi clock-in hanya dapat digunakan oleh Pegawai, Financial, dan Admin.' };
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('absensi-harian');
     if (!sheet) {
@@ -654,6 +703,10 @@ function submitClockIn(payload) {
  */
 function submitClockOut(payload) {
   try {
+    const role = payload.userRole || payload.role;
+    if (role && !isRoleAdmin(role) && !isRoleFinancial(role) && !isRolePegawai(role)) {
+      return { status: 'error', message: 'Akses ditolak: Fitur presensi clock-out hanya dapat digunakan oleh Pegawai, Financial, dan Admin.' };
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('absensi-harian');
     if (!sheet) {
@@ -755,8 +808,12 @@ function getTodayAbsensiStatus(nik) {
 /**
  * 8. Riwayat Absensi Karyawan
  */
-function getAbsensiHistoryList(userRole, nik, nama) {
+function getAbsensiHistoryList(userRole, nik, nama, startDate, endDate, search, todayOnly) {
   try {
+    if (isRoleAnggota(userRole)) {
+      return [];
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('absensi-harian');
     if (!sheet) return [];
@@ -777,9 +834,10 @@ function getAbsensiHistoryList(userRole, nik, nama) {
       lokasi: r[8],
       jarakMeters: r[9],
       faceVerified: r[10]
-    })).reverse();
+    }));
 
-    if (userRole === 'User') {
+    // 1. Filter hak akses: Pegawai & Financial hanya melihat miliknya sendiri
+    if (isRolePegawai(userRole) || isRoleFinancial(userRole)) {
       const cleanNik = String(nik || '').trim().toLowerCase();
       const cleanNama = String(nama || '').trim().toLowerCase();
       list = list.filter(item => {
@@ -789,8 +847,102 @@ function getAbsensiHistoryList(userRole, nik, nama) {
       });
     }
 
+    // 2. Filter Tanggal
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+
+    if (todayOnly === true || todayOnly === 'true') {
+      list = list.filter(item => String(item.tanggal).trim() === todayStr);
+    } else {
+      if (startDate) {
+        list = list.filter(item => String(item.tanggal).trim() >= String(startDate).trim());
+      }
+      if (endDate) {
+        list = list.filter(item => String(item.tanggal).trim() <= String(endDate).trim());
+      }
+    }
+
+    // 3. Filter Search
+    if (search && String(search).trim()) {
+      const q = String(search).trim().toLowerCase();
+      list = list.filter(item => {
+        const itemNama = String(item.nama || '').toLowerCase();
+        const itemNik = String(item.nik || '').toLowerCase();
+        const itemUnit = String(item.unitKerja || '').toLowerCase();
+        return itemNama.includes(q) || itemNik.includes(q) || itemUnit.includes(q);
+      });
+    }
+
+    list.reverse();
     return list;
   } catch (err) {
     return [];
+  }
+}
+
+/**
+ * 9. Monitoring: Rekap Seluruh Pegawai yang Masuk Hari Ini
+ * Khusus: Admin, Ketua Koperasi, Pengurus
+ */
+function getTodayEmployeesAttendance(userRole) {
+  try {
+    if (isRoleAnggota(userRole) || isRolePegawai(userRole) || isRoleFinancial(userRole)) {
+      return { status: 'error', message: 'Akses monitoring presensi hanya untuk Admin, Ketua Koperasi, dan Pengurus.' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('absensi-harian');
+    if (!sheet) return { status: 'success', summary: { totalHadir: 0, tepatWaktu: 0, terlambat: 0 }, data: [] };
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return { status: 'success', summary: { totalHadir: 0, tepatWaktu: 0, terlambat: 0 }, data: [] };
+
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+
+    const todayRows = [];
+    for (let i = 1; i < data.length; i++) {
+      const rowTanggal = String(data[i][1] || '').trim();
+      if (rowTanggal === todayStr) {
+        todayRows.push({
+          rowIndex: i + 1,
+          timestamp: data[i][0],
+          tanggal: data[i][1],
+          nik: data[i][2],
+          nama: data[i][3],
+          unitKerja: data[i][4],
+          clockIn: data[i][5],
+          clockOut: data[i][6],
+          statusKehadiran: data[i][7],
+          lokasi: data[i][8],
+          jarakMeters: data[i][9],
+          faceVerified: data[i][10]
+        });
+      }
+    }
+    todayRows.reverse();
+
+    let tepatWaktu = 0;
+    let terlambat = 0;
+    todayRows.forEach(item => {
+      if (item.statusKehadiran && String(item.statusKehadiran).toLowerCase().includes('tepat waktu')) {
+        tepatWaktu++;
+      } else {
+        terlambat++;
+      }
+    });
+
+    return {
+      status: 'success',
+      date: todayStr,
+      summary: {
+        totalHadir: todayRows.length,
+        tepatWaktu: tepatWaktu,
+        terlambat: terlambat
+      },
+      data: todayRows
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
   }
 }

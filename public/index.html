@@ -209,11 +209,11 @@
               <span class="sm:hidden">Tracking</span>
             </button>
 
-            <!-- Tab 2: Absensi Wajah & Geofencing (Semua Role) -->
-            <button id="tabAbsensiBtn" onclick="switchTab('absensi')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+            <!-- Tab 2: Absensi Pegawai & Monitoring (Pegawai, Financial, Admin, Ketua Koperasi, Pengurus) - HIDDEN UNTUK ANGGOTA/USER -->
+            <button id="tabAbsensiBtn" onclick="switchTab('absensi')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
               <i data-lucide="scan-face" class="w-4 h-4"></i>
-              <span class="hidden sm:inline">Absensi Wajah (HLP)</span>
-              <span class="sm:hidden">Absen</span>
+              <span id="tabAbsensiLabel" class="hidden sm:inline">Absensi Pegawai (HLP)</span>
+              <span id="tabAbsensiLabelSm" class="sm:hidden">Absen</span>
             </button>
 
             <!-- Tab 2: Form Input Baru (Hanya Admin & Financial, Hidden untuk User & Pengurus) -->
@@ -474,8 +474,8 @@
                 <i data-lucide="plane" class="w-3.5 h-3.5"></i>
                 <span>Titik Presensi: Terminal Bandara Halim Perdanakusuma (HLP)</span>
               </div>
-              <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Presensi Kehadiran Karyawan</h2>
-              <p class="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl">
+              <h2 id="absensiHeaderTitle" class="text-2xl sm:text-3xl font-extrabold tracking-tight">Presensi Kehadiran Karyawan</h2>
+              <p id="absensiHeaderDesc" class="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl">
                 Sistem absensi mandiri terintegrasi Face Recognition AI dan validasi radius geofencing 1 KM dari Terminal Bandara Halim.
               </p>
             </div>
@@ -493,7 +493,22 @@
           </div>
         </div>
 
-        <!-- PERINGATAN BROWSER INTERNAL (WhatsApp / Instagram / Line) -->
+        
+        <!-- TOGGLE BAR KHUSUS ADMIN (BISA BERALIH PRESENSI MANDIRI <-> MONITORING PEGAWAI) -->
+        <div id="adminAbsensiToggleBar" class="hidden flex items-center justify-center p-1.5 bg-slate-100 rounded-2xl max-w-sm mx-auto shadow-inner border border-slate-200">
+          <button id="btnAdminPresensiMandiri" onclick="switchAdminAbsensiMode('mandiri')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-600 hover:text-slate-900">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>Presensi Mandiri</span>
+          </button>
+          <button id="btnAdminMonitoring" onclick="switchAdminAbsensiMode('monitoring')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-emerald-700 shadow-sm">
+            <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+            <span>Monitoring Pegawai</span>
+          </button>
+        </div>
+
+        <!-- SECTION 1: PRESENSI MANDIRI WORKSPACE (PEGAWAI, FINANCIAL, & ADMIN) -->
+        <div id="sectionPresensiMandiri" class="space-y-6">
+<!-- PERINGATAN BROWSER INTERNAL (WhatsApp / Instagram / Line) -->
         <div id="inAppBrowserAlert" class="hidden bg-amber-500/10 border-2 border-amber-500/40 rounded-3xl p-4 sm:p-5 text-amber-900 shadow-sm animate-in fade-in duration-200">
           <div class="flex items-start space-x-3.5">
             <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -776,7 +791,160 @@
           </div>
         </div>
 
-      </div>
+              </div>
+
+        <!-- SECTION 2: MONITORING ABSENSI PEGAWAI (KETUA KOPERASI, PENGURUS, & ADMIN) -->
+        <div id="sectionMonitoringAbsensi" class="hidden space-y-6">
+          <!-- KPI Status Monitoring Hari Ini -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Pegawai Hadir Hari Ini</p>
+                <p id="kpiTotalHadir" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md font-semibold bg-emerald-50 text-emerald-700">Tercatat Clock-In</span>
+              </div>
+              <div class="w-11 h-11 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                <i data-lucide="users" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Hadir Tepat Waktu</p>
+                <p id="kpiTepatWaktu" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md font-semibold bg-teal-50 text-teal-700">&le; 08:30 WIB</span>
+              </div>
+              <div class="w-11 h-11 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center">
+                <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Hadir Terlambat</p>
+                <p id="kpiTerlambat" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md font-semibold bg-amber-50 text-amber-700">&gt; 08:30 WIB</span>
+              </div>
+              <div class="w-11 h-11 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                <i data-lucide="clock-alert" class="w-5 h-5"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- BAGIAN 1: DAFTAR PEGAWAI MASUK HARI INI -->
+          <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <i data-lucide="user-check" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Pegawai Yang Masuk Hari Ini</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Daftar presensi pegawai yang telah melakukan Clock-In pada hari ini.</p>
+                </div>
+              </div>
+
+              <button onclick="fetchTodayEmployeesList()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center space-x-1.5 transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Refresh Hari Ini</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                  <tr>
+                    <th class="py-3.5 px-4">NIK</th>
+                    <th class="py-3.5 px-4">Nama Pegawai</th>
+                    <th class="py-3.5 px-4">Unit Kerja</th>
+                    <th class="py-3.5 px-4 text-center">Clock-In</th>
+                    <th class="py-3.5 px-4 text-center">Clock-Out</th>
+                    <th class="py-3.5 px-4">Status Kehadiran</th>
+                    <th class="py-3.5 px-4">Jarak Terminal HLP</th>
+                    <th class="py-3.5 px-4 text-center">Bukti / Share</th>
+                  </tr>
+                </thead>
+                <tbody id="todayEmployeesTableBody" class="divide-y divide-slate-100">
+                  <tr>
+                    <td colspan="8" class="py-8 text-center text-slate-400">Memuat data pegawai hari ini...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- BAGIAN 2: RIWAYAT PEGAWAI BERDASARKAN FILTER TANGGAL -->
+          <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <i data-lucide="calendar-search" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Riwayat Presensi Pegawai Berdasarkan Filter Tanggal</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Filter dan pantau rekap presensi seluruh pegawai berdasarkan rentang waktu atau pencarian.</p>
+                </div>
+              </div>
+
+              <button onclick="printFilteredAbsensi()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition no-print" title="Cetak Rekap Presensi">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>Cetak Rekap</span>
+              </button>
+            </div>
+
+            <!-- Panel Filter Form -->
+            <div class="p-5 bg-slate-50 border-b border-slate-200">
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Dari Tanggal:</label>
+                  <input type="date" id="filterAbsensiStart" class="w-full text-xs font-medium px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Sampai Tanggal:</label>
+                  <input type="date" id="filterAbsensiEnd" class="w-full text-xs font-medium px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Cari NIK / Nama:</label>
+                  <input type="text" id="filterAbsensiSearch" placeholder="Ketik nama atau NIK..." class="w-full text-xs font-medium px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="fetchFilteredAbsensiHistory()" class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-sm">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    <span>Terapkan Filter</span>
+                  </button>
+                  <button onclick="resetAbsensiFilter()" class="py-2 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center justify-center" title="Reset Filter">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabel Hasil Filter Riwayat -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                  <tr>
+                    <th class="py-3.5 px-4">Tanggal</th>
+                    <th class="py-3.5 px-4">Nama & NIK</th>
+                    <th class="py-3.5 px-4">Unit Kerja</th>
+                    <th class="py-3.5 px-4 text-center">Clock-In</th>
+                    <th class="py-3.5 px-4 text-center">Clock-Out</th>
+                    <th class="py-3.5 px-4">Status Kehadiran</th>
+                    <th class="py-3.5 px-4">Jarak Terminal HLP</th>
+                    <th class="py-3.5 px-4">Verifikasi Wajah</th>
+                    <th class="py-3.5 px-4 text-center">Share</th>
+                  </tr>
+                </thead>
+                <tbody id="monitoringHistoryTableBody" class="divide-y divide-slate-100">
+                  <tr>
+                    <td colspan="9" class="py-8 text-center text-slate-400">Pilih rentang tanggal atau klik filter untuk memuat data...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+</div>
 
       <!-- MODAL 1: BUKTI ABSENSI & SHARE WHATSAPP -->
       <div id="modalShareWa" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1169,10 +1337,11 @@
         if (urlStr.includes('/api/register')) return callGas('registerUser', body);
         if (urlStr.includes('/api/auth/forgot-password')) return callGas('requestPasswordReset', body.email);
         if (urlStr.includes('/api/auth/reset-password')) return callGas('verifyAndResetPassword', body.email, body.otp, body.newPassword);
+        if (urlStr.includes('/api/users/role')) return callGas('updateUserRole', currentUser ? currentUser.role : 'Admin', body.rowIndex, body.newRole || body.role);
         if (urlStr.includes('/api/users/status')) return callGas('updateUserAccountStatus', currentUser ? currentUser.role : 'Admin', body.rowIndex, body.status);
         if (urlStr.includes('/api/users')) {
           const u = new URL(urlStr, window.location.href);
-          return callGas('getAllUsersList', u.searchParams.get('role') || 'Admin');
+          return callGas('getAllUsersList', u.searchParams.get('role') || (currentUser ? currentUser.role : 'Admin'));
         }
         if (urlStr.includes('/api/pengajuan/status')) return callGas('updateStatusPengajuan', body.userRole, body.rowIndex, body.newStatus);
         if (urlStr.includes('/api/pengajuan') && method === 'PUT') return callGas('editPengajuan', body.role || (currentUser ? currentUser.role : 'Admin'), body.rowIndex, body);
@@ -1186,13 +1355,16 @@
         if (urlStr.includes('/api/absensi/register-face')) return callGas('registerFaceDescriptor', body.nik, body.nama, JSON.stringify(body.descriptor));
         if (urlStr.includes('/api/absensi/clock-in')) return callGas('submitClockIn', body);
         if (urlStr.includes('/api/absensi/clock-out')) return callGas('submitClockOut', body);
+        if (urlStr.includes('/api/absensi/today-employees')) {
+          return callGas('getTodayEmployeesAttendance', currentUser ? currentUser.role : 'Admin');
+        }
         if (urlStr.includes('/api/absensi/today')) {
           const u = new URL(urlStr, window.location.href);
           return callGas('getTodayAbsensiStatus', u.searchParams.get('nik'));
         }
         if (urlStr.includes('/api/absensi/history')) {
           const u = new URL(urlStr, window.location.href);
-          return callGas('getAbsensiHistoryList', u.searchParams.get('role'), u.searchParams.get('nik'), u.searchParams.get('nama'));
+          return callGas('getAbsensiHistoryList', u.searchParams.get('role'), u.searchParams.get('nik'), u.searchParams.get('nama'), u.searchParams.get('startDate') || '', u.searchParams.get('endDate') || '', u.searchParams.get('search') || '');
         }
 
         return originalFetch(url, options);
@@ -1542,6 +1714,26 @@
       showToast('Berhasil logout.');
     }
 
+    // ================= ROLE NORMALIZATION & RBAC HELPERS =================
+    function normalizeRole(r) {
+      if (!r) return 'user';
+      const s = String(r).trim().toLowerCase();
+      if (s.includes('ketua')) return 'ketua koperasi';
+      if (s.includes('admin')) return 'admin';
+      if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+      if (s.includes('pengurus')) return 'pengurus';
+      if (s.includes('pegawai') || s.includes('karyawan')) return 'pegawai';
+      return 'user';
+    }
+    function isRoleAdmin(r) { return normalizeRole(r) === 'admin'; }
+    function isRoleKetua(r) { return normalizeRole(r) === 'ketua koperasi'; }
+    function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
+    function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
+    function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
+    function isRoleAnggota(r) { return normalizeRole(r) === 'user'; }
+
+    let currentAdminAbsensiMode = 'monitoring'; // 'mandiri' | 'monitoring'
+
     // ================= APP INITIALIZATION =================
     function initApp() {
       document.getElementById('authContainer').classList.add('hidden');
@@ -1549,37 +1741,65 @@
 
       document.getElementById('userGreeting').innerText = currentUser.nama || currentUser.username;
       const roleBadge = document.getElementById('userBadgeRole');
-      roleBadge.innerText = currentUser.role;
+      roleBadge.innerText = currentUser.role || 'User';
       
       const tabFormBtn = document.getElementById('tabFormBtn');
       const tabUsersBtn = document.getElementById('tabUsersBtn');
+      const tabAbsensiBtn = document.getElementById('tabAbsensiBtn');
+      const tabAbsensiLabel = document.getElementById('tabAbsensiLabel');
+      const tabAbsensiLabelSm = document.getElementById('tabAbsensiLabelSm');
 
-      // TAMPILAN TAB SESUAI ROLE & HIERARKI
-      if (currentUser.role === 'Admin') {
-        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase";
+      const role = normalizeRole(currentUser.role);
+
+      // TAMPILAN ROLE BADGE SESUAI 6 PERAN SISTEM
+      if (role === 'admin') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase";
+      } else if (role === 'ketua koperasi') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 uppercase";
+      } else if (role === 'financial') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase";
+      } else if (role === 'pengurus') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
+      } else if (role === 'pegawai') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 uppercase";
+      } else {
+        // Anggota / User
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase";
+      }
+
+      // 1. Tab Form Input Pinjaman (Admin, Ketua Koperasi, Financial)
+      if (role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
         tabFormBtn.style.display = 'inline-flex';
         tabFormBtn.disabled = false;
+      } else {
+        tabFormBtn.style.display = 'none';
+        tabFormBtn.disabled = true;
+      }
+
+      // 2. Tab Validasi Akun (Admin & Ketua Koperasi)
+      if (role === 'admin' || role === 'ketua koperasi') {
         tabUsersBtn.style.display = 'inline-flex';
         tabUsersBtn.disabled = false;
-      } else if (currentUser.role === 'Financial') {
-        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase";
-        tabFormBtn.style.display = 'inline-flex';
-        tabFormBtn.disabled = false;
-        tabUsersBtn.style.display = 'none';
-        tabUsersBtn.disabled = true;
-      } else if (currentUser.role === 'Pengurus') {
-        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
-        tabFormBtn.style.display = 'none';
-        tabFormBtn.disabled = true;
-        tabUsersBtn.style.display = 'none';
-        tabUsersBtn.disabled = true;
       } else {
-        // Role = User (Anggota)
-        roleBadge.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase";
-        tabFormBtn.style.display = 'none';
-        tabFormBtn.disabled = true;
         tabUsersBtn.style.display = 'none';
         tabUsersBtn.disabled = true;
+      }
+
+      // 3. Tab Absensi (Pegawai, Financial, Admin, Ketua Koperasi, Pengurus) - HIDDEN UNTUK ANGGOTA / USER
+      if (role === 'user') {
+        tabAbsensiBtn.style.display = 'none';
+        tabAbsensiBtn.disabled = true;
+      } else {
+        tabAbsensiBtn.style.display = 'inline-flex';
+        tabAbsensiBtn.disabled = false;
+
+        if (role === 'ketua koperasi' || role === 'pengurus') {
+          if (tabAbsensiLabel) tabAbsensiLabel.innerText = "Monitoring Absensi (HLP)";
+          if (tabAbsensiLabelSm) tabAbsensiLabelSm.innerText = "Monitoring";
+        } else {
+          if (tabAbsensiLabel) tabAbsensiLabel.innerText = "Absensi Pegawai (HLP)";
+          if (tabAbsensiLabelSm) tabAbsensiLabelSm.innerText = "Absen";
+        }
       }
 
       lucide.createIcons();
@@ -1587,11 +1807,18 @@
     }
 
     function switchTab(tab) {
-      if (tab === 'users' && (!currentUser || currentUser.role !== 'Admin')) {
+      const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+
+      // Strict RBAC tab guards
+      if (tab === 'users' && role !== 'admin' && role !== 'ketua koperasi') {
         tab = 'tracking';
       }
-      if (tab === 'form' && (!currentUser || (currentUser.role !== 'Admin' && currentUser.role !== 'Financial'))) {
+      if (tab === 'form' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial') {
         tab = 'tracking';
+      }
+      if (tab === 'absensi' && role === 'user') {
+        tab = 'tracking';
+        showToast('Akses ditolak: Anggota koperasi tidak memiliki akses ke tab absensi.', true);
       }
 
       document.getElementById('viewTracking').classList.toggle('hidden', tab !== 'tracking');
@@ -1609,25 +1836,20 @@
 
       trackBtn.className = (tab === 'tracking' ? activeClass : inactiveClass) + " flex";
       if (absensiBtn) absensiBtn.className = (tab === 'absensi' ? activeClass : inactiveClass) + " flex";
-      
-      if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Financial')) {
-        formBtn.className = (tab === 'form' ? activeClass : inactiveClass) + " flex";
-      }
-      if (currentUser && currentUser.role === 'Admin') {
-        usersBtn.className = (tab === 'users' ? activeClass : inactiveClass) + " flex";
-      }
+      if (formBtn) formBtn.className = (tab === 'form' ? activeClass : inactiveClass) + " flex";
+      if (usersBtn) usersBtn.className = (tab === 'users' ? activeClass : inactiveClass) + " flex";
 
       if (tab === 'tracking') fetchData();
-      if (tab === 'users' && currentUser && currentUser.role === 'Admin') fetchUsersList();
+      if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi')) fetchUsersList();
       if (tab === 'absensi') onEnterAbsensiTab();
       else onLeaveAbsensiTab();
 
       lucide.createIcons();
     }
 
-    // ================= ADMIN: USER APPROVAL MANAGEMENT =================
+    // ================= ADMIN & KETUA KOPERASI: USER APPROVAL MANAGEMENT =================
     async function fetchUsersList() {
-      if (!currentUser || currentUser.role !== 'Admin') return;
+      if (!currentUser || (!isRoleAdmin(currentUser.role) && !isRoleKetua(currentUser.role))) return;
 
       const tbody = document.getElementById('userTableBody');
       tbody.innerHTML = `
@@ -1641,7 +1863,7 @@
       lucide.createIcons();
 
       try {
-        const res = await fetch(API_BASE + '/api/users?role=Admin');
+        const res = await fetch(API_BASE + '/api/users?role=' + encodeURIComponent(currentUser.role));
         const json = await res.json();
         if (json.success) {
           usersList = (json.data || []).map(u => ({
@@ -1671,6 +1893,9 @@
         return;
       }
 
+      const canManage = isRoleAdmin(currentUser.role) || isRoleKetua(currentUser.role);
+      const availableRoles = ['Admin', 'Ketua Koperasi', 'Financial', 'Pengurus', 'Pegawai', 'User'];
+
       tbody.innerHTML = usersList.map(u => {
         const status = String(u.accountStatus || 'Pending').trim();
         
@@ -1687,17 +1912,30 @@
           statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${status}</span>`;
         }
 
+        // Dropdown Role Assignment
+        let roleDisplay = '';
+        const isSelf = currentUser && (u.username === currentUser.username);
+        if (canManage && !isSelf && u.role !== 'Admin') {
+          roleDisplay = `
+            <select onchange="changeUserRole('${u.username}', this.value, ${u.rowIndex || 0})" class="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer">
+              ${availableRoles.map(r => `<option value="${r}" ${String(u.role).toLowerCase() === r.toLowerCase() ? 'selected' : ''}>${r === 'User' ? 'Anggota / User' : r}</option>`).join('')}
+            </select>
+          `;
+        } else {
+          roleDisplay = `<span class="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">${u.role}${isSelf ? ' (Anda)' : ''}</span>`;
+        }
+
         let actionButtons = '';
         if (u.role === 'Admin') {
           actionButtons = `<span class="text-xs text-slate-400 italic">Superadmin</span>`;
         } else if (status === 'Pending') {
           actionButtons = `
             <div class="flex items-center justify-center space-x-1.5">
-              <button onclick="changeUserStatus('${u.username}', 'Active')" title="Setujui dan Aktifkan Akun" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-sm">
+              <button onclick="changeUserStatus('${u.username}', 'Active', ${u.rowIndex || 0})" title="Setujui dan Aktifkan Akun" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-sm">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Approve</span>
               </button>
-              <button onclick="changeUserStatus('${u.username}', 'Rejected')" title="Tolak dan Disable Akun" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+              <button onclick="changeUserStatus('${u.username}', 'Rejected', ${u.rowIndex || 0})" title="Tolak dan Disable Akun" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
                 <i data-lucide="x" class="w-3.5 h-3.5"></i>
                 <span>Reject</span>
               </button>
@@ -1706,7 +1944,7 @@
         } else if (status === 'Active') {
           actionButtons = `
             <div class="flex items-center justify-center">
-              <button onclick="changeUserStatus('${u.username}', 'Deactive')" title="Nonaktifkan Akun" class="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+              <button onclick="changeUserStatus('${u.username}', 'Deactive', ${u.rowIndex || 0})" title="Nonaktifkan Akun" class="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
                 <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
                 <span>Deactivate</span>
               </button>
@@ -1715,7 +1953,7 @@
         } else if (status === 'Deactive' || status === 'Rejected') {
           actionButtons = `
             <div class="flex items-center justify-center">
-              <button onclick="changeUserStatus('${u.username}', 'Active')" title="Aktifkan Kembali Akun" class="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+              <button onclick="changeUserStatus('${u.username}', 'Active', ${u.rowIndex || 0})" title="Aktifkan Kembali Akun" class="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
                 <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
                 <span>Aktifkan Kembali</span>
               </button>
@@ -1730,9 +1968,7 @@
             <td class="py-3.5 px-4 text-slate-600 text-xs">${u.nik}</td>
             <td class="py-3.5 px-4 text-xs font-mono text-slate-700">${u.username}</td>
             <td class="py-3.5 px-4 text-xs text-slate-500">${u.email}</td>
-            <td class="py-3.5 px-4">
-              <span class="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">${u.role}</span>
-            </td>
+            <td class="py-3.5 px-4">${roleDisplay}</td>
             <td class="py-3.5 px-4 text-center">
               ${actionButtons}
             </td>
@@ -1743,15 +1979,20 @@
       lucide.createIcons();
     }
 
-    async function changeUserStatus(username, newStatus) {
-      if (!currentUser || currentUser.role !== 'Admin') return;
+    async function changeUserStatus(username, newStatus, rowIndex = 0) {
+      if (!currentUser || (!isRoleAdmin(currentUser.role) && !isRoleKetua(currentUser.role))) return;
 
       showToast('Memproses status user...');
       try {
         const res = await fetch(API_BASE + '/api/users/status', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, status: newStatus })
+          body: JSON.stringify({
+            username,
+            status: newStatus,
+            requestingRole: currentUser.role,
+            rowIndex
+          })
         });
         const data = await res.json();
         if (data.success) {
@@ -1762,6 +2003,36 @@
         }
       } catch (err) {
         showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function changeUserRole(username, newRole, rowIndex = 0) {
+      if (!currentUser || (!isRoleAdmin(currentUser.role) && !isRoleKetua(currentUser.role))) return;
+
+      showToast(`Mengubah role ${username} ke ${newRole}...`);
+      try {
+        const res = await fetch(API_BASE + '/api/users/role', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username,
+            newRole,
+            role: newRole,
+            requestingRole: currentUser.role,
+            rowIndex
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || `Role ${username} berhasil diubah ke ${newRole}`);
+          fetchUsersList();
+        } else {
+          showToast(data.message || 'Gagal memperbarui role', true);
+          fetchUsersList();
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+        fetchUsersList();
       }
     }
 
@@ -1781,7 +2052,7 @@
       if (!currentUser) return;
 
       let url = API_BASE + '/api/pengajuan?role=' + encodeURIComponent(currentUser.role);
-      if (currentUser.role === 'User') {
+      if (isRoleAnggota(currentUser.role) || isRolePegawai(currentUser.role)) {
         url += '&nik=' + encodeURIComponent(currentUser.nik || '') + '&nama=' + encodeURIComponent(currentUser.nama || '');
       }
 
@@ -1846,14 +2117,14 @@
     }
     function goToPage(page) { currentPage = page; renderTable(); }
 
-    // LOGIKA TAMPILAN STATUS / APPROVAL SESUAI HIERARKI BARU
+    // LOGIKA TAMPILAN STATUS / APPROVAL SESUAI HIERARKI 6 ROLE BARU
     function getStatusBadge(status, rowIndex) {
       const st = String(status || 'Created').trim();
+      const role = currentUser ? normalizeRole(currentUser.role) : 'user';
 
-      // 1. TAMPILAN KHUSUS ROLE PENGURUS (APPROVAL WORKFLOW)
-      if (currentUser && currentUser.role === 'Pengurus') {
+      // 1. TAMPILAN ROLE PENGURUS & KETUA KOPERASI (APPROVAL WORKFLOW)
+      if (role === 'pengurus' || role === 'ketua koperasi') {
         if (st === 'Created') {
-          // Status Created -> Pengurus memiliki tombol Approve & Reject
           return `
             <div class="flex items-center space-x-1.5">
               <button onclick="changeStatus(${rowIndex}, 'On Process')" title="Setujui Pinjaman Ini" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-sm">
@@ -1875,8 +2146,28 @@
         }
       }
 
-      // 2. TAMPILAN ROLE USER (HANYA MELIHAT PROGRES PINJAMAN SENDIRI)
-      if (currentUser && currentUser.role === 'User') {
+      // 2. TAMPILAN ROLE FINANCIAL (EKSEKUSI PENCAIRAN / TRANSFER)
+      if (role === 'financial') {
+        if (st === 'Created') {
+          return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">⏳ Menunggu Approval Pengurus</span>`;
+        } else if (st === 'On Process') {
+          return `
+            <div class="flex items-center space-x-1.5">
+              <button onclick="changeStatus(${rowIndex}, 'Done')" title="Tandai Sudah Ditransfer" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition shadow-sm">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                <span>Tandai Selesai (Done)</span>
+              </button>
+            </div>
+          `;
+        } else if (st === 'Done') {
+          return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✅ Selesai Ditransfer</span>`;
+        } else if (st === 'Rejected') {
+          return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200">❌ Ditolak Pengurus</span>`;
+        }
+      }
+
+      // 3. TAMPILAN ROLE USER & PEGAWAI (PROGRES PENGAJUAN SENDIRI)
+      if (role === 'user' || role === 'pegawai') {
         let label = '⏳ Menunggu Approval Pengurus';
         let style = 'bg-amber-50 text-amber-700 border-amber-200';
         
@@ -1894,7 +2185,7 @@
         return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${style}">${label}</span>`;
       }
 
-      // 3. TAMPILAN ROLE FINANCE & ADMIN (DROPDOWN UPDATE STATUS PROSES/TRANSFER)
+      // 4. TAMPILAN ROLE ADMIN (SUPERADMIN BISA UBAH STATUS APA SAJA)
       let colorStyle = "bg-amber-50 text-amber-700 border-amber-200";
       if (st === 'On Process') colorStyle = "bg-blue-50 text-blue-700 border-blue-200";
       if (st === 'Done') colorStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
@@ -2393,14 +2684,301 @@
 
     // Saat Tab Absensi Dibuka
     function onEnterAbsensiTab() {
-      startLiveClock();
-      initAbsensiMap();
-      checkMobilePermissionsState();
-      getUserCurrentLocation(false);
-      fetchTodayAbsensi();
-      fetchAbsensiHistory();
-      loadFaceDescriptorsList();
-      preloadFaceApiModels();
+      if (!currentUser) return;
+      const role = normalizeRole(currentUser.role);
+      if (role === 'user') {
+        switchTab('tracking');
+        return;
+      }
+
+      const secMandiri = document.getElementById('sectionPresensiMandiri');
+      const secMonitoring = document.getElementById('sectionMonitoringAbsensi');
+      const adminToggle = document.getElementById('adminAbsensiToggleBar');
+      const titleHeader = document.getElementById('absensiHeaderTitle');
+      const descHeader = document.getElementById('absensiHeaderDesc');
+
+      if (role === 'ketua koperasi' || role === 'pengurus') {
+        // EXECUTIVE REVIEWER: Langsung tampilkan Monitoring Pegawai
+        if (adminToggle) adminToggle.classList.add('hidden');
+        if (secMandiri) secMandiri.classList.add('hidden');
+        if (secMonitoring) secMonitoring.classList.remove('hidden');
+
+        if (titleHeader) titleHeader.innerText = 'Monitoring Kehadiran Pegawai';
+        if (descHeader) descHeader.innerText = 'Pantau daftar pegawai yang masuk hari ini secara realtime serta riwayat presensi berdasarkan rentang tanggal.';
+        
+        stopWebcam();
+        fetchTodayEmployeesList();
+        fetchFilteredAbsensiHistory();
+      } else if (role === 'pegawai' || role === 'financial') {
+        // WORKFORCE: Presensi Mandiri (Kamera + GPS Halim)
+        if (adminToggle) adminToggle.classList.add('hidden');
+        if (secMonitoring) secMonitoring.classList.add('hidden');
+        if (secMandiri) secMandiri.classList.remove('hidden');
+
+        if (titleHeader) titleHeader.innerText = 'Presensi Kehadiran Karyawan';
+        if (descHeader) descHeader.innerText = 'Sistem absensi mandiri terintegrasi Face Recognition AI dan validasi radius geofencing 1 KM dari Terminal Bandara Halim.';
+
+        startLiveClock();
+        initAbsensiMap();
+        checkMobilePermissionsState();
+        getUserCurrentLocation(false);
+        fetchTodayAbsensi();
+        fetchAbsensiHistory();
+        loadFaceDescriptorsList();
+        preloadFaceApiModels();
+      } else if (role === 'admin') {
+        // SUPERADMIN: Bisa beralih Presensi Mandiri atau Monitoring Pegawai
+        if (adminToggle) adminToggle.classList.remove('hidden');
+        renderAdminAbsensiView();
+      }
+
+      lucide.createIcons();
+    }
+
+    function switchAdminAbsensiMode(mode) {
+      currentAdminAbsensiMode = mode;
+      renderAdminAbsensiView();
+    }
+
+    function renderAdminAbsensiView() {
+      const secMandiri = document.getElementById('sectionPresensiMandiri');
+      const secMonitoring = document.getElementById('sectionMonitoringAbsensi');
+      const btnMandiri = document.getElementById('btnAdminPresensiMandiri');
+      const btnMonitoring = document.getElementById('btnAdminMonitoring');
+      const titleHeader = document.getElementById('absensiHeaderTitle');
+      const descHeader = document.getElementById('absensiHeaderDesc');
+
+      const activeBtn = "flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-white text-emerald-700 shadow-sm";
+      const inactiveBtn = "flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-600 hover:text-slate-900";
+
+      if (currentAdminAbsensiMode === 'mandiri') {
+        if (btnMandiri) btnMandiri.className = activeBtn;
+        if (btnMonitoring) btnMonitoring.className = inactiveBtn;
+        if (secMandiri) secMandiri.classList.remove('hidden');
+        if (secMonitoring) secMonitoring.classList.add('hidden');
+
+        if (titleHeader) titleHeader.innerText = 'Presensi Kehadiran Karyawan (Mode Mandiri)';
+        if (descHeader) descHeader.innerText = 'Presensi mandiri Admin dengan Face Recognition AI dan validasi radius geofencing 1 KM dari Terminal Bandara Halim.';
+
+        startLiveClock();
+        initAbsensiMap();
+        checkMobilePermissionsState();
+        getUserCurrentLocation(false);
+        fetchTodayAbsensi();
+        fetchAbsensiHistory();
+        loadFaceDescriptorsList();
+        preloadFaceApiModels();
+      } else {
+        if (btnMandiri) btnMandiri.className = inactiveBtn;
+        if (btnMonitoring) btnMonitoring.className = activeBtn;
+        if (secMandiri) secMandiri.classList.add('hidden');
+        if (secMonitoring) secMonitoring.classList.remove('hidden');
+
+        if (titleHeader) titleHeader.innerText = 'Monitoring Kehadiran Pegawai (Mode Admin)';
+        if (descHeader) descHeader.innerText = 'Pantau daftar pegawai yang masuk hari ini secara realtime serta riwayat presensi berdasarkan rentang tanggal.';
+
+        stopWebcam();
+        fetchTodayEmployeesList();
+        fetchFilteredAbsensiHistory();
+      }
+      lucide.createIcons();
+    }
+
+    // ================= MONITORING PRESENSI: REALTIME TODAY & DATE FILTER =================
+    let todayEmployeesData = [];
+    let filteredAbsensiData = [];
+
+    async function fetchTodayEmployeesList() {
+      const tbody = document.getElementById('todayEmployeesTableBody');
+      if (!tbody) return;
+
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="py-8 text-center text-slate-400">
+            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
+            Memuat daftar pegawai yang hadir hari ini...
+          </td>
+        </tr>
+      `;
+      lucide.createIcons();
+
+      try {
+        const roleParam = encodeURIComponent(currentUser ? currentUser.role : 'Admin');
+        const res = await fetch(API_BASE + `/api/absensi/today-employees?role=${roleParam}`);
+        const json = await res.json();
+
+        if (json.success) {
+          todayEmployeesData = json.data || [];
+          const summary = json.summary || { totalHadir: todayEmployeesData.length, tepatWaktu: 0, terlambat: 0 };
+
+          const kpiTotal = document.getElementById('kpiTotalHadir');
+          const kpiTepat = document.getElementById('kpiTepatWaktu');
+          const kpiLambat = document.getElementById('kpiTerlambat');
+          if (kpiTotal) kpiTotal.innerText = summary.totalHadir;
+          if (kpiTepat) kpiTepat.innerText = summary.tepatWaktu;
+          if (kpiLambat) kpiLambat.innerText = summary.terlambat;
+
+          if (todayEmployeesData.length === 0) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="8" class="py-8 text-center text-slate-400 text-sm">
+                  Belum ada pegawai yang melakukan clock-in pada hari ini.
+                </td>
+              </tr>
+            `;
+            return;
+          }
+
+          tbody.innerHTML = todayEmployeesData.map(item => {
+            const ticketObj = {
+              nama: item.nama,
+              nik: item.nik,
+              jenis: (item.clockOut && item.clockOut !== '-') ? 'Clock-In & Clock-Out' : 'Clock-In',
+              waktu: `Masuk: ${item.clockIn} | Pulang: ${item.clockOut}`,
+              tanggal: item.tanggal,
+              status: item.statusKehadiran,
+              jarak: item.jarakMeters,
+              faceStatus: item.faceVerified
+            };
+            const ticketJson = encodeURIComponent(JSON.stringify(ticketObj));
+
+            const isTepat = item.statusKehadiran === 'Hadir Tepat Waktu';
+            const badgeColor = isTepat ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200';
+
+            return `
+              <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+                <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-900">${item.nik || '-'}</td>
+                <td class="py-3.5 px-4 font-bold text-slate-900">${item.nama || '-'}</td>
+                <td class="py-3.5 px-4 text-xs text-slate-600">${item.unitKerja || '-'}</td>
+                <td class="py-3.5 px-4 text-center font-mono font-bold text-emerald-700 whitespace-nowrap">${item.clockIn || '-'}</td>
+                <td class="py-3.5 px-4 text-center font-mono font-bold text-blue-700 whitespace-nowrap">${item.clockOut || '-'}</td>
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${badgeColor}">
+                    ${item.statusKehadiran || '-'}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-xs font-mono text-slate-700 whitespace-nowrap">${(Number(item.jarakMeters) || 0).toLocaleString('id-ID')} m</td>
+                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                  <button onclick="shareTicketViaWhatsApp(JSON.parse(decodeURIComponent('${ticketJson}')))" class="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition border border-emerald-200 inline-flex items-center space-x-1" title="Share Bukti Presensi ke WhatsApp">
+                    <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                    <span>WA</span>
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+          lucide.createIcons();
+        } else {
+          tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">Gagal memuat: ${json.message}</td></tr>`;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">Error koneksi: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function fetchFilteredAbsensiHistory() {
+      const tbody = document.getElementById('monitoringHistoryTableBody');
+      if (!tbody) return;
+
+      const startDate = document.getElementById('filterAbsensiStart') ? document.getElementById('filterAbsensiStart').value : '';
+      const endDate = document.getElementById('filterAbsensiEnd') ? document.getElementById('filterAbsensiEnd').value : '';
+      const search = document.getElementById('filterAbsensiSearch') ? document.getElementById('filterAbsensiSearch').value.trim() : '';
+
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" class="py-8 text-center text-slate-400">
+            <div class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-5 h-5"></i></div>
+            Memuat riwayat presensi pegawai...
+          </td>
+        </tr>
+      `;
+      lucide.createIcons();
+
+      try {
+        const roleParam = encodeURIComponent(currentUser ? currentUser.role : 'Admin');
+        let url = API_BASE + `/api/absensi/history?role=${roleParam}`;
+        if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json.success) {
+          filteredAbsensiData = json.data || [];
+          if (filteredAbsensiData.length === 0) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="9" class="py-8 text-center text-slate-400 text-sm">
+                  Tidak ada data riwayat absensi yang cocok dengan filter.
+                </td>
+              </tr>
+            `;
+            return;
+          }
+
+          tbody.innerHTML = filteredAbsensiData.map(item => {
+            const ticketObj = {
+              nama: item.nama,
+              nik: item.nik,
+              jenis: (item.clockOut && item.clockOut !== '-') ? 'Clock-In & Clock-Out' : 'Clock-In',
+              waktu: `Masuk: ${item.clockIn} | Pulang: ${item.clockOut}`,
+              tanggal: item.tanggal,
+              status: item.statusKehadiran,
+              jarak: item.jarakMeters,
+              faceStatus: item.faceVerified
+            };
+            const ticketJson = encodeURIComponent(JSON.stringify(ticketObj));
+
+            const isTepat = item.statusKehadiran === 'Hadir Tepat Waktu';
+            const badgeColor = isTepat ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200';
+
+            return `
+              <tr class="hover:bg-slate-50/80 transition border-b border-slate-100">
+                <td class="py-3.5 px-4 font-mono text-xs font-semibold text-slate-900 whitespace-nowrap">${item.tanggal || '-'}</td>
+                <td class="py-3.5 px-4">
+                  <div class="font-bold text-slate-900">${item.nama || '-'}</div>
+                  <div class="text-xs text-slate-500 font-mono">${item.nik || '-'}</div>
+                </td>
+                <td class="py-3.5 px-4 text-xs text-slate-600">${item.unitKerja || '-'}</td>
+                <td class="py-3.5 px-4 text-center font-mono font-bold text-emerald-700 whitespace-nowrap">${item.clockIn || '-'}</td>
+                <td class="py-3.5 px-4 text-center font-mono font-bold text-blue-700 whitespace-nowrap">${item.clockOut || '-'}</td>
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${badgeColor}">
+                    ${item.statusKehadiran || '-'}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-xs font-mono text-slate-700 whitespace-nowrap">${(Number(item.jarakMeters) || 0).toLocaleString('id-ID')} m</td>
+                <td class="py-3.5 px-4 text-xs whitespace-nowrap">
+                  <span class="text-emerald-700 font-medium">${item.faceVerified || 'Terverifikasi ✅'}</span>
+                </td>
+                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                  <button onclick="shareTicketViaWhatsApp(JSON.parse(decodeURIComponent('${ticketJson}')))" class="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold transition border border-emerald-200 inline-flex items-center space-x-1" title="Share Bukti Presensi ke WhatsApp">
+                    <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                    <span>WA</span>
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+          lucide.createIcons();
+        } else {
+          tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-red-500">Gagal memuat riwayat: ${json.message}</td></tr>`;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-red-500">Error koneksi: ${err.message}</td></tr>`;
+      }
+    }
+
+    function resetAbsensiFilter() {
+      if (document.getElementById('filterAbsensiStart')) document.getElementById('filterAbsensiStart').value = '';
+      if (document.getElementById('filterAbsensiEnd')) document.getElementById('filterAbsensiEnd').value = '';
+      if (document.getElementById('filterAbsensiSearch')) document.getElementById('filterAbsensiSearch').value = '';
+      fetchFilteredAbsensiHistory();
+    }
+
+    function printFilteredAbsensi() {
+      window.print();
     }
 
     // Saat Meninggalkan Tab Absensi (Matikan kamera untuk hemat baterai/privasi)
