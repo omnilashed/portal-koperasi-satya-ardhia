@@ -153,7 +153,7 @@ function getAllUsersList(requestingUserRole) {
       rowIndex: index + 2,
       username: row[0],
       role: row[2] || 'User',
-      nama: row[3] || '-',
+      namaLengkap: row[3] || '-',
       nik: row[4] || '-',
       email: row[5] || '-',
       accountStatus: row[7] ? String(row[7]).trim() : (row[2] === 'Admin' ? 'Active' : 'Pending')

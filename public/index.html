@@ -3664,7 +3664,7 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
       if (!currentUser) return;
 
       let url = API_BASE + '/api/absensi/history?role=' + encodeURIComponent(currentUser.role);
-      if (currentUser.role === 'User') {
+      if (isRolePegawai(currentUser.role) || isRoleFinancial(currentUser.role) || isRoleAnggota(currentUser.role)) {
         url += '&nik=' + encodeURIComponent(currentUser.nik || '') + '&nama=' + encodeURIComponent(currentUser.nama || '');
       }
 
