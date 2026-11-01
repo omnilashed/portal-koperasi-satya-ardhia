@@ -12,6 +12,7 @@
   <!-- Leaflet CSS & JS for Geofencing Halim Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
   <!-- Face-API.js for Browser Face Recognition -->
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
@@ -293,6 +294,13 @@
               <i data-lucide="scan-face" class="w-4 h-4"></i>
               <span id="tabAbsensiLabel" class="hidden sm:inline">Absensi Pegawai (HLP)</span>
               <span id="tabAbsensiLabelSm" class="sm:hidden">Absen</span>
+            </button>
+
+            <!-- Tab 3: Data Operasional & Dashboard (Executive Car, Air Minum Sender, Admin, Ketua, Pengurus) -->
+            <button id="tabOperasionalBtn" onclick="switchTab('operasional')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+              <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
+              <span id="tabOperasionalLabel" class="hidden sm:inline">Data Operasional</span>
+              <span id="tabOperasionalLabelSm" class="sm:hidden">Operasional</span>
             </button>
 
             <!-- Tab 2: Form Input Baru (Hanya Admin & Financial, Hidden untuk User & Pengurus) -->
@@ -1119,10 +1127,14 @@
           </div>
 
           <!-- Action Buttons -->
-          <div class="flex gap-3">
-            <button onclick="closeClockErrorModal()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center space-x-2">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-              <span>Coba Lagi</span>
+          <div class="flex flex-col sm:flex-row gap-2.5">
+            <button id="btnClockErrorGoOps" onclick="closeClockErrorModal(); switchTab('operasional');" class="hidden flex-1 py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-amber-600/20 transition-all flex items-center justify-center space-x-2">
+              <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
+              <span>Isi Data Operasional Sekarang</span>
+            </button>
+            <button onclick="closeClockErrorModal()" class="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center space-x-2">
+              <i data-lucide="x" class="w-4 h-4"></i>
+              <span>Tutup</span>
             </button>
           </div>
         </div>
@@ -1360,6 +1372,436 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- VIEW 5: DATA OPERASIONAL & DASHBOARD (EXECUTIVE CAR, AIR MINUM SENDER, ADMIN, KETUA, PENGURUS) -->
+      <div id="viewOperasional" class="hidden space-y-6">
+        
+        <!-- Header View Operasional -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl text-white p-6 sm:p-8 shadow-xl relative overflow-hidden border border-slate-800">
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div class="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
+                <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span id="opsHeaderBadge">Portal Operasional Terpadu HLP</span>
+              </div>
+              <h2 id="opsHeaderTitle" class="text-2xl sm:text-3xl font-extrabold tracking-tight">Data Operasional</h2>
+              <p id="opsHeaderDesc" class="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
+                Catat dan pantau aktivitas operasional harian secara realtime dan terintegrasi dengan sistem presensi.
+              </p>
+            </div>
+
+            <!-- Status Wajib Diisi Hari Ini (Khusus Executive Car & Air Minum Sender) -->
+            <div id="opsStatusBadgeContainer" class="hidden bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex items-center space-x-3.5">
+              <div id="opsStatusIcon" class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="alert-circle" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <p class="text-[11px] text-slate-300 uppercase font-semibold">Syarat Clock-Out Presensi</p>
+                <p id="opsStatusText" class="text-xs sm:text-sm font-bold text-white">Memeriksa status...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. SECTION KHUSUS ROLE: EXECUTIVE CAR -->
+        <div id="sectionOpsExecutiveCar" class="hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Form Input (5 Kolom) -->
+            <div class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-6">
+              <div class="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
+                <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <i data-lucide="car" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Input Penggunaan Mobil</h3>
+                  <p class="text-xs text-slate-500">Wajib diisi sebelum melakukan Clock-Out harian.</p>
+                </div>
+              </div>
+
+              <form onsubmit="handleCarSubmit(event)" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">User / Kategori Pengguna <span class="text-red-500">*</span></label>
+                  <select id="carInputKategori" onchange="handleCarKategoriChange(this.value)" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-medium">
+                    <option value="UMUM">UMUM</option>
+                    <option value="DPR-RI">DPR-RI</option>
+                    <option value="FOC">FOC</option>
+                    <option value="FS-PICA">FS-PICA</option>
+                    <option value="PRIVATE JET">PRIVATE JET</option>
+                    <option value="Lain-lain">Lain-lain</option>
+                  </select>
+                </div>
+
+                <div id="carInputDetailContainer" class="hidden">
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Tulis Kategori Lain-Lain <span class="text-red-500">*</span></label>
+                  <input type="text" id="carInputDetail" placeholder="Contoh: Tamu Direksi / Maskapai Khusus" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Berapa Pax (Penumpang) <span class="text-red-500">*</span></label>
+                  <input type="number" id="carInputPax" min="1" step="1" required placeholder="Contoh: 3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-900">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Rute / Catatan Tambahan (Opsional)</label>
+                  <input type="text" id="carInputCatatan" placeholder="Contoh: Terminal VIP HLP - Bandara Soetta" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+
+                <button type="submit" id="btnSubmitCar" class="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-200 transition flex items-center justify-center space-x-2">
+                  <i data-lucide="save" class="w-4 h-4"></i>
+                  <span>Simpan Data Penggunaan Mobil</span>
+                </button>
+              </form>
+            </div>
+
+            <!-- Tabel Riwayat Hari Ini (7 Kolom) -->
+            <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+              <div>
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                      <i data-lucide="history" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h4 class="font-bold text-slate-900 text-sm">Riwayat Penggunaan Mobil Hari Ini</h4>
+                      <p class="text-[11px] text-slate-500">Catatan aktivitas Anda pada tanggal hari ini.</p>
+                    </div>
+                  </div>
+                  <button onclick="fetchCarHistory(true)" class="p-2 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 flex items-center space-x-1" title="Perbarui Data">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                      <tr>
+                        <th class="py-3 px-4">Jam</th>
+                        <th class="py-3 px-4">Kategori User</th>
+                        <th class="py-3 px-4 text-center">Pax</th>
+                        <th class="py-3 px-4">Rute / Catatan</th>
+                      </tr>
+                    </thead>
+                    <tbody id="carTodayTableBody" class="divide-y divide-slate-100 text-xs">
+                      <tr><td colspan="4" class="py-6 text-center text-slate-400">Memuat data...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Footer KPI -->
+              <div class="p-4 bg-amber-50/60 border-t border-amber-100/60 flex items-center justify-between text-xs font-semibold text-amber-900 rounded-b-3xl">
+                <span>Total Pax Anda Hari Ini:</span>
+                <span id="carTodayTotalPax" class="text-sm font-bold bg-amber-200/80 px-2.5 py-0.5 rounded-lg text-amber-900">0 Pax</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. SECTION KHUSUS ROLE: AIR MINUM SENDER -->
+        <div id="sectionOpsAirMinum" class="hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Form Input (5 Kolom) -->
+            <div class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-6">
+              <div class="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
+                <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                  <i data-lucide="droplets" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Input Pengantaran Galon</h3>
+                  <p class="text-xs text-slate-500">Wajib diisi sebelum pulang (Clock-Out).</p>
+                </div>
+              </div>
+
+              <form onsubmit="handleAirSubmit(event)" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">User / Penerima <span class="text-red-500">*</span></label>
+                  <select id="airInputKategori" onchange="handleAirKategoriChange(this.value)" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white font-medium">
+                    <option value="ATS">ATS</option>
+                    <option value="API">API</option>
+                    <option value="Tenant">Tenant (Tulis nama tenant)</option>
+                    <option value="Stakeholder">Stakeholder (Tulis nama stakeholder)</option>
+                  </select>
+                </div>
+
+                <div id="airInputDetailContainer" class="hidden">
+                  <label id="airInputDetailLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Nama Tenant / Stakeholder <span class="text-red-500">*</span></label>
+                  <input type="text" id="airInputDetail" placeholder="Contoh: Roti O / Angkasa Pura" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Berapa Galon Yang Diantar <span class="text-red-500">*</span></label>
+                  <input type="number" id="airInputGalon" min="1" step="1" required placeholder="Contoh: 10" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold text-slate-900">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Metode Pembayaran <span class="text-red-500">*</span></label>
+                  <select id="airInputMetode" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white font-medium">
+                    <option value="Cash">Cash (Tunai)</option>
+                    <option value="QRIS">QRIS</option>
+                    <option value="Pembayaran di Akhir Bulan">Pembayaran di Akhir Bulan (Invoice / Tempo)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Catatan Tambahan (Opsional)</label>
+                  <input type="text" id="airInputCatatan" placeholder="Contoh: Lantai 2 Pos Operasional" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                </div>
+
+                <button type="submit" id="btnSubmitAir" class="w-full py-3 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-md shadow-sky-200 transition flex items-center justify-center space-x-2">
+                  <i data-lucide="save" class="w-4 h-4"></i>
+                  <span>Simpan Data Pengantaran Galon</span>
+                </button>
+              </form>
+            </div>
+
+            <!-- Tabel Riwayat Hari Ini (7 Kolom) -->
+            <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
+              <div>
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+                      <i data-lucide="history" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h4 class="font-bold text-slate-900 text-sm">Riwayat Pengantaran Galon Hari Ini</h4>
+                      <p class="text-[11px] text-slate-500">Catatan pengantaran galon oleh Anda pada hari ini.</p>
+                    </div>
+                  </div>
+                  <button onclick="fetchAirHistory(true)" class="p-2 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 flex items-center space-x-1" title="Perbarui Data">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                      <tr>
+                        <th class="py-3 px-4">Jam</th>
+                        <th class="py-3 px-4">Penerima</th>
+                        <th class="py-3 px-4 text-center">Galon</th>
+                        <th class="py-3 px-4">Pembayaran</th>
+                      </tr>
+                    </thead>
+                    <tbody id="airTodayTableBody" class="divide-y divide-slate-100 text-xs">
+                      <tr><td colspan="4" class="py-6 text-center text-slate-400">Memuat data...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Footer KPI -->
+              <div class="p-4 bg-sky-50/60 border-t border-sky-100/60 flex items-center justify-between text-xs font-semibold text-sky-900 rounded-b-3xl">
+                <span>Total Galon Anda Hari Ini:</span>
+                <span id="airTodayTotalGalon" class="text-sm font-bold bg-sky-200/80 px-2.5 py-0.5 rounded-lg text-sky-900">0 Galon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. SECTION KHUSUS: DASHBOARD OPERASIONAL (ADMIN, KETUA KOPERASI, PENGURUS) -->
+        <div id="sectionOpsDashboard" class="hidden space-y-6">
+          
+          <!-- Filter Periode & Refresh Bar -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold w-full sm:w-auto">
+              <button onclick="changeOpsPeriod('today')" id="btnOpsPeriodToday" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Hari Ini</button>
+              <button onclick="changeOpsPeriod('7days')" id="btnOpsPeriod7Days" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">7 Hari</button>
+              <button onclick="changeOpsPeriod('month')" id="btnOpsPeriodMonth" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Bulan Ini</button>
+              <button onclick="changeOpsPeriod('all')" id="btnOpsPeriodAll" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm">Semua</button>
+            </div>
+
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+              <button onclick="fetchOpsSummary()" class="px-3.5 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center space-x-1.5 transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Refresh Dashboard</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Modern Glassmorphic KPI Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- KPI 1 -->
+            <div class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/80 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-amber-800 uppercase tracking-wider">Trip Executive Car</p>
+                <p id="kpiOpsCarTrips" class="text-2xl font-black text-amber-950 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] font-semibold text-amber-700">Perjalanan Tercatat</span>
+              </div>
+              <div class="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-amber-200">
+                <i data-lucide="car" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <!-- KPI 2 -->
+            <div class="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200/80 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-amber-800 uppercase tracking-wider">Total Pax Terlayani</p>
+                <p id="kpiOpsCarPax" class="text-2xl font-black text-amber-950 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] font-semibold text-amber-700">Penumpang Executive</span>
+              </div>
+              <div class="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-orange-200">
+                <i data-lucide="users" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <!-- KPI 3 -->
+            <div class="bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200/80 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-sky-800 uppercase tracking-wider">Pengantaran Air Minum</p>
+                <p id="kpiOpsAirDeliveries" class="text-2xl font-black text-sky-950 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] font-semibold text-sky-700">Trip Pengantaran</span>
+              </div>
+              <div class="w-12 h-12 bg-sky-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-sky-200">
+                <i data-lucide="truck" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <!-- KPI 4 -->
+            <div class="bg-gradient-to-br from-cyan-50 to-teal-50 border border-cyan-200/80 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-teal-800 uppercase tracking-wider">Total Galon Diantar</p>
+                <p id="kpiOpsAirGalon" class="text-2xl font-black text-teal-950 mt-1">0</p>
+                <span class="inline-block mt-1 text-[11px] font-semibold text-teal-700">Galon Terdistribusi</span>
+              </div>
+              <div class="w-12 h-12 bg-teal-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-teal-200">
+                <i data-lucide="droplet" class="w-6 h-6"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modern Smooth Charts Grid (2 x 2) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Chart 1: Distribusi Pengguna Executive Car -->
+            <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                    <h4 class="font-bold text-slate-900 text-sm sm:text-base">Kategori Pengguna Executive Car</h4>
+                  </div>
+                  <span class="text-[11px] font-semibold text-slate-400">Distribusi Pax</span>
+                </div>
+                <div class="relative w-full h-64 flex items-center justify-center">
+                  <canvas id="chartCarKategori"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart 2: Penerima Galon Air Minum -->
+            <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-sky-500"></span>
+                    <h4 class="font-bold text-slate-900 text-sm sm:text-base">Distribusi Penerima Galon Air Minum</h4>
+                  </div>
+                  <span class="text-[11px] font-semibold text-slate-400">Total Galon</span>
+                </div>
+                <div class="relative w-full h-64 flex items-center justify-center">
+                  <canvas id="chartAirKategori"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart 3: Metode Pembayaran Galon -->
+            <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    <h4 class="font-bold text-slate-900 text-sm sm:text-base">Metode Pembayaran Air Minum</h4>
+                  </div>
+                  <span class="text-[11px] font-semibold text-slate-400">Cash vs QRIS vs Tempo</span>
+                </div>
+                <div class="relative w-full h-64 flex items-center justify-center">
+                  <canvas id="chartAirBayar"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart 4: Tren Harian Operasional (Dual Line Area) -->
+            <div class="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+                    <h4 class="font-bold text-slate-900 text-sm sm:text-base">Tren Harian Operasional</h4>
+                  </div>
+                  <span class="text-[11px] font-semibold text-slate-400">Pax & Galon</span>
+                </div>
+                <div class="relative w-full h-64 flex items-center justify-center">
+                  <canvas id="chartOpsTrend"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section Tabel Riwayat Operasional (Admin Tab Toggle) -->
+          <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <!-- Subtabs -->
+              <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl text-xs font-semibold w-full sm:w-auto">
+                <button onclick="switchOpsTableTab('car')" id="btnOpsTableCar" class="px-3.5 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm flex items-center space-x-1.5">
+                  <i data-lucide="car" class="w-3.5 h-3.5 text-amber-600"></i>
+                  <span>Data Executive Car</span>
+                </button>
+                <button onclick="switchOpsTableTab('air')" id="btnOpsTableAir" class="px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
+                  <i data-lucide="droplet" class="w-3.5 h-3.5 text-sky-600"></i>
+                  <span>Data Air Minum</span>
+                </button>
+              </div>
+
+              <!-- Search -->
+              <div class="w-full sm:w-64">
+                <input type="text" id="opsTableSearch" oninput="filterOpsTableList(this.value)" placeholder="Cari nama / NIK / user..." class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+            </div>
+
+            <!-- Tabel Executive Car (Admin) -->
+            <div id="opsTableCarWrapper" class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                  <tr>
+                    <th class="py-3.5 px-4">Tanggal & Jam</th>
+                    <th class="py-3.5 px-4">Petugas / Driver</th>
+                    <th class="py-3.5 px-4">Kategori User</th>
+                    <th class="py-3.5 px-4">Detail Pengguna</th>
+                    <th class="py-3.5 px-4 text-center">Pax</th>
+                    <th class="py-3.5 px-4">Rute / Catatan</th>
+                  </tr>
+                </thead>
+                <tbody id="opsAdminCarTableBody" class="divide-y divide-slate-100 text-xs">
+                  <tr><td colspan="6" class="py-8 text-center text-slate-400">Memuat data Executive Car...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tabel Air Minum (Admin) -->
+            <div id="opsTableAirWrapper" class="hidden overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold">
+                  <tr>
+                    <th class="py-3.5 px-4">Tanggal & Jam</th>
+                    <th class="py-3.5 px-4">Petugas / Kurir</th>
+                    <th class="py-3.5 px-4">Kategori Penerima</th>
+                    <th class="py-3.5 px-4">Nama Tenant / Stakeholder</th>
+                    <th class="py-3.5 px-4 text-center">Jumlah Galon</th>
+                    <th class="py-3.5 px-4">Metode Pembayaran</th>
+                    <th class="py-3.5 px-4">Catatan</th>
+                  </tr>
+                </thead>
+                <tbody id="opsAdminAirTableBody" class="divide-y divide-slate-100 text-xs">
+                  <tr><td colspan="7" class="py-8 text-center text-slate-400">Memuat data Air Minum...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
     </main>
@@ -1918,6 +2360,7 @@
       if (s.includes('financial') || s.includes('keuangan')) return 'financial';
       if (s.includes('pengurus')) return 'pengurus';
       if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
+      if (s.includes('air-minum') || s.includes('air minum') || s.includes('air_minum') || s.includes('airminum') || s.includes('kurir air')) return 'air-minum-sender';
       if (s.includes('pegawai') || s.includes('karyawan')) return 'pegawai';
       return 'user';
     }
@@ -1927,6 +2370,7 @@
     function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
     function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
     function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
+    function isRoleAirMinumSender(r) { return normalizeRole(r) === 'air-minum-sender'; }
     function isRoleAnggota(r) { return normalizeRole(r) === 'user'; }
 
     let currentAdminAbsensiMode = 'monitoring'; // 'mandiri' | 'monitoring'
@@ -1945,6 +2389,9 @@
       const tabAbsensiBtn = document.getElementById('tabAbsensiBtn');
       const tabAbsensiLabel = document.getElementById('tabAbsensiLabel');
       const tabAbsensiLabelSm = document.getElementById('tabAbsensiLabelSm');
+      const tabOperasionalBtn = document.getElementById('tabOperasionalBtn');
+      const tabOperasionalLabel = document.getElementById('tabOperasionalLabel');
+      const tabOperasionalLabelSm = document.getElementById('tabOperasionalLabelSm');
 
       const role = normalizeRole(currentUser.role);
 
@@ -1961,6 +2408,8 @@
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 uppercase";
       } else if (role === 'executive car') {
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase";
+      } else if (role === 'air-minum-sender') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 uppercase";
       } else {
         // Anggota / User
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase";
@@ -1982,6 +2431,24 @@
       } else {
         tabUsersBtn.style.display = 'none';
         tabUsersBtn.disabled = true;
+      }
+
+      // 2b. Tab Data Operasional & Dashboard (Executive Car, Air Minum Sender, Admin, Ketua, Pengurus)
+      if (tabOperasionalBtn) {
+        if (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus') {
+          tabOperasionalBtn.style.display = 'inline-flex';
+          tabOperasionalBtn.disabled = false;
+          if (tabOperasionalLabel) tabOperasionalLabel.innerText = "Dashboard Operasional";
+          if (tabOperasionalLabelSm) tabOperasionalLabelSm.innerText = "Dashboard Ops";
+        } else if (role === 'executive car' || role === 'air-minum-sender') {
+          tabOperasionalBtn.style.display = 'inline-flex';
+          tabOperasionalBtn.disabled = false;
+          if (tabOperasionalLabel) tabOperasionalLabel.innerText = "Input Data Operasional";
+          if (tabOperasionalLabelSm) tabOperasionalLabelSm.innerText = "Input Ops";
+        } else {
+          tabOperasionalBtn.style.display = 'none';
+          tabOperasionalBtn.disabled = true;
+        }
       }
 
       // 3. Tab Absensi (Pegawai, Financial, Admin, Ketua Koperasi, Pengurus) - HIDDEN UNTUK ANGGOTA / USER
@@ -2020,21 +2487,31 @@
         showToast('Akses ditolak: Anggota koperasi tidak memiliki akses ke tab absensi.', true);
       }
 
+      // Strict RBAC tab guard for operasional
+      if (tab === 'operasional' && role === 'user') {
+        tab = 'tracking';
+        showToast('Akses ditolak: Anggota koperasi tidak memiliki akses ke tab operasional.', true);
+      }
+
       document.getElementById('viewTracking').classList.toggle('hidden', tab !== 'tracking');
       document.getElementById('viewForm').classList.toggle('hidden', tab !== 'form');
       document.getElementById('viewUsers').classList.toggle('hidden', tab !== 'users');
       document.getElementById('viewAbsensi').classList.toggle('hidden', tab !== 'absensi');
+      const viewOps = document.getElementById('viewOperasional');
+      if (viewOps) viewOps.classList.toggle('hidden', tab !== 'operasional');
 
       const trackBtn = document.getElementById('tabTrackBtn');
       const formBtn = document.getElementById('tabFormBtn');
       const usersBtn = document.getElementById('tabUsersBtn');
       const absensiBtn = document.getElementById('tabAbsensiBtn');
+      const operasionalBtn = document.getElementById('tabOperasionalBtn');
 
       const activeClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm font-medium";
       const inactiveClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900";
 
       trackBtn.className = (tab === 'tracking' ? activeClass : inactiveClass) + " flex";
       if (absensiBtn) absensiBtn.className = (tab === 'absensi' ? activeClass : inactiveClass) + " flex";
+      if (operasionalBtn) operasionalBtn.className = (tab === 'operasional' ? activeClass : inactiveClass) + " flex";
       if (formBtn) formBtn.className = (tab === 'form' ? activeClass : inactiveClass) + " flex";
       if (usersBtn) usersBtn.className = (tab === 'users' ? activeClass : inactiveClass) + " flex";
 
@@ -2042,6 +2519,7 @@
       if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi')) fetchUsersList();
       if (tab === 'absensi') onEnterAbsensiTab();
       else onLeaveAbsensiTab();
+      if (tab === 'operasional') onEnterOperasionalTab();
 
       lucide.createIcons();
     }
@@ -2085,7 +2563,7 @@
       }
 
       const canManage = isRoleAdmin(currentUser.role) || isRoleKetua(currentUser.role);
-      const availableRoles = ['Admin', 'Ketua Koperasi', 'Financial', 'Pengurus', 'Pegawai', 'Executive Car', 'User'];
+      const availableRoles = ['Admin', 'Ketua Koperasi', 'Financial', 'Pengurus', 'Pegawai', 'Executive Car', 'Air Minum Sender', 'User'];
 
       tbody.innerHTML = usersList.map(u => {
         const status = String(u.accountStatus || 'Pending').trim();
@@ -2976,7 +3454,7 @@
       }
     }
 
-    function showClockErrorModal({ title = 'Presensi Ditolak', reason = 'Gagal Validasi', detail = '' }) {
+    function showClockErrorModal({ title = 'Presensi Ditolak', reason = 'Gagal Validasi', detail = '', isOperationalRequired = false }) {
       const modal = document.getElementById('modalClockError');
       if (!modal) return;
 
@@ -2984,6 +3462,11 @@
       document.getElementById('clockErrorReason').innerText = reason;
       if (detail) {
         document.getElementById('clockErrorDetail').innerText = detail;
+      }
+
+      const btnGoOps = document.getElementById('btnClockErrorGoOps');
+      if (btnGoOps) {
+        btnGoOps.classList.toggle('hidden', !isOperationalRequired);
       }
 
       modal.classList.remove('hidden');
@@ -3124,6 +3607,8 @@
         const role = normalizeRole(currentUser.role);
         if (role === 'executive car') {
           shiftEl.innerText = 'Shift Executive Car: 03:00 - 23:00 WIB (12 Jam)';
+        } else if (role === 'air-minum-sender') {
+          shiftEl.innerText = 'Jam Operasional: Pengantaran Galon Air Minum';
         } else if (role === 'financial' || role === 'pegawai') {
           shiftEl.innerText = 'Jam Kerja Kantor: 08:00 - 16:00 WIB';
         } else {
@@ -3184,7 +3669,7 @@
         stopWebcam();
         fetchTodayEmployeesList();
         fetchFilteredAbsensiHistory();
-      } else if (role === 'pegawai' || role === 'financial' || role === 'executive car') {
+      } else if (role === 'pegawai' || role === 'financial' || role === 'executive car' || role === 'air-minum-sender') {
         // WORKFORCE: Presensi Mandiri (Kamera + GPS Halim)
         if (adminToggle) adminToggle.classList.add('hidden');
         if (secMonitoring) secMonitoring.classList.add('hidden');
@@ -4212,9 +4697,10 @@
           fetchAbsensiHistory();
         } else {
           showClockErrorModal({
-            title: 'Gagal Clock-Out',
-            reason: 'Ditolak oleh Server',
-            detail: json.message || 'Verifikasi server gagal saat memproses Clock-Out.'
+            title: json.isOperationalRequired ? 'Wajib Isi Data Operasional' : 'Gagal Clock-Out',
+            reason: json.isOperationalRequired ? 'Data Harian Belum Lengkap' : 'Ditolak oleh Server',
+            detail: json.message || 'Verifikasi server gagal saat memproses Clock-Out.',
+            isOperationalRequired: json.isOperationalRequired
           });
           showToast(json.message || 'Gagal Clock-Out', true);
         }
@@ -4330,7 +4816,7 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
       if (!currentUser) return;
 
       let url = API_BASE + '/api/absensi/history?role=' + encodeURIComponent(currentUser.role);
-      if (isRolePegawai(currentUser.role) || isRoleFinancial(currentUser.role) || isRoleExecutiveCar(currentUser.role) || isRoleAnggota(currentUser.role)) {
+      if (isRolePegawai(currentUser.role) || isRoleFinancial(currentUser.role) || isRoleExecutiveCar(currentUser.role) || isRoleAirMinumSender(currentUser.role) || isRoleAnggota(currentUser.role)) {
         url += '&nik=' + encodeURIComponent(currentUser.nik || '') + '&nama=' + encodeURIComponent(currentUser.nama || '');
       }
 
@@ -4399,6 +4885,678 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
         }
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-red-500">Koneksi terputus: ${err.message}</td></tr>`;
+      }
+    }
+
+    
+    // ==========================================
+    // OPERATIONAL DATA & DASHBOARD LOGIC
+    // ==========================================
+
+    let currentOpsPeriod = 'all';
+    let currentOpsTableTab = 'car';
+    let adminCarRawList = [];
+    let adminAirRawList = [];
+
+    let chartCarKategoriInstance = null;
+    let chartAirKategoriInstance = null;
+    let chartAirBayarInstance = null;
+    let chartOpsTrendInstance = null;
+
+    function onEnterOperasionalTab() {
+      if (!currentUser) return;
+      const role = normalizeRole(currentUser.role);
+
+      const secCar = document.getElementById('sectionOpsExecutiveCar');
+      const secAir = document.getElementById('sectionOpsAirMinum');
+      const secDash = document.getElementById('sectionOpsDashboard');
+      const badgeBox = document.getElementById('opsStatusBadgeContainer');
+      const titleEl = document.getElementById('opsHeaderTitle');
+      const descEl = document.getElementById('opsHeaderDesc');
+      const headerBadge = document.getElementById('opsHeaderBadge');
+
+      if (role === 'executive car') {
+        if (secCar) secCar.classList.remove('hidden');
+        if (secAir) secAir.classList.add('hidden');
+        if (secDash) secDash.classList.add('hidden');
+        if (badgeBox) badgeBox.classList.remove('hidden');
+
+        if (headerBadge) headerBadge.innerText = 'Armada Executive Car';
+        if (titleEl) titleEl.innerText = 'Input Penggunaan Executive Car Harian';
+        if (descEl) descEl.innerText = 'Catat data penggunaan mobil (UMUM, DPR-RI, FOC, FS-PICA, PRIVATE JET, atau Lain-lain) beserta jumlah pax. Wajib diisi sebelum Clock-Out.';
+
+        checkOpsStatusToday('executive-car');
+        fetchCarHistory(true);
+      } else if (role === 'air-minum-sender') {
+        if (secCar) secCar.classList.add('hidden');
+        if (secAir) secAir.classList.remove('hidden');
+        if (secDash) secDash.classList.add('hidden');
+        if (badgeBox) badgeBox.classList.remove('hidden');
+
+        if (headerBadge) headerBadge.innerText = 'Distribusi Air Minum';
+        if (titleEl) titleEl.innerText = 'Input Pengantaran Galon Air Minum';
+        if (descEl) descEl.innerText = 'Catat data pengantaran galon ke tenant dan stakeholder beserta jumlah galon dan metode pembayaran. Wajib diisi sebelum pulang (Clock-Out).';
+
+        checkOpsStatusToday('air-minum');
+        fetchAirHistory(true);
+      } else if (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus') {
+        if (secCar) secCar.classList.add('hidden');
+        if (secAir) secAir.classList.add('hidden');
+        if (secDash) secDash.classList.remove('hidden');
+        if (badgeBox) badgeBox.classList.add('hidden');
+
+        if (headerBadge) headerBadge.innerText = 'Dashboard & Analitik Operasional Terpadu';
+        if (titleEl) titleEl.innerText = 'Dashboard Operasional Terpadu';
+        if (descEl) descEl.innerText = 'Visualisasi realtime armada Executive Car dan distribusi Galon Air Minum dengan diagram interaktif dan rekap data.';
+
+        fetchOpsSummary();
+        fetchAdminOpsCarList();
+        fetchAdminOpsAirList();
+      }
+
+      lucide.createIcons();
+    }
+
+    async function checkOpsStatusToday(type) {
+      if (!currentUser) return;
+      try {
+        const res = await fetch(API_BASE + `/api/operasional/status-today?role=${encodeURIComponent(currentUser.role)}&nik=${encodeURIComponent(currentUser.nik || currentUser.username)}`);
+        const json = await res.json();
+        const textEl = document.getElementById('opsStatusText');
+        const iconEl = document.getElementById('opsStatusIcon');
+        if (!textEl || !iconEl) return;
+
+        if (json.filledToday) {
+          iconEl.className = 'w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0';
+          iconEl.innerHTML = '<i data-lucide="check-circle-2" class="w-5 h-5"></i>';
+          textEl.innerHTML = `<span class="text-emerald-300 font-bold">✅ Sudah Terisi (${json.count} Data)</span> - Siap Clock-Out`;
+        } else {
+          iconEl.className = 'w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center flex-shrink-0';
+          iconEl.innerHTML = '<i data-lucide="alert-triangle" class="w-5 h-5"></i>';
+          textEl.innerHTML = `<span class="text-amber-300 font-bold">⚠️ Belum Mengisi Hari Ini</span> - Wajib sebelum Clock-Out`;
+        }
+        lucide.createIcons();
+      } catch (e) {
+        console.warn('checkOpsStatusToday error:', e.message);
+      }
+    }
+
+    // --- A. EXECUTIVE CAR LOGIC ---
+    function handleCarKategoriChange(val) {
+      const container = document.getElementById('carInputDetailContainer');
+      const input = document.getElementById('carInputDetail');
+      if (val === 'Lain-lain') {
+        container.classList.remove('hidden');
+        input.required = true;
+      } else {
+        container.classList.add('hidden');
+        input.required = false;
+        input.value = '';
+      }
+    }
+
+    async function handleCarSubmit(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const kategori = document.getElementById('carKategori').value;
+      const detail = document.getElementById('carInputDetail').value;
+      const pax = document.getElementById('carPax').value;
+      const catatan = document.getElementById('carCatatan').value;
+
+      const btn = document.getElementById('btnSubmitCar');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...';
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(API_BASE + '/api/operasional/executive-car', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nik: currentUser.nik || currentUser.username,
+            nama: currentUser.nama || currentUser.username,
+            kategoriPengguna: kategori,
+            detailPengguna: detail,
+            jumlahPax: pax,
+            catatan: catatan
+          })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message);
+          document.getElementById('carPax').value = '';
+          document.getElementById('carCatatan').value = '';
+          document.getElementById('carInputDetail').value = '';
+          document.getElementById('carKategori').value = 'UMUM';
+          handleCarKategoriChange('UMUM');
+          checkOpsStatusToday('executive-car');
+          fetchCarHistory(true);
+        } else {
+          showToast(json.message || 'Gagal menyimpan data.', true);
+        }
+      } catch (err) {
+        showToast('Koneksi gagal: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> <span>Simpan Data Penggunaan Mobil</span>';
+        lucide.createIcons();
+      }
+    }
+
+    async function fetchCarHistory(todayOnly) {
+      if (!currentUser) return;
+      const tbody = document.getElementById('carTodayTableBody');
+      const totalPaxEl = document.getElementById('carTodayTotalPax');
+      if (!tbody) return;
+
+      tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">Memuat data...</td></tr>';
+
+      try {
+        let url = API_BASE + `/api/operasional/executive-car?role=${encodeURIComponent(currentUser.role)}&nik=${encodeURIComponent(currentUser.nik || currentUser.username)}`;
+        if (todayOnly) url += '&todayOnly=true';
+
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.success) {
+          const list = json.data || [];
+          let totalPax = 0;
+
+          if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">Belum ada data penggunaan mobil hari ini.</td></tr>';
+            if (totalPaxEl) totalPaxEl.innerText = '0 Pax';
+            return;
+          }
+
+          tbody.innerHTML = list.map(item => {
+            totalPax += item.jumlahPax || 0;
+            const detailDisplay = item.kategoriPengguna === 'Lain-lain' && item.detailPengguna && item.detailPengguna !== '-' ? ` (${item.detailPengguna})` : '';
+            return `
+              <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                <td class="py-2.5 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">${item.waktu || '-'}</td>
+                <td class="py-2.5 px-4 font-medium text-slate-900">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    ${item.kategoriPengguna}${detailDisplay}
+                  </span>
+                </td>
+                <td class="py-2.5 px-4 text-center font-bold text-amber-700 font-mono">${item.jumlahPax} Pax</td>
+                <td class="py-2.5 px-4 text-slate-600 truncate max-w-xs">${item.catatan || '-'}</td>
+              </tr>
+            `;
+          }).join('');
+
+          if (totalPaxEl) totalPaxEl.innerText = totalPax + ' Pax';
+        }
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-red-500">Gagal memuat: ' + err.message + '</td></tr>';
+      }
+    }
+
+    // --- B. AIR MINUM SENDER LOGIC ---
+    function handleAirKategoriChange(val) {
+      const container = document.getElementById('airInputDetailContainer');
+      const label = document.getElementById('airInputDetailLabel');
+      const input = document.getElementById('airInputDetail');
+
+      if (val === 'Tenant' || val === 'Stakeholder') {
+        container.classList.remove('hidden');
+        label.innerText = 'Nama ' + val + ' *';
+        input.placeholder = 'Contoh: ' + (val === 'Tenant' ? 'Roti O, Starbucks, Alfamart' : 'AirNav, Lanud Halim, Gapura');
+        input.required = true;
+      } else {
+        container.classList.add('hidden');
+        input.required = false;
+        input.value = '';
+      }
+    }
+
+    async function handleAirSubmit(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const kategori = document.getElementById('airInputKategori').value;
+      const namaPenerima = document.getElementById('airInputDetail').value;
+      const galon = document.getElementById('airInputGalon').value;
+      const metode = document.getElementById('airInputMetode').value;
+      const catatan = document.getElementById('airInputCatatan').value;
+
+      const btn = document.getElementById('btnSubmitAir');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...';
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(API_BASE + '/api/operasional/air-minum', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nik: currentUser.nik || currentUser.username,
+            nama: currentUser.nama || currentUser.username,
+            kategoriPenerima: kategori,
+            namaPenerima: namaPenerima,
+            jumlahGalon: galon,
+            metodePembayaran: metode,
+            catatan: catatan
+          })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message);
+          document.getElementById('airInputGalon').value = '';
+          document.getElementById('airInputCatatan').value = '';
+          document.getElementById('airInputDetail').value = '';
+          document.getElementById('airInputKategori').value = 'ATS';
+          handleAirKategoriChange('ATS');
+          checkOpsStatusToday('air-minum');
+          fetchAirHistory(true);
+        } else {
+          showToast(json.message || 'Gagal menyimpan data.', true);
+        }
+      } catch (err) {
+        showToast('Koneksi gagal: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> <span>Simpan Data Pengantaran Galon</span>';
+        lucide.createIcons();
+      }
+    }
+
+    async function fetchAirHistory(todayOnly) {
+      if (!currentUser) return;
+      const tbody = document.getElementById('airTodayTableBody');
+      const totalGalonEl = document.getElementById('airTodayTotalGalon');
+      if (!tbody) return;
+
+      tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">Memuat data...</td></tr>';
+
+      try {
+        let url = API_BASE + `/api/operasional/air-minum?role=${encodeURIComponent(currentUser.role)}&nik=${encodeURIComponent(currentUser.nik || currentUser.username)}`;
+        if (todayOnly) url += '&todayOnly=true';
+
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.success) {
+          const list = json.data || [];
+          let totalGalon = 0;
+
+          if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-400">Belum ada data pengantaran galon hari ini.</td></tr>';
+            if (totalGalonEl) totalGalonEl.innerText = '0 Galon';
+            return;
+          }
+
+          tbody.innerHTML = list.map(item => {
+            totalGalon += item.jumlahGalon || 0;
+            const penerimaStr = (item.namaPenerima && item.namaPenerima !== '-') ? `${item.kategoriPenerima} (${item.namaPenerima})` : item.kategoriPenerima;
+            return `
+              <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                <td class="py-2.5 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">${item.waktu || '-'}</td>
+                <td class="py-2.5 px-4 font-medium text-slate-900">${penerimaStr}</td>
+                <td class="py-2.5 px-4 text-center font-bold text-sky-700 font-mono">${item.jumlahGalon} Galon</td>
+                <td class="py-2.5 px-4">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${item.metodePembayaran === 'Cash' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : (item.metodePembayaran === 'QRIS' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200')}">
+                    ${item.metodePembayaran}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+
+          if (totalGalonEl) totalGalonEl.innerText = totalGalon + ' Galon';
+        }
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-red-500">Gagal memuat: ' + err.message + '</td></tr>';
+      }
+    }
+
+    // --- C. ADMIN DASHBOARD & CHARTS LOGIC ---
+    function changeOpsPeriod(period) {
+      currentOpsPeriod = period;
+      ['Today', '7Days', 'Month', 'All'].forEach(p => {
+        const btn = document.getElementById('btnOpsPeriod' + p);
+        if (!btn) return;
+        const active = p.toLowerCase() === period.toLowerCase();
+        btn.className = active ? 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm font-bold' : 'flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900';
+      });
+      fetchOpsSummary();
+    }
+
+    async function fetchOpsSummary() {
+      if (!currentUser) return;
+      try {
+        const res = await fetch(API_BASE + `/api/operasional/summary?role=${encodeURIComponent(currentUser.role)}&period=${currentOpsPeriod}`);
+        const json = await res.json();
+        if (json.success && json.summary) {
+          const s = json.summary;
+
+          // KPI Cards
+          const kpiCarTrips = document.getElementById('kpiOpsCarTrips');
+          const kpiCarPax = document.getElementById('kpiOpsCarPax');
+          const kpiAirDeliveries = document.getElementById('kpiOpsAirDeliveries');
+          const kpiAirGalon = document.getElementById('kpiOpsAirGalon');
+
+          if (kpiCarTrips) kpiCarTrips.innerText = (s.executiveCar.totalTrips || 0).toLocaleString('id-ID');
+          if (kpiCarPax) kpiCarPax.innerText = (s.executiveCar.totalPax || 0).toLocaleString('id-ID');
+          if (kpiAirDeliveries) kpiAirDeliveries.innerText = (s.airMinum.totalDeliveries || 0).toLocaleString('id-ID');
+          if (kpiAirGalon) kpiAirGalon.innerText = (s.airMinum.totalGalon || 0).toLocaleString('id-ID');
+
+          renderOpsCharts(s);
+        }
+      } catch (err) {
+        console.error('fetchOpsSummary error:', err);
+      }
+    }
+
+    function renderOpsCharts(s) {
+      if (typeof Chart === 'undefined') return;
+
+      const fontOptions = { family: "'Plus Jakarta Sans', sans-serif", size: 11 };
+
+      // 1. Chart Kategori Executive Car (Doughnut)
+      const ctxCar = document.getElementById('chartCarKategori');
+      if (ctxCar) {
+        if (chartCarKategoriInstance) chartCarKategoriInstance.destroy();
+        const carKat = s.executiveCar.byKategori || {};
+        const labels = Object.keys(carKat);
+        const data = Object.values(carKat);
+
+        chartCarKategoriInstance = new Chart(ctxCar, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#64748b'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 900, easing: 'easeOutQuart' },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: fontOptions, boxWidth: 10, usePointStyle: true }
+              }
+            },
+            cutout: '65%'
+          }
+        });
+      }
+
+      // 2. Chart Kategori Air Minum (Doughnut)
+      const ctxAir = document.getElementById('chartAirKategori');
+      if (ctxAir) {
+        if (chartAirKategoriInstance) chartAirKategoriInstance.destroy();
+        const airKat = s.airMinum.byKategori || {};
+        const labels = Object.keys(airKat);
+        const data = Object.values(airKat);
+
+        chartAirKategoriInstance = new Chart(ctxAir, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: ['#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 900, easing: 'easeOutQuart' },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: fontOptions, boxWidth: 10, usePointStyle: true }
+              }
+            },
+            cutout: '65%'
+          }
+        });
+      }
+
+      // 3. Chart Metode Pembayaran Air Minum (Doughnut)
+      const ctxBayar = document.getElementById('chartAirBayar');
+      if (ctxBayar) {
+        if (chartAirBayarInstance) chartAirBayarInstance.destroy();
+        const bayarMap = s.airMinum.byPembayaran || {};
+        const labels = Object.keys(bayarMap);
+        const data = Object.values(bayarMap);
+
+        chartAirBayarInstance = new Chart(ctxBayar, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: ['#10b981', '#f59e0b', '#6366f1'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 900, easing: 'easeOutQuart' },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: fontOptions, boxWidth: 10, usePointStyle: true }
+              }
+            },
+            cutout: '65%'
+          }
+        });
+      }
+
+      // 4. Chart Tren Harian Operasional (Line Area Dual Dataset)
+      const ctxTrend = document.getElementById('chartOpsTrend');
+      if (ctxTrend) {
+        if (chartOpsTrendInstance) chartOpsTrendInstance.destroy();
+        const trends = s.chartTrends || { labels: [], carPax: [], airGalon: [] };
+
+        chartOpsTrendInstance = new Chart(ctxTrend, {
+          type: 'line',
+          data: {
+            labels: trends.labels && trends.labels.length > 0 ? trends.labels : ['Hari Ini'],
+            datasets: [
+              {
+                label: 'Pax Executive Car',
+                data: trends.carPax && trends.carPax.length > 0 ? trends.carPax : [0],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.35,
+                pointRadius: 4,
+                pointBackgroundColor: '#f59e0b'
+              },
+              {
+                label: 'Galon Air Minum',
+                data: trends.airGalon && trends.airGalon.length > 0 ? trends.airGalon : [0],
+                borderColor: '#0284c7',
+                backgroundColor: 'rgba(2, 132, 199, 0.15)',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.35,
+                pointRadius: 4,
+                pointBackgroundColor: '#0284c7'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 1000, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(226, 232, 240, 0.6)' },
+                ticks: { font: fontOptions }
+              },
+              x: {
+                grid: { display: false },
+                ticks: { font: fontOptions }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: fontOptions, boxWidth: 10, usePointStyle: true }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // --- D. ADMIN OPERATIONAL TABLES ---
+    function switchOpsTableTab(tab) {
+      currentOpsTableTab = tab;
+      const btnCar = document.getElementById('btnOpsTableCar');
+      const btnAir = document.getElementById('btnOpsTableAir');
+      const wrapCar = document.getElementById('opsTableCarWrapper');
+      const wrapAir = document.getElementById('opsTableAirWrapper');
+
+      const activeClass = 'px-3.5 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm flex items-center space-x-1.5 font-bold';
+      const inactiveClass = 'px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center space-x-1.5';
+
+      if (tab === 'car') {
+        if (btnCar) btnCar.className = activeClass;
+        if (btnAir) btnAir.className = inactiveClass;
+        if (wrapCar) wrapCar.classList.remove('hidden');
+        if (wrapAir) wrapAir.classList.add('hidden');
+      } else {
+        if (btnCar) btnCar.className = inactiveClass;
+        if (btnAir) btnAir.className = activeClass;
+        if (wrapCar) wrapCar.classList.add('hidden');
+        if (wrapAir) wrapAir.classList.remove('hidden');
+      }
+    }
+
+    async function fetchAdminOpsCarList() {
+      if (!currentUser) return;
+      const tbody = document.getElementById('opsAdminCarTableBody');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch(API_BASE + `/api/operasional/executive-car?role=${encodeURIComponent(currentUser.role)}`);
+        const json = await res.json();
+        if (json.success) {
+          adminCarRawList = json.data || [];
+          renderAdminCarTable(adminCarRawList);
+        }
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-red-500">Gagal memuat: ' + err.message + '</td></tr>';
+      }
+    }
+
+    function renderAdminCarTable(list) {
+      const tbody = document.getElementById('opsAdminCarTableBody');
+      if (!tbody) return;
+
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400">Belum ada data riwayat Executive Car.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(item => `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="py-3 px-4 font-mono font-medium text-slate-800 whitespace-nowrap">${item.tanggal} ${item.waktu}</td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-slate-900">${item.nama}</div>
+            <div class="text-[11px] font-mono text-slate-500">${item.nik}</div>
+          </td>
+          <td class="py-3 px-4 font-semibold text-amber-700 whitespace-nowrap">
+            <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">${item.kategoriPengguna}</span>
+          </td>
+          <td class="py-3 px-4 text-slate-700">${item.detailPengguna || '-'}</td>
+          <td class="py-3 px-4 text-center font-bold text-amber-700 font-mono whitespace-nowrap">${item.jumlahPax} Pax</td>
+          <td class="py-3 px-4 text-slate-600">${item.catatan || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function fetchAdminOpsAirList() {
+      if (!currentUser) return;
+      const tbody = document.getElementById('opsAdminAirTableBody');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch(API_BASE + `/api/operasional/air-minum?role=${encodeURIComponent(currentUser.role)}`);
+        const json = await res.json();
+        if (json.success) {
+          adminAirRawList = json.data || [];
+          renderAdminAirTable(adminAirRawList);
+        }
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-red-500">Gagal memuat: ' + err.message + '</td></tr>';
+      }
+    }
+
+    function renderAdminAirTable(list) {
+      const tbody = document.getElementById('opsAdminAirTableBody');
+      if (!tbody) return;
+
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-400">Belum ada data pengantaran air minum.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(item => `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="py-3 px-4 font-mono font-medium text-slate-800 whitespace-nowrap">${item.tanggal} ${item.waktu}</td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-slate-900">${item.nama}</div>
+            <div class="text-[11px] font-mono text-slate-500">${item.nik}</div>
+          </td>
+          <td class="py-3 px-4 font-semibold text-sky-700 whitespace-nowrap">
+            <span class="px-2 py-0.5 rounded-md bg-sky-50 text-sky-800 border border-sky-200">${item.kategoriPenerima}</span>
+          </td>
+          <td class="py-3 px-4 text-slate-800 font-medium">${item.namaPenerima || '-'}</td>
+          <td class="py-3 px-4 text-center font-bold text-sky-700 font-mono whitespace-nowrap">${item.jumlahGalon} Galon</td>
+          <td class="py-3 px-4 whitespace-nowrap">
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${item.metodePembayaran === 'Cash' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : (item.metodePembayaran === 'QRIS' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200')}">${item.metodePembayaran}</span>
+          </td>
+          <td class="py-3 px-4 text-slate-600">${item.catatan || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function filterOpsTableList(query) {
+      const q = String(query || '').trim().toLowerCase();
+      if (currentOpsTableTab === 'car') {
+        if (!q) renderAdminCarTable(adminCarRawList);
+        else {
+          const filtered = adminCarRawList.filter(item => 
+            (item.nama && item.nama.toLowerCase().includes(q)) ||
+            (item.nik && item.nik.toLowerCase().includes(q)) ||
+            (item.kategoriPengguna && item.kategoriPengguna.toLowerCase().includes(q)) ||
+            (item.detailPengguna && item.detailPengguna.toLowerCase().includes(q)) ||
+            (item.catatan && item.catatan.toLowerCase().includes(q))
+          );
+          renderAdminCarTable(filtered);
+        }
+      } else {
+        if (!q) renderAdminAirTable(adminAirRawList);
+        else {
+          const filtered = adminAirRawList.filter(item => 
+            (item.nama && item.nama.toLowerCase().includes(q)) ||
+            (item.nik && item.nik.toLowerCase().includes(q)) ||
+            (item.kategoriPenerima && item.kategoriPenerima.toLowerCase().includes(q)) ||
+            (item.namaPenerima && item.namaPenerima.toLowerCase().includes(q)) ||
+            (item.catatan && item.catatan.toLowerCase().includes(q))
+          );
+          renderAdminAirTable(filtered);
+        }
       }
     }
 

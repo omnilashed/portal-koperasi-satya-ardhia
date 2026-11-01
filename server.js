@@ -168,6 +168,7 @@ function normalizeRole(r) {
   if (s.includes('financial') || s.includes('keuangan')) return 'financial';
   if (s.includes('pengurus')) return 'pengurus';
   if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
+  if (s.includes('air-minum') || s.includes('air minum') || s.includes('air_minum') || s.includes('airminum') || s.includes('kurir air')) return 'air-minum-sender';
   if (s.includes('pegawai') || s.includes('karyawan')) return 'pegawai';
   return 'user';
 }
@@ -177,6 +178,7 @@ function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
 function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
 function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
 function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
+function isRoleAirMinumSender(r) { return normalizeRole(r) === 'air-minum-sender'; }
 function isRoleAnggota(r) { return normalizeRole(r) === 'user'; }
 
 // ==========================================
@@ -1021,6 +1023,37 @@ function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
+// Helper: Memastikan Sheet Tertentu Ada Beserta Header
+async function ensureSheetExists(sheets, title, headers) {
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const existingTitles = (meta.data.sheets || []).map(s => s.properties.title);
+    if (!existingTitles.includes(title)) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: { title }
+            }
+          }]
+        }
+      });
+      if (headers && headers.length > 0) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'${title}'!A1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [headers] }
+        });
+      }
+      console.log(`[Google Sheets] Berhasil membuat sheet on-demand: '${title}'`);
+    }
+  } catch (err) {
+    console.warn(`[ensureSheetExists Warning for ${title}]:`, err.message);
+  }
+}
+
 // Otomatis Cek & Buat Semua Sheet Di Google Spreadsheet
 async function ensureAllSheetsExist() {
   if (!SPREADSHEET_ID) return;
@@ -1045,6 +1078,14 @@ async function ensureAllSheetsExist() {
       {
         title: 'wajah-karyawan',
         headers: ['NIK', 'Nama Lengkap', 'FaceDescriptor', 'Waktu Pendaftaran']
+      },
+      {
+        title: 'operasional-executive-car',
+        headers: ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Pengguna', 'Detail Pengguna', 'Jumlah Pax', 'Catatan']
+      },
+      {
+        title: 'operasional-air-minum',
+        headers: ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']
       }
     ];
 
@@ -1133,10 +1174,10 @@ app.post('/api/absensi/register-face', async (req, res) => {
     const { nik, nama, descriptor, userRole, role } = req.body;
     const currentRole = userRole || role;
 
-    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole) && !isRoleExecutiveCar(currentRole)) {
+    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole) && !isRoleExecutiveCar(currentRole) && !isRoleAirMinumSender(currentRole)) {
       return res.status(403).json({
         success: false,
-        message: 'Akses ditolak: Pendaftaran wajah hanya diperuntukkan bagi Pegawai, Financial, Executive Car, dan Admin.'
+        message: 'Akses ditolak: Pendaftaran wajah hanya diperuntukkan bagi Pegawai, Financial, Executive Car, Air Minum Sender, dan Admin.'
       });
     }
 
@@ -1222,10 +1263,10 @@ app.post('/api/absensi/clock-in', async (req, res) => {
       }
     }
 
-    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole) && !isRoleExecutiveCar(currentRole)) {
+    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole) && !isRoleExecutiveCar(currentRole) && !isRoleAirMinumSender(currentRole)) {
       return res.status(403).json({
         success: false,
-        message: 'Akses ditolak: Fitur presensi clock-in hanya dapat digunakan oleh Pegawai, Financial, Executive Car, dan Admin.'
+        message: 'Akses ditolak: Fitur presensi clock-in hanya dapat digunakan oleh Pegawai, Financial, Executive Car, Air Minum Sender, dan Admin.'
       });
     }
 
@@ -1320,6 +1361,15 @@ app.post('/api/absensi/clock-in', async (req, res) => {
         });
       }
       statusKehadiran = 'Hadir (Executive Car - 12 Jam)';
+    } else if (isRoleAirMinumSender(currentRole)) {
+      // Role Air Minum Sender: jam kerja pengantaran galon
+      if (totalMinutes <= (8 * 60 + 30)) {
+        statusKehadiran = 'Hadir Tepat Waktu (Pengantar Air Minum)';
+      } else if (totalMinutes <= (16 * 60)) {
+        statusKehadiran = 'Terlambat (Pengantar Air Minum)';
+      } else {
+        statusKehadiran = 'Terlambat (Lewat Jam Kantor 16:00)';
+      }
     } else if (isRolePegawai(currentRole) || isRoleFinancial(currentRole)) {
       // Role Finance / Pegawai: jam 8 pagi sampai jam 4 sore (08:00 - 16:00 WIB)
       if (totalMinutes <= (8 * 60 + 30)) {
@@ -1402,10 +1452,10 @@ app.post('/api/absensi/clock-out', async (req, res) => {
       }
     }
 
-    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole) && !isRoleExecutiveCar(currentRole)) {
+    if (currentRole && !isRoleAdmin(currentRole) && !isRoleFinancial(currentRole) && !isRolePegawai(currentRole) && !isRoleExecutiveCar(currentRole) && !isRoleAirMinumSender(currentRole)) {
       return res.status(403).json({
         success: false,
-        message: 'Akses ditolak: Fitur presensi clock-out hanya dapat digunakan oleh Pegawai, Financial, Executive Car, dan Admin.'
+        message: 'Akses ditolak: Fitur presensi clock-out hanya dapat digunakan oleh Pegawai, Financial, Executive Car, Air Minum Sender, dan Admin.'
       });
     }
 
@@ -1462,6 +1512,55 @@ app.post('/api/absensi/clock-out', async (req, res) => {
         success: false,
         message: 'Anda belum melakukan Clock-In hari ini! Silakan Clock-In terlebih dahulu.'
       });
+    }
+
+    // ================= VALIDASI WAJIB ISI DATA OPERASIONAL SEBELUM CLOCK-OUT =================
+    // a. Role Executive Car: wajib isi data penggunaan mobil harian
+    if (isRoleExecutiveCar(currentRole)) {
+      await ensureSheetExists(sheets, 'operasional-executive-car', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Pengguna', 'Detail Pengguna', 'Jumlah Pax', 'Catatan']);
+      const opCarResp = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'operasional-executive-car'!A2:I"
+      });
+      const opCarRows = opCarResp.data.values || [];
+      const hasCarLogToday = opCarRows.some(r => {
+        const rTgl = String(r[1] || '').trim();
+        const rNik = String(r[3] || '').trim().toLowerCase();
+        return rTgl === dateStr && rNik === cleanNik;
+      });
+
+      if (!hasCarLogToday) {
+        return res.status(400).json({
+          success: false,
+          isOperationalRequired: true,
+          operationalType: 'executive-car',
+          message: 'Clock-Out ditolak: Anda wajib mengisi Data Penggunaan Executive Car Harian sebelum melakukan Clock-Out! Silakan isi data di menu Data Operasional.'
+        });
+      }
+    }
+
+    // b. Role Air Minum Sender: wajib isi data pengantaran galon hari ini sebelum pulang
+    if (isRoleAirMinumSender(currentRole)) {
+      await ensureSheetExists(sheets, 'operasional-air-minum', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']);
+      const opAirResp = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'operasional-air-minum'!A2:J"
+      });
+      const opAirRows = opAirResp.data.values || [];
+      const hasAirLogToday = opAirRows.some(r => {
+        const rTgl = String(r[1] || '').trim();
+        const rNik = String(r[3] || '').trim().toLowerCase();
+        return rTgl === dateStr && rNik === cleanNik;
+      });
+
+      if (!hasAirLogToday) {
+        return res.status(400).json({
+          success: false,
+          isOperationalRequired: true,
+          operationalType: 'air-minum',
+          message: 'Clock-Out ditolak: Anda wajib mengisi Data Pengantaran Galon Air Minum hari ini sebelum melakukan Clock-Out (pulang)! Silakan isi data di menu Data Operasional.'
+        });
+      }
     }
 
     // Hitung durasi kerja dari Clock-In
@@ -1617,7 +1716,7 @@ app.get('/api/absensi/history', async (req, res) => {
     }));
 
     // 1. Pegawai, Financial, dan Executive Car hanya melihat data absensi milik sendiri
-    if (isRolePegawai(role) || isRoleFinancial(role) || isRoleExecutiveCar(role)) {
+    if (isRolePegawai(role) || isRoleFinancial(role) || isRoleExecutiveCar(role) || isRoleAirMinumSender(role)) {
       const userNik = (nik || '').trim().toLowerCase();
       const userNama = (nama || '').trim().toLowerCase();
 
@@ -1673,7 +1772,7 @@ app.get('/api/absensi/history', async (req, res) => {
 app.get('/api/absensi/today-employees', async (req, res) => {
   try {
     const { role } = req.query;
-    if (isRoleAnggota(role) || isRolePegawai(role) || isRoleFinancial(role) || isRoleExecutiveCar(role)) {
+    if (isRoleAnggota(role) || isRolePegawai(role) || isRoleFinancial(role) || isRoleExecutiveCar(role) || isRoleAirMinumSender(role)) {
       return res.status(403).json({
         success: false,
         message: 'Akses monitoring presensi hanya untuk Admin, Ketua Koperasi, dan Pengurus.'
@@ -1731,6 +1830,419 @@ app.get('/api/absensi/today-employees', async (req, res) => {
   } catch (error) {
     console.error('Error /api/absensi/today-employees:', error);
     return res.status(500).json({ success: false, message: 'Gagal memuat data pegawai masuk hari ini: ' + error.message });
+  }
+});
+
+
+// ==========================================
+// 6. ENDPOINTS: DATA OPERASIONAL ROLE
+// ==========================================
+
+/**
+ * GET /api/operasional/status-today
+ * Memeriksa apakah user (Executive Car / Air Minum Sender) sudah mengisi data operasional hari ini
+ */
+app.get('/api/operasional/status-today', async (req, res) => {
+  try {
+    const { role, nik } = req.query;
+    if (!nik || !role) return res.json({ success: true, filledToday: false, count: 0 });
+
+    const sheets = await getSheetsClient();
+    const jkt = getJakartaDateTime();
+    const todayStr = jkt.dateStr;
+    const cleanNik = String(nik).trim().toLowerCase();
+
+    if (isRoleExecutiveCar(role)) {
+      await ensureSheetExists(sheets, 'operasional-executive-car', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Pengguna', 'Detail Pengguna', 'Jumlah Pax', 'Catatan']);
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'operasional-executive-car'!A2:I"
+      });
+      const rows = response.data.values || [];
+      const userTodayRows = rows.filter(r => String(r[1] || '').trim() === todayStr && String(r[3] || '').trim().toLowerCase() === cleanNik);
+      return res.json({
+        success: true,
+        type: 'executive-car',
+        filledToday: userTodayRows.length > 0,
+        count: userTodayRows.length,
+        todayDate: todayStr
+      });
+    }
+
+    if (isRoleAirMinumSender(role)) {
+      await ensureSheetExists(sheets, 'operasional-air-minum', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']);
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'operasional-air-minum'!A2:J"
+      });
+      const rows = response.data.values || [];
+      const userTodayRows = rows.filter(r => String(r[1] || '').trim() === todayStr && String(r[3] || '').trim().toLowerCase() === cleanNik);
+      return res.json({
+        success: true,
+        type: 'air-minum',
+        filledToday: userTodayRows.length > 0,
+        count: userTodayRows.length,
+        todayDate: todayStr
+      });
+    }
+
+    return res.json({ success: true, filledToday: true, count: 0 });
+  } catch (error) {
+    console.error('Error /api/operasional/status-today:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/operasional/executive-car
+ * Menyimpan data harian penggunaan Executive Car
+ */
+app.post('/api/operasional/executive-car', async (req, res) => {
+  try {
+    const { nik, nama, kategoriPengguna, detailPengguna, jumlahPax, catatan } = req.body;
+
+    if (!nik || !kategoriPengguna) {
+      return res.status(400).json({ success: false, message: 'NIK dan Kategori Pengguna wajib diisi.' });
+    }
+
+    const paxNum = parseInt(jumlahPax, 10);
+    if (isNaN(paxNum) || paxNum < 1) {
+      return res.status(400).json({ success: false, message: 'Jumlah Pax harus berupa angka minimal 1.' });
+    }
+
+    if (kategoriPengguna === 'Lain-lain' && (!detailPengguna || !detailPengguna.trim())) {
+      return res.status(400).json({ success: false, message: 'Harap tuliskan keterangan untuk kategori Lain-lain.' });
+    }
+
+    const sheets = await getSheetsClient();
+    await ensureSheetExists(sheets, 'operasional-executive-car', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Pengguna', 'Detail Pengguna', 'Jumlah Pax', 'Catatan']);
+
+    const jkt = getJakartaDateTime();
+    const newRow = [
+      jkt.timestampStr,
+      jkt.dateStr,
+      jkt.timeStr,
+      String(nik).trim(),
+      String(nama || '-').trim(),
+      String(kategoriPengguna).trim(),
+      String(detailPengguna || '-').trim(),
+      paxNum,
+      String(catatan || '-').trim()
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'operasional-executive-car'!A:I",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [newRow] }
+    });
+
+    return res.json({
+      success: true,
+      message: `Data operasional Executive Car (${kategoriPengguna} - ${paxNum} Pax) berhasil dicatat!`,
+      data: {
+        tanggal: jkt.dateStr,
+        waktu: jkt.timeStr,
+        kategoriPengguna,
+        jumlahPax: paxNum
+      }
+    });
+  } catch (error) {
+    console.error('Error /api/operasional/executive-car:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mencatat data Executive Car: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/operasional/executive-car
+ * Mengambil riwayat penggunaan Executive Car
+ */
+app.get('/api/operasional/executive-car', async (req, res) => {
+  try {
+    const { role, nik, startDate, endDate, todayOnly } = req.query;
+    const sheets = await getSheetsClient();
+    await ensureSheetExists(sheets, 'operasional-executive-car', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Pengguna', 'Detail Pengguna', 'Jumlah Pax', 'Catatan']);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'operasional-executive-car'!A2:I"
+    });
+
+    const rows = response.data.values || [];
+    let list = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      timestamp: r[0] || '',
+      tanggal: r[1] || '',
+      waktu: r[2] || '',
+      nik: r[3] || '',
+      nama: r[4] || '',
+      kategoriPengguna: r[5] || '',
+      detailPengguna: r[6] || '-',
+      jumlahPax: parseInt(r[7], 10) || 0,
+      catatan: r[8] || '-'
+    }));
+
+    // Driver hanya melihat miliknya sendiri
+    if (isRoleExecutiveCar(role)) {
+      const cleanNik = String(nik || '').trim().toLowerCase();
+      list = list.filter(item => (item.nik || '').toLowerCase() === cleanNik);
+    }
+
+    const jkt = getJakartaDateTime();
+    if (todayOnly === 'true') {
+      list = list.filter(item => String(item.tanggal).trim() === jkt.dateStr);
+    } else {
+      if (startDate) list = list.filter(item => String(item.tanggal).trim() >= startDate);
+      if (endDate) list = list.filter(item => String(item.tanggal).trim() <= endDate);
+    }
+
+    list.reverse();
+    return res.json({ success: true, data: list });
+  } catch (error) {
+    console.error('Error GET /api/operasional/executive-car:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/operasional/air-minum
+ * Menyimpan data harian pengantaran galon air minum
+ */
+app.post('/api/operasional/air-minum', async (req, res) => {
+  try {
+    const { nik, nama, kategoriPenerima, namaPenerima, jumlahGalon, metodePembayaran, catatan } = req.body;
+
+    if (!nik || !kategoriPenerima) {
+      return res.status(400).json({ success: false, message: 'NIK dan Kategori Penerima wajib diisi.' });
+    }
+
+    const galonNum = parseInt(jumlahGalon, 10);
+    if (isNaN(galonNum) || galonNum < 1) {
+      return res.status(400).json({ success: false, message: 'Jumlah Galon harus berupa angka minimal 1.' });
+    }
+
+    if ((kategoriPenerima === 'Tenant' || kategoriPenerima === 'Stakeholder') && (!namaPenerima || !namaPenerima.trim())) {
+      return res.status(400).json({ success: false, message: `Harap tuliskan nama ${kategoriPenerima}.` });
+    }
+
+    const sheets = await getSheetsClient();
+    await ensureSheetExists(sheets, 'operasional-air-minum', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']);
+
+    const jkt = getJakartaDateTime();
+    const newRow = [
+      jkt.timestampStr,
+      jkt.dateStr,
+      jkt.timeStr,
+      String(nik).trim(),
+      String(nama || '-').trim(),
+      String(kategoriPenerima).trim(),
+      String(namaPenerima || '-').trim(),
+      galonNum,
+      String(metodePembayaran || 'Cash').trim(),
+      String(catatan || '-').trim()
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'operasional-air-minum'!A:J",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [newRow] }
+    });
+
+    return res.json({
+      success: true,
+      message: `Data pengantaran (${galonNum} Galon ke ${kategoriPenerima} ${namaPenerima ? '- ' + namaPenerima : ''}) berhasil dicatat!`,
+      data: {
+        tanggal: jkt.dateStr,
+        waktu: jkt.timeStr,
+        kategoriPenerima,
+        namaPenerima,
+        jumlahGalon: galonNum,
+        metodePembayaran
+      }
+    });
+  } catch (error) {
+    console.error('Error /api/operasional/air-minum:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mencatat data pengantaran galon: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/operasional/air-minum
+ * Mengambil riwayat pengantaran galon air minum
+ */
+app.get('/api/operasional/air-minum', async (req, res) => {
+  try {
+    const { role, nik, startDate, endDate, todayOnly } = req.query;
+    const sheets = await getSheetsClient();
+    await ensureSheetExists(sheets, 'operasional-air-minum', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'operasional-air-minum'!A2:J"
+    });
+
+    const rows = response.data.values || [];
+    let list = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      timestamp: r[0] || '',
+      tanggal: r[1] || '',
+      waktu: r[2] || '',
+      nik: r[3] || '',
+      nama: r[4] || '',
+      kategoriPenerima: r[5] || '',
+      namaPenerima: r[6] || '-',
+      jumlahGalon: parseInt(r[7], 10) || 0,
+      metodePembayaran: r[8] || 'Cash',
+      catatan: r[9] || '-'
+    }));
+
+    if (isRoleAirMinumSender(role)) {
+      const cleanNik = String(nik || '').trim().toLowerCase();
+      list = list.filter(item => (item.nik || '').toLowerCase() === cleanNik);
+    }
+
+    const jkt = getJakartaDateTime();
+    if (todayOnly === 'true') {
+      list = list.filter(item => String(item.tanggal).trim() === jkt.dateStr);
+    } else {
+      if (startDate) list = list.filter(item => String(item.tanggal).trim() >= startDate);
+      if (endDate) list = list.filter(item => String(item.tanggal).trim() <= endDate);
+    }
+
+    list.reverse();
+    return res.json({ success: true, data: list });
+  } catch (error) {
+    console.error('Error GET /api/operasional/air-minum:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/operasional/summary
+ * Mengambil ringkasan analitik operasional terpadu (Executive Car & Air Minum) untuk Chart & Dashboard
+ * Khusus: Admin, Ketua Koperasi, dan Pengurus
+ */
+app.get('/api/operasional/summary', async (req, res) => {
+  try {
+    const { role, period } = req.query; // period: 'today' | '7days' | 'month' | 'all'
+    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRolePengurus(role)) {
+      return res.status(403).json({ success: false, message: 'Akses dashboard hanya untuk Admin, Ketua Koperasi, dan Pengurus.' });
+    }
+
+    const sheets = await getSheetsClient();
+    await ensureSheetExists(sheets, 'operasional-executive-car', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Pengguna', 'Detail Pengguna', 'Jumlah Pax', 'Catatan']);
+    await ensureSheetExists(sheets, 'operasional-air-minum', ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']);
+
+    const [carResp, airResp] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "'operasional-executive-car'!A2:I" }),
+      sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "'operasional-air-minum'!A2:J" })
+    ]);
+
+    const carRows = carResp.data.values || [];
+    const airRows = airResp.data.values || [];
+
+    const jkt = getJakartaDateTime();
+    const todayStr = jkt.dateStr;
+
+    // Filter tanggal berdasarkan period
+    const nowMs = Date.now();
+    const filterByPeriod = (tglStr) => {
+      if (!tglStr) return false;
+      if (period === 'today') return tglStr === todayStr;
+      if (period === '7days') {
+        const d = new Date(tglStr);
+        return (nowMs - d.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+      }
+      if (period === 'month') {
+        return tglStr.startsWith(todayStr.slice(0, 7)); // YYYY-MM
+      }
+      return true; // 'all'
+    };
+
+    const filteredCar = carRows.filter(r => filterByPeriod(String(r[1] || '').trim()));
+    const filteredAir = airRows.filter(r => filterByPeriod(String(r[1] || '').trim()));
+
+    // 1. Executive Car Analytics
+    let totalCarPax = 0;
+    const carKategoriMap = { 'UMUM': 0, 'DPR-RI': 0, 'FOC': 0, 'FS-PICA': 0, 'PRIVATE JET': 0, 'Lain-lain': 0 };
+    const carTrendMap = {};
+
+    filteredCar.forEach(r => {
+      const tgl = String(r[1] || '').trim();
+      const kat = String(r[5] || 'Lain-lain').trim();
+      const pax = parseInt(r[7], 10) || 0;
+      totalCarPax += pax;
+
+      if (carKategoriMap.hasOwnProperty(kat)) {
+        carKategoriMap[kat] += pax;
+      } else {
+        carKategoriMap['Lain-lain'] += pax;
+      }
+
+      carTrendMap[tgl] = (carTrendMap[tgl] || 0) + pax;
+    });
+
+    // 2. Air Minum Analytics
+    let totalAirGalon = 0;
+    const airKategoriMap = { 'ATS': 0, 'API': 0, 'Tenant': 0, 'Stakeholder': 0 };
+    const airBayarMap = { 'Cash': 0, 'QRIS': 0, 'Pembayaran di Akhir Bulan': 0 };
+    const airTrendMap = {};
+
+    filteredAir.forEach(r => {
+      const tgl = String(r[1] || '').trim();
+      const kat = String(r[5] || 'Tenant').trim();
+      const galon = parseInt(r[7], 10) || 0;
+      const bayar = String(r[8] || 'Cash').trim();
+      totalAirGalon += galon;
+
+      if (airKategoriMap.hasOwnProperty(kat)) {
+        airKategoriMap[kat] += galon;
+      }
+
+      if (airBayarMap.hasOwnProperty(bayar)) {
+        airBayarMap[bayar] += galon;
+      } else {
+        airBayarMap['Cash'] += galon;
+      }
+
+      airTrendMap[tgl] = (airTrendMap[tgl] || 0) + galon;
+    });
+
+    // Urutan Tanggal Trend untuk Chart
+    const allDates = Array.from(new Set([...Object.keys(carTrendMap), ...Object.keys(airTrendMap)])).sort();
+    const trendDates = allDates.slice(-14); // Ambil maks 14 hari terakhir
+    const trendCarPax = trendDates.map(d => carTrendMap[d] || 0);
+    const trendAirGalon = trendDates.map(d => airTrendMap[d] || 0);
+
+    return res.json({
+      success: true,
+      period: period || 'all',
+      todayDate: todayStr,
+      summary: {
+        executiveCar: {
+          totalTrips: filteredCar.length,
+          totalPax: totalCarPax,
+          byKategori: carKategoriMap
+        },
+        airMinum: {
+          totalDeliveries: filteredAir.length,
+          totalGalon: totalAirGalon,
+          byKategori: airKategoriMap,
+          byPembayaran: airBayarMap
+        },
+        chartTrends: {
+          labels: trendDates,
+          carPax: trendCarPax,
+          airGalon: trendAirGalon
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error /api/operasional/summary:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 
