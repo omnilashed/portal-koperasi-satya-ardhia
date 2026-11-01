@@ -1142,7 +1142,7 @@ function submitOperasionalExecutiveCar(payload) {
     const nama = String(payload.nama || '-').trim();
     const kategori = String(payload.kategoriPengguna || '').trim();
     const detail = String(payload.detailPengguna || '-').trim();
-    const pax = parseInt(payload.jumlahPax, 10) || 1;
+    const pax = (payload.jumlahPax !== undefined && payload.jumlahPax !== null && payload.jumlahPax !== '') ? (parseInt(payload.jumlahPax, 10) || 0) : 0;
     const catatan = String(payload.catatan || '-').trim();
 
     sheet.appendRow([
@@ -1173,7 +1173,7 @@ function submitOperasionalAirMinum(payload) {
     const nama = String(payload.nama || '-').trim();
     const kategori = String(payload.kategoriPenerima || '').trim();
     const namaPenerima = String(payload.namaPenerima || '-').trim();
-    const galon = parseInt(payload.jumlahGalon, 10) || 1;
+    const galon = (payload.jumlahGalon !== undefined && payload.jumlahGalon !== null && payload.jumlahGalon !== '') ? (parseInt(payload.jumlahGalon, 10) || 0) : 0;
     const metode = String(payload.metodePembayaran || 'Cash').trim();
     const catatan = String(payload.catatan || '-').trim();
 

@@ -1439,7 +1439,7 @@
 
                 <div>
                   <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Berapa Pax (Penumpang) <span class="text-red-500">*</span></label>
-                  <input type="number" id="carInputPax" min="1" step="1" required placeholder="Contoh: 3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-900">
+                  <input type="number" id="carInputPax" min="0" step="1" required placeholder="0 atau lebih..." value="" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-900">
                 </div>
 
                 <div>
@@ -1532,7 +1532,7 @@
 
                 <div>
                   <label class="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Berapa Galon Yang Diantar <span class="text-red-500">*</span></label>
-                  <input type="number" id="airInputGalon" min="1" step="1" required placeholder="Contoh: 10" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold text-slate-900">
+                  <input type="number" id="airInputGalon" min="0" step="1" required placeholder="0 atau lebih..." value="" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold text-slate-900">
                 </div>
 
                 <div>
@@ -4999,10 +4999,24 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
       e.preventDefault();
       if (!currentUser) return;
 
-      const kategori = document.getElementById('carKategori').value;
-      const detail = document.getElementById('carInputDetail').value;
-      const pax = document.getElementById('carPax').value;
-      const catatan = document.getElementById('carCatatan').value;
+      const kategori = (document.getElementById('carInputKategori') || document.getElementById('carKategori')).value;
+      const detail = document.getElementById('carInputDetail') ? document.getElementById('carInputDetail').value : '';
+      const paxInput = document.getElementById('carInputPax') || document.getElementById('carPax');
+      const catatanInput = document.getElementById('carInputCatatan') || document.getElementById('carCatatan');
+
+      if (paxInput.value === '' || paxInput.value === null) {
+        showToast('Harap masukkan jumlah pax (boleh 0).', true);
+        paxInput.focus();
+        return;
+      }
+
+      const pax = parseInt(paxInput.value, 10);
+      if (isNaN(pax) || pax < 0) {
+        showToast('Jumlah pax minimal 0.', true);
+        return;
+      }
+
+      const catatan = catatanInput ? catatanInput.value : '';
 
       const btn = document.getElementById('btnSubmitCar');
       btn.disabled = true;
@@ -5026,10 +5040,11 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
         const json = await res.json();
         if (json.success) {
           showToast(json.message);
-          document.getElementById('carPax').value = '';
-          document.getElementById('carCatatan').value = '';
-          document.getElementById('carInputDetail').value = '';
-          document.getElementById('carKategori').value = 'UMUM';
+          paxInput.value = '';
+          if (catatanInput) catatanInput.value = '';
+          if (document.getElementById('carInputDetail')) document.getElementById('carInputDetail').value = '';
+          const katSelect = document.getElementById('carInputKategori') || document.getElementById('carKategori');
+          if (katSelect) katSelect.value = 'UMUM';
           handleCarKategoriChange('UMUM');
           checkOpsStatusToday('executive-car');
           fetchCarHistory(true);
@@ -5117,9 +5132,23 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
 
       const kategori = document.getElementById('airInputKategori').value;
       const namaPenerima = document.getElementById('airInputDetail').value;
-      const galon = document.getElementById('airInputGalon').value;
+      const galonInput = document.getElementById('airInputGalon');
       const metode = document.getElementById('airInputMetode').value;
-      const catatan = document.getElementById('airInputCatatan').value;
+      const catatanInput = document.getElementById('airInputCatatan');
+
+      if (galonInput.value === '' || galonInput.value === null) {
+        showToast('Harap masukkan jumlah galon (boleh 0).', true);
+        galonInput.focus();
+        return;
+      }
+
+      const galon = parseInt(galonInput.value, 10);
+      if (isNaN(galon) || galon < 0) {
+        showToast('Jumlah galon minimal 0.', true);
+        return;
+      }
+
+      const catatan = catatanInput ? catatanInput.value : '';
 
       const btn = document.getElementById('btnSubmitAir');
       btn.disabled = true;
@@ -5144,8 +5173,8 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
         const json = await res.json();
         if (json.success) {
           showToast(json.message);
-          document.getElementById('airInputGalon').value = '';
-          document.getElementById('airInputCatatan').value = '';
+          galonInput.value = '';
+          if (catatanInput) catatanInput.value = '';
           document.getElementById('airInputDetail').value = '';
           document.getElementById('airInputKategori').value = 'ATS';
           handleAirKategoriChange('ATS');

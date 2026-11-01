@@ -1905,9 +1905,12 @@ app.post('/api/operasional/executive-car', async (req, res) => {
       return res.status(400).json({ success: false, message: 'NIK dan Kategori Pengguna wajib diisi.' });
     }
 
+    if (jumlahPax === undefined || jumlahPax === null || jumlahPax === '') {
+      return res.status(400).json({ success: false, message: 'Jumlah Pax wajib diisi (boleh 0).' });
+    }
     const paxNum = parseInt(jumlahPax, 10);
-    if (isNaN(paxNum) || paxNum < 1) {
-      return res.status(400).json({ success: false, message: 'Jumlah Pax harus berupa angka minimal 1.' });
+    if (isNaN(paxNum) || paxNum < 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah Pax harus berupa angka minimal 0.' });
     }
 
     if (kategoriPengguna === 'Lain-lain' && (!detailPengguna || !detailPengguna.trim())) {
@@ -2017,9 +2020,12 @@ app.post('/api/operasional/air-minum', async (req, res) => {
       return res.status(400).json({ success: false, message: 'NIK dan Kategori Penerima wajib diisi.' });
     }
 
+    if (jumlahGalon === undefined || jumlahGalon === null || jumlahGalon === '') {
+      return res.status(400).json({ success: false, message: 'Jumlah Galon wajib diisi (boleh 0).' });
+    }
     const galonNum = parseInt(jumlahGalon, 10);
-    if (isNaN(galonNum) || galonNum < 1) {
-      return res.status(400).json({ success: false, message: 'Jumlah Galon harus berupa angka minimal 1.' });
+    if (isNaN(galonNum) || galonNum < 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah Galon harus berupa angka minimal 0.' });
     }
 
     if ((kategoriPenerima === 'Tenant' || kategoriPenerima === 'Stakeholder') && (!namaPenerima || !namaPenerima.trim())) {
