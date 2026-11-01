@@ -1186,3 +1186,346 @@ function submitOperasionalAirMinum(payload) {
     return { status: 'error', message: 'Gagal mencatat data: ' + err.toString() };
   }
 }
+
+function updateOperasionalExecutiveCar(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('operasional-executive-car');
+    if (!sheet) return { status: 'error', message: 'Sheet operasional-executive-car tidak ditemukan.' };
+
+    const targetRow = parseInt(payload.rowIndex, 10);
+    if (!targetRow || targetRow < 2) return { status: 'error', message: 'Row index tidak valid.' };
+
+    const rowData = sheet.getRange(targetRow, 1, 1, 9).getValues()[0];
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(payload.userNik || '').trim().toLowerCase();
+
+    if (!isRoleAdmin(payload.role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return { status: 'error', message: 'Akses ditolak: Hanya penginput asli atau Administrator yang berhak mengedit data ini.' };
+    }
+
+    const pax = (payload.jumlahPax !== undefined && payload.jumlahPax !== null && payload.jumlahPax !== '') ? (parseInt(payload.jumlahPax, 10) || 0) : 0;
+    const kategori = String(payload.kategoriPengguna || rowData[5] || 'UMUM').trim();
+    const detail = String(payload.detailPengguna || '-').trim();
+    const catatan = String(payload.catatan || '-').trim();
+
+    sheet.getRange(targetRow, 6, 1, 4).setValues([[kategori, detail, pax, catatan]]);
+    return { status: 'success', message: 'Data operasional Executive Car berhasil diperbarui!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal memperbarui data: ' + err.toString() };
+  }
+}
+
+function deleteOperasionalExecutiveCar(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('operasional-executive-car');
+    if (!sheet) return { status: 'error', message: 'Sheet operasional-executive-car tidak ditemukan.' };
+
+    const targetRow = parseInt(payload.rowIndex, 10);
+    if (!targetRow || targetRow < 2) return { status: 'error', message: 'Row index tidak valid.' };
+
+    const rowData = sheet.getRange(targetRow, 1, 1, 9).getValues()[0];
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(payload.userNik || '').trim().toLowerCase();
+
+    if (!isRoleAdmin(payload.role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return { status: 'error', message: 'Akses ditolak: Hanya penginput asli atau Administrator yang berhak menghapus data ini.' };
+    }
+
+    sheet.deleteRow(targetRow);
+    return { status: 'success', message: 'Data operasional Executive Car berhasil dihapus!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal menghapus data: ' + err.toString() };
+  }
+}
+
+function updateOperasionalAirMinum(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('operasional-air-minum');
+    if (!sheet) return { status: 'error', message: 'Sheet operasional-air-minum tidak ditemukan.' };
+
+    const targetRow = parseInt(payload.rowIndex, 10);
+    if (!targetRow || targetRow < 2) return { status: 'error', message: 'Row index tidak valid.' };
+
+    const rowData = sheet.getRange(targetRow, 1, 1, 10).getValues()[0];
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(payload.userNik || '').trim().toLowerCase();
+
+    if (!isRoleAdmin(payload.role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return { status: 'error', message: 'Akses ditolak: Hanya penginput asli atau Administrator yang berhak mengedit data ini.' };
+    }
+
+    const galon = (payload.jumlahGalon !== undefined && payload.jumlahGalon !== null && payload.jumlahGalon !== '') ? (parseInt(payload.jumlahGalon, 10) || 0) : 0;
+    const kategori = String(payload.kategoriPenerima || rowData[5] || 'ATS').trim();
+    const namaPenerima = String(payload.namaPenerima || '-').trim();
+    const metode = String(payload.metodePembayaran || rowData[8] || 'Cash').trim();
+    const catatan = String(payload.catatan || '-').trim();
+
+    sheet.getRange(targetRow, 6, 1, 5).setValues([[kategori, namaPenerima, galon, metode, catatan]]);
+    return { status: 'success', message: 'Data pengantaran galon berhasil diperbarui!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal memperbarui data: ' + err.toString() };
+  }
+}
+
+function deleteOperasionalAirMinum(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('operasional-air-minum');
+    if (!sheet) return { status: 'error', message: 'Sheet operasional-air-minum tidak ditemukan.' };
+
+    const targetRow = parseInt(payload.rowIndex, 10);
+    if (!targetRow || targetRow < 2) return { status: 'error', message: 'Row index tidak valid.' };
+
+    const rowData = sheet.getRange(targetRow, 1, 1, 10).getValues()[0];
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(payload.userNik || '').trim().toLowerCase();
+
+    if (!isRoleAdmin(payload.role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return { status: 'error', message: 'Akses ditolak: Hanya penginput asli atau Administrator yang berhak menghapus data ini.' };
+    }
+
+    sheet.deleteRow(targetRow);
+    return { status: 'success', message: 'Data pengantaran galon berhasil dihapus!' };
+  } catch (err) {
+    return { status: 'error', message: 'Gagal menghapus data: ' + err.toString() };
+  }
+}
+function getOperasionalStatusToday(role, nik) {
+  try {
+    if (!nik || !role) return { status: 'success', filledToday: false, count: 0 };
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const cleanNik = String(nik).trim().toLowerCase();
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+
+    if (isRoleExecutiveCar(role)) {
+      let sheet = ss.getSheetByName('operasional-executive-car');
+      if (!sheet) return { status: 'success', type: 'executive-car', filledToday: false, count: 0, todayDate: todayStr };
+      const data = sheet.getDataRange().getValues();
+      if (data.length <= 1) return { status: 'success', type: 'executive-car', filledToday: false, count: 0, todayDate: todayStr };
+      let count = 0;
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][1] || '').trim() === todayStr && String(data[i][3] || '').trim().toLowerCase() === cleanNik) {
+          count++;
+        }
+      }
+      return { status: 'success', type: 'executive-car', filledToday: count > 0, count: count, todayDate: todayStr };
+    }
+
+    if (isRoleAirMinumSender(role)) {
+      let sheet = ss.getSheetByName('operasional-air-minum');
+      if (!sheet) return { status: 'success', type: 'air-minum', filledToday: false, count: 0, todayDate: todayStr };
+      const data = sheet.getDataRange().getValues();
+      if (data.length <= 1) return { status: 'success', type: 'air-minum', filledToday: false, count: 0, todayDate: todayStr };
+      let count = 0;
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][1] || '').trim() === todayStr && String(data[i][3] || '').trim().toLowerCase() === cleanNik) {
+          count++;
+        }
+      }
+      return { status: 'success', type: 'air-minum', filledToday: count > 0, count: count, todayDate: todayStr };
+    }
+
+    return { status: 'success', filledToday: true, count: 0 };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function getOperasionalExecutiveCarList(role, nik, todayOnly) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('operasional-executive-car');
+    if (!sheet) return { status: 'success', data: [] };
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return { status: 'success', data: [] };
+
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const cleanNik = String(nik || '').trim().toLowerCase();
+
+    let list = [];
+    for (let i = 1; i < data.length; i++) {
+      const r = data[i];
+      const rTanggal = String(r[1] || '').trim();
+      const rNik = String(r[3] || '').trim().toLowerCase();
+
+      if (isRoleExecutiveCar(role) && rNik !== cleanNik) continue;
+      if (todayOnly && rTanggal !== todayStr) continue;
+
+      list.push({
+        rowIndex: i + 1,
+        timestamp: r[0] || '',
+        tanggal: r[1] || '',
+        waktu: r[2] || '',
+        nik: r[3] || '',
+        nama: r[4] || '',
+        kategoriPengguna: r[5] || '',
+        detailPengguna: r[6] || '-',
+        jumlahPax: parseInt(r[7], 10) || 0,
+        catatan: r[8] || '-'
+      });
+    }
+
+    list.reverse();
+    return { status: 'success', data: list };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function getOperasionalAirMinumList(role, nik, todayOnly) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('operasional-air-minum');
+    if (!sheet) return { status: 'success', data: [] };
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return { status: 'success', data: [] };
+
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const cleanNik = String(nik || '').trim().toLowerCase();
+
+    let list = [];
+    for (let i = 1; i < data.length; i++) {
+      const r = data[i];
+      const rTanggal = String(r[1] || '').trim();
+      const rNik = String(r[3] || '').trim().toLowerCase();
+
+      if (isRoleAirMinumSender(role) && rNik !== cleanNik) continue;
+      if (todayOnly && rTanggal !== todayStr) continue;
+
+      list.push({
+        rowIndex: i + 1,
+        timestamp: r[0] || '',
+        tanggal: r[1] || '',
+        waktu: r[2] || '',
+        nik: r[3] || '',
+        nama: r[4] || '',
+        kategoriPenerima: r[5] || '',
+        namaPenerima: r[6] || '-',
+        jumlahGalon: parseInt(r[7], 10) || 0,
+        metodePembayaran: r[8] || 'Cash',
+        catatan: r[9] || '-'
+      });
+    }
+
+    list.reverse();
+    return { status: 'success', data: list };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function getOperasionalSummary(role, period) {
+  try {
+    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRolePengurus(role)) {
+      return { status: 'error', message: 'Akses dashboard hanya untuk Admin, Ketua Koperasi, dan Pengurus.' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let carSheet = ss.getSheetByName('operasional-executive-car');
+    let airSheet = ss.getSheetByName('operasional-air-minum');
+
+    const carData = carSheet ? carSheet.getDataRange().getValues().slice(1) : [];
+    const airData = airSheet ? airSheet.getDataRange().getValues().slice(1) : [];
+
+    const now = new Date();
+    const todayStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const nowMs = now.getTime();
+
+    const filterByPeriod = function(tglStr) {
+      if (!tglStr) return false;
+      if (period === 'today') return tglStr === todayStr;
+      if (period === '7days') {
+        const d = new Date(tglStr);
+        return (nowMs - d.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+      }
+      if (period === 'month') {
+        return tglStr.indexOf(todayStr.slice(0, 7)) === 0;
+      }
+      return true;
+    };
+
+    let totalCarPax = 0;
+    const carKategoriMap = { 'UMUM': 0, 'DPR-RI': 0, 'FOC': 0, 'FS-PICA': 0, 'PRIVATE JET': 0, 'Lain-lain': 0 };
+    const carTrendMap = {};
+    let carTrips = 0;
+
+    for (let i = 0; i < carData.length; i++) {
+      const r = carData[i];
+      const tgl = String(r[1] || '').trim();
+      if (!filterByPeriod(tgl)) continue;
+      carTrips++;
+      const kat = String(r[5] || 'Lain-lain').trim();
+      const pax = parseInt(r[7], 10) || 0;
+      totalCarPax += pax;
+      if (carKategoriMap.hasOwnProperty(kat)) {
+        carKategoriMap[kat] += pax;
+      } else {
+        carKategoriMap['Lain-lain'] += pax;
+      }
+      carTrendMap[tgl] = (carTrendMap[tgl] || 0) + pax;
+    }
+
+    let totalAirGalon = 0;
+    const airKategoriMap = { 'ATS': 0, 'API': 0, 'Tenant': 0, 'Stakeholder': 0 };
+    const airBayarMap = { 'Cash': 0, 'QRIS': 0, 'Akhir Bulan': 0 };
+    const airTrendMap = {};
+    let airDeliveries = 0;
+
+    for (let j = 0; j < airData.length; j++) {
+      const r = airData[j];
+      const tgl = String(r[1] || '').trim();
+      if (!filterByPeriod(tgl)) continue;
+      airDeliveries++;
+      const kat = String(r[5] || 'ATS').trim();
+      const galon = parseInt(r[7], 10) || 0;
+      const metode = String(r[8] || 'Cash').trim();
+      totalAirGalon += galon;
+
+      if (airKategoriMap.hasOwnProperty(kat)) {
+        airKategoriMap[kat] += galon;
+      } else {
+        airKategoriMap['Stakeholder'] += galon;
+      }
+
+      if (metode.indexOf('QRIS') !== -1) {
+        airBayarMap['QRIS'] += galon;
+      } else if (metode.indexOf('Bulan') !== -1 || metode.indexOf('Akhir') !== -1) {
+        airBayarMap['Akhir Bulan'] += galon;
+      } else {
+        airBayarMap['Cash'] += galon;
+      }
+
+      airTrendMap[tgl] = (airTrendMap[tgl] || 0) + galon;
+    }
+
+    return {
+      status: 'success',
+      period: period || 'all',
+      summary: {
+        car: {
+          totalPax: totalCarPax,
+          totalTrips: carTrips,
+          byCategory: carKategoriMap,
+          trend: carTrendMap
+        },
+        air: {
+          totalGalon: totalAirGalon,
+          totalDeliveries: airDeliveries,
+          byCategory: airKategoriMap,
+          byPayment: airBayarMap,
+          trend: airTrendMap
+        }
+      }
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}

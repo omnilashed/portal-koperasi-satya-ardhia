@@ -2009,6 +2009,132 @@ app.get('/api/operasional/executive-car', async (req, res) => {
 });
 
 /**
+ * PUT /api/operasional/executive-car
+ * Memperbarui data operasional Executive Car (Khusus Penginput atau Admin)
+ */
+app.put('/api/operasional/executive-car', async (req, res) => {
+  try {
+    const { rowIndex, role, userNik, kategoriPengguna, detailPengguna, jumlahPax, catatan } = req.body;
+    const targetRow = parseInt(rowIndex, 10);
+    if (!targetRow || targetRow < 2) {
+      return res.status(400).json({ success: false, message: 'Row index tidak valid.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const rowResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'operasional-executive-car'!A${targetRow}:I${targetRow}`
+    });
+
+    const rowData = (rowResp.data.values && rowResp.data.values[0]) || [];
+    if (rowData.length === 0) {
+      return res.status(404).json({ success: false, message: 'Data operasional tidak ditemukan.' });
+    }
+
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(userNik || '').trim().toLowerCase();
+
+    // Validasi Hak Akses: Penginput Asli atau Admin
+    if (!isRoleAdmin(role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anda hanya dapat mengedit data operasional yang Anda input sendiri.'
+      });
+    }
+
+    const paxNum = (jumlahPax !== undefined && jumlahPax !== null && jumlahPax !== '') ? parseInt(jumlahPax, 10) : 0;
+    if (isNaN(paxNum) || paxNum < 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah Pax minimal 0.' });
+    }
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'operasional-executive-car'!F${targetRow}:I${targetRow}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          String(kategoriPengguna || rowData[5] || 'UMUM').trim(),
+          String(detailPengguna || '-').trim(),
+          paxNum,
+          String(catatan || '-').trim()
+        ]]
+      }
+    });
+
+    return res.json({ success: true, message: 'Data operasional Executive Car berhasil diperbarui!' });
+  } catch (error) {
+    console.error('Error PUT /api/operasional/executive-car:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui data: ' + error.message });
+  }
+});
+
+/**
+ * DELETE /api/operasional/executive-car
+ * Menghapus data operasional Executive Car (Khusus Penginput atau Admin)
+ */
+app.delete('/api/operasional/executive-car', async (req, res) => {
+  try {
+    const { rowIndex, role, userNik } = req.body;
+    const targetRow = parseInt(rowIndex, 10);
+    if (!targetRow || targetRow < 2) {
+      return res.status(400).json({ success: false, message: 'Row index tidak valid.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const rowResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'operasional-executive-car'!A${targetRow}:I${targetRow}`
+    });
+
+    const rowData = (rowResp.data.values && rowResp.data.values[0]) || [];
+    if (rowData.length === 0) {
+      return res.status(404).json({ success: false, message: 'Data operasional tidak ditemukan.' });
+    }
+
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(userNik || '').trim().toLowerCase();
+
+    // Validasi Hak Akses: Penginput Asli atau Admin
+    if (!isRoleAdmin(role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anda hanya dapat menghapus data operasional yang Anda input sendiri.'
+      });
+    }
+
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const targetSheet = (meta.data.sheets || []).find(s => s.properties.title === 'operasional-executive-car');
+    if (!targetSheet) {
+      return res.status(404).json({ success: false, message: 'Sheet operasional-executive-car tidak ditemukan.' });
+    }
+    const sheetId = targetSheet.properties.sheetId;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetId,
+                dimension: 'ROWS',
+                startIndex: targetRow - 1,
+                endIndex: targetRow
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    return res.json({ success: true, message: 'Data operasional Executive Car berhasil dihapus!' });
+  } catch (error) {
+    console.error('Error DELETE /api/operasional/executive-car:', error);
+    return res.status(500).json({ success: false, message: 'Gagal menghapus data: ' + error.message });
+  }
+});
+
+/**
  * POST /api/operasional/air-minum
  * Menyimpan data harian pengantaran galon air minum
  */
@@ -2123,6 +2249,133 @@ app.get('/api/operasional/air-minum', async (req, res) => {
   } catch (error) {
     console.error('Error GET /api/operasional/air-minum:', error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * PUT /api/operasional/air-minum
+ * Memperbarui data pengantaran galon air minum (Khusus Penginput atau Admin)
+ */
+app.put('/api/operasional/air-minum', async (req, res) => {
+  try {
+    const { rowIndex, role, userNik, kategoriPenerima, namaPenerima, jumlahGalon, metodePembayaran, catatan } = req.body;
+    const targetRow = parseInt(rowIndex, 10);
+    if (!targetRow || targetRow < 2) {
+      return res.status(400).json({ success: false, message: 'Row index tidak valid.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const rowResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'operasional-air-minum'!A${targetRow}:J${targetRow}`
+    });
+
+    const rowData = (rowResp.data.values && rowResp.data.values[0]) || [];
+    if (rowData.length === 0) {
+      return res.status(404).json({ success: false, message: 'Data pengantaran tidak ditemukan.' });
+    }
+
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(userNik || '').trim().toLowerCase();
+
+    // Validasi Hak Akses: Penginput Asli atau Admin
+    if (!isRoleAdmin(role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anda hanya dapat mengedit data pengantaran yang Anda input sendiri.'
+      });
+    }
+
+    const galonNum = (jumlahGalon !== undefined && jumlahGalon !== null && jumlahGalon !== '') ? parseInt(jumlahGalon, 10) : 0;
+    if (isNaN(galonNum) || galonNum < 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah Galon minimal 0.' });
+    }
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'operasional-air-minum'!F${targetRow}:J${targetRow}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          String(kategoriPenerima || rowData[5] || 'ATS').trim(),
+          String(namaPenerima || '-').trim(),
+          galonNum,
+          String(metodePembayaran || rowData[8] || 'Cash').trim(),
+          String(catatan || '-').trim()
+        ]]
+      }
+    });
+
+    return res.json({ success: true, message: 'Data pengantaran galon air minum berhasil diperbarui!' });
+  } catch (error) {
+    console.error('Error PUT /api/operasional/air-minum:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui data: ' + error.message });
+  }
+});
+
+/**
+ * DELETE /api/operasional/air-minum
+ * Menghapus data pengantaran galon air minum (Khusus Penginput atau Admin)
+ */
+app.delete('/api/operasional/air-minum', async (req, res) => {
+  try {
+    const { rowIndex, role, userNik } = req.body;
+    const targetRow = parseInt(rowIndex, 10);
+    if (!targetRow || targetRow < 2) {
+      return res.status(400).json({ success: false, message: 'Row index tidak valid.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const rowResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'operasional-air-minum'!A${targetRow}:J${targetRow}`
+    });
+
+    const rowData = (rowResp.data.values && rowResp.data.values[0]) || [];
+    if (rowData.length === 0) {
+      return res.status(404).json({ success: false, message: 'Data pengantaran tidak ditemukan.' });
+    }
+
+    const rowNik = String(rowData[3] || '').trim().toLowerCase();
+    const cleanUserNik = String(userNik || '').trim().toLowerCase();
+
+    // Validasi Hak Akses: Penginput Asli atau Admin
+    if (!isRoleAdmin(role) && (!cleanUserNik || cleanUserNik !== rowNik)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses ditolak: Anda hanya dapat menghapus data pengantaran yang Anda input sendiri.'
+      });
+    }
+
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const targetSheet = (meta.data.sheets || []).find(s => s.properties.title === 'operasional-air-minum');
+    if (!targetSheet) {
+      return res.status(404).json({ success: false, message: 'Sheet operasional-air-minum tidak ditemukan.' });
+    }
+    const sheetId = targetSheet.properties.sheetId;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetId,
+                dimension: 'ROWS',
+                startIndex: targetRow - 1,
+                endIndex: targetRow
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    return res.json({ success: true, message: 'Data pengantaran galon air minum berhasil dihapus!' });
+  } catch (error) {
+    console.error('Error DELETE /api/operasional/air-minum:', error);
+    return res.status(500).json({ success: false, message: 'Gagal menghapus data: ' + error.message });
   }
 });
 
