@@ -19,6 +19,9 @@
 
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    /* Hide scrollbar for horizontal menu tabs */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     #absensiMap { z-index: 10; }
 
     /* Animated Checkmark and Cross */
@@ -263,71 +266,89 @@
   <!-- ================= MAIN APPLICATION SECTION ================= -->
   <div id="appContainer" class="hidden flex-1 flex flex-col">
     
-    <!-- Header Navbar -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-200">
-            <i data-lucide="wallet-cards" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h1 class="font-bold text-slate-900 leading-none text-base sm:text-lg">Koperasi Satya Ardhia - HLP</h1>
-            <p class="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-              <span id="userBadgeRole" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase">User</span>
-              <span id="userGreeting" class="truncate max-w-[120px] sm:max-w-none">Nama Anggota</span>
-            </p>
-          </div>
-        </div>
+    <!-- Header Navbar Responsive (Mobile, Tablet, Flip, & Desktop) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
-        <div class="flex items-center space-x-2 sm:space-x-3">
-          <!-- Nav Tabs -->
-          <div class="flex bg-slate-100 p-1 rounded-xl text-xs sm:text-sm font-medium" id="navTabsContainer">
-            <!-- Tab 1: Tracking (Semua Role) -->
-            <button id="tabTrackBtn" onclick="switchTab('tracking')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm">
-              <i data-lucide="list-checks" class="w-4 h-4"></i>
-              <span class="hidden sm:inline">Tracking & Progress</span>
-              <span class="sm:hidden">Tracking</span>
-            </button>
+        <div class="py-2.5 sm:py-3 lg:py-0 lg:h-16 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 lg:gap-4">
+          
+          <!-- Baris 1: Logo & Nama & Role & Logout (Mobile & Tablet) -->
+          <div class="flex items-center justify-between min-w-0">
+            <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+              <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                <i data-lucide="wallet-cards" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+              </div>
+              <div class="min-w-0">
+                <h1 class="font-bold text-slate-900 leading-tight text-xs sm:text-base truncate">
+                  Koperasi Satya Ardhia<span class="hidden sm:inline"> - HLP</span>
+                </h1>
+                <p class="text-[11px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                  <span id="userBadgeRole" class="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-slate-100 text-slate-700 uppercase flex-shrink-0">User</span>
+                  <span id="userGreeting" class="truncate max-w-[120px] sm:max-w-xs font-medium">Nama Anggota</span>
+                </p>
+              </div>
+            </div>
 
-            <!-- Tab 2: Absensi Pegawai & Monitoring (Pegawai, Financial, Admin, Ketua Koperasi, Pengurus) - HIDDEN UNTUK ANGGOTA/USER -->
-            <button id="tabAbsensiBtn" onclick="switchTab('absensi')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
-              <i data-lucide="scan-face" class="w-4 h-4"></i>
-              <span id="tabAbsensiLabel" class="hidden sm:inline">Absensi Pegawai (HLP)</span>
-              <span id="tabAbsensiLabelSm" class="sm:hidden">Absen</span>
-            </button>
-
-            <!-- Tab 3: Data Operasional & Dashboard (Executive Car, Air Minum Sender, Admin, Ketua, Pengurus) -->
-            <button id="tabOperasionalBtn" onclick="switchTab('operasional')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
-              <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
-              <span id="tabOperasionalLabel" class="hidden sm:inline">Data Operasional</span>
-              <span id="tabOperasionalLabelSm" class="sm:hidden">Operasional</span>
-            </button>
-
-            <!-- Tab 2: Form Input Baru (Hanya Admin & Financial, Hidden untuk User & Pengurus) -->
-            <button id="tabFormBtn" onclick="switchTab('form')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
-              <i data-lucide="plus-circle" class="w-4 h-4"></i>
-              <span class="hidden sm:inline">Form Input Pinjaman</span>
-              <span class="sm:hidden">Input</span>
-            </button>
-            
-            <!-- Tab 3: Validasi Akun (Hanya Admin) -->
-            <button id="tabUsersBtn" onclick="switchTab('users')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
-              <i data-lucide="users" class="w-4 h-4"></i>
-              <span class="hidden sm:inline">Validasi Akun</span>
-              <span class="sm:hidden">Users</span>
+            <!-- Logout Button Mobile & Tablet -->
+            <button onclick="handleLogout()" class="lg:hidden p-2 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition flex-shrink-0" title="Keluar / Logout">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
             </button>
           </div>
 
-          <!-- Logout Button -->
-          <button onclick="handleLogout()" class="p-2 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition" title="Logout">
-            <i data-lucide="log-out" class="w-4 h-4"></i>
-          </button>
+          <!-- Baris 2: Nav Tabs (Di HP/Tablet/Flip otomatis horizontal scroll halus tanpa scrollbar, di Desktop sejajar di kanan) -->
+          <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 w-full lg:w-auto">
+            <div class="w-full lg:w-auto overflow-x-auto no-scrollbar scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
+              <div class="flex bg-slate-100 p-1 rounded-xl text-xs sm:text-sm font-medium w-max lg:w-auto space-x-1" id="navTabsContainer">
+                <!-- Tab 1: Tracking (Semua Role) -->
+                <button id="tabTrackBtn" onclick="switchTab('tracking')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="list-checks" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Tracking & Progress</span>
+                  <span class="sm:hidden">Tracking</span>
+                </button>
+
+                <!-- Tab 2: Absensi Pegawai & Monitoring -->
+                <button id="tabAbsensiBtn" onclick="switchTab('absensi')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="scan-face" class="w-4 h-4"></i>
+                  <span id="tabAbsensiLabel" class="hidden sm:inline">Absensi Pegawai (HLP)</span>
+                  <span id="tabAbsensiLabelSm" class="sm:hidden">Absen</span>
+                </button>
+
+                <!-- Tab 3: Data Operasional & Dashboard -->
+                <button id="tabOperasionalBtn" onclick="switchTab('operasional')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
+                  <span id="tabOperasionalLabel" class="hidden sm:inline">Data Operasional</span>
+                  <span id="tabOperasionalLabelSm" class="sm:hidden">Operasional</span>
+                </button>
+
+                <!-- Tab 4: Form Input Baru -->
+                <button id="tabFormBtn" onclick="switchTab('form')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Form Input Pinjaman</span>
+                  <span class="sm:hidden">Pinjaman</span>
+                </button>
+                
+                <!-- Tab 5: Validasi Akun -->
+                <button id="tabUsersBtn" onclick="switchTab('users')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Validasi Akun</span>
+                  <span class="sm:hidden">Users</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Logout Button Desktop (Hanya muncul di layar besar lg ke atas) -->
+            <button onclick="handleLogout()" class="hidden lg:flex p-2 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition flex-shrink-0" title="Keluar / Logout">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+            </button>
+          </div>
+
         </div>
+
       </div>
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 flex-1 w-full">
 
       <!-- VIEW 1: TRACKING & APPROVAL -->
       <div id="viewTracking" class="space-y-6">
@@ -2506,8 +2527,8 @@
       const absensiBtn = document.getElementById('tabAbsensiBtn');
       const operasionalBtn = document.getElementById('tabOperasionalBtn');
 
-      const activeClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm font-medium";
-      const inactiveClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900";
+      const activeClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm font-medium flex-shrink-0 whitespace-nowrap transition-all";
+      const inactiveClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap transition-all";
 
       trackBtn.className = (tab === 'tracking' ? activeClass : inactiveClass) + " flex";
       if (absensiBtn) absensiBtn.className = (tab === 'absensi' ? activeClass : inactiveClass) + " flex";
