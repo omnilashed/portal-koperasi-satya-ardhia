@@ -10,14 +10,22 @@ function doGet(e) {
 
 // Helper: Normalisasi & Pengecekan Hierarki Role
 function normalizeRole(r) {
-  return String(r || '').trim().toLowerCase();
+  const s = String(r || '').trim().toLowerCase();
+  if (s.includes('ketua')) return 'ketua koperasi';
+  if (s.includes('admin')) return 'admin';
+  if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+  if (s.includes('pengurus')) return 'pengurus';
+  if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
+  if (s.includes('pegawai') || s.includes('karyawan')) return 'pegawai';
+  return 'user';
 }
 function isRoleAdmin(r) { return normalizeRole(r) === 'admin'; }
-function isRoleKetua(r) { return ['ketua koperasi', 'ketua'].includes(normalizeRole(r)); }
+function isRoleKetua(r) { return normalizeRole(r) === 'ketua koperasi'; }
 function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
 function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
 function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
-function isRoleAnggota(r) { return ['user', 'anggota', ''].includes(normalizeRole(r)); }
+function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
+function isRoleAnggota(r) { return normalizeRole(r) === 'user'; }
 
 // ================= AUTHENTICATION & USER MANAGEMENT =================
 
@@ -543,8 +551,8 @@ function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
  */
 function registerFaceDescriptor(nik, nama, descriptorJson, userRole) {
   try {
-    if (userRole && !isRoleAdmin(userRole) && !isRoleFinancial(userRole) && !isRolePegawai(userRole)) {
-      return { status: 'error', message: 'Akses ditolak! Pendaftaran wajah hanya diperuntukkan bagi Pegawai, Financial, dan Admin.' };
+    if (userRole && !isRoleAdmin(userRole) && !isRoleFinancial(userRole) && !isRolePegawai(userRole) && !isRoleExecutiveCar(userRole)) {
+      return { status: 'error', message: 'Akses ditolak! Pendaftaran wajah hanya diperuntukkan bagi Pegawai, Financial, Executive Car, dan Admin.' };
     }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('wajah-karyawan');
@@ -615,8 +623,8 @@ function getAllFaceDescriptors() {
 function submitClockIn(payload) {
   try {
     const role = payload.userRole || payload.role;
-    if (role && !isRoleAdmin(role) && !isRoleFinancial(role) && !isRolePegawai(role)) {
-      return { status: 'error', message: 'Akses ditolak: Fitur presensi clock-in hanya dapat digunakan oleh Pegawai, Financial, dan Admin.' };
+    if (role && !isRoleAdmin(role) && !isRoleFinancial(role) && !isRolePegawai(role) && !isRoleExecutiveCar(role)) {
+      return { status: 'error', message: 'Akses ditolak: Fitur presensi clock-in hanya dapat digunakan oleh Pegawai, Financial, Executive Car, dan Admin.' };
     }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('absensi-harian');
@@ -684,11 +692,41 @@ function submitClockIn(payload) {
       }
     }
 
-    // Status kehadiran (Jam masuk kantor normal 08:30 WIB)
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    // Status kehadiran & pengecekan jam kerja (GMT+7 / WIB)
+    const hourStr = Utilities.formatDate(now, 'GMT+7', 'HH');
+    const minStr = Utilities.formatDate(now, 'GMT+7', 'mm');
+    const hours = parseInt(hourStr, 10);
+    const minutes = parseInt(minStr, 10);
     const totalMinutes = hours * 60 + minutes;
-    const statusKehadiran = totalMinutes <= (8 * 60 + 30) ? 'Hadir Tepat Waktu' : 'Terlambat';
+
+    let statusKehadiran = 'Hadir Tepat Waktu';
+    if (isRoleExecutiveCar(role)) {
+      // Role Executive Car: bisa clockin jam 3 subuh s/d jam 11 malam (03:00 - 23:00 WIB), asumsi kerja 12 jam
+      if (hours < 3) {
+        return {
+          status: 'error',
+          message: 'Belum memasuki jam operasional Executive Car! Clock-In dibuka mulai pukul 03:00 Subuh WIB (Waktu saat ini: ' + timeStr + ' WIB).'
+        };
+      }
+      if (hours >= 23) {
+        return {
+          status: 'error',
+          message: 'Batas waktu Clock-In Executive Car telah berakhir (Maksimal pukul 23:00 WIB). Waktu saat ini: ' + timeStr + ' WIB.'
+        };
+      }
+      statusKehadiran = 'Hadir (Executive Car - 12 Jam)';
+    } else if (isRolePegawai(role) || isRoleFinancial(role)) {
+      // Role Finance / Pegawai: jam 8 pagi sampai jam 4 sore (08:00 - 16:00 WIB)
+      if (totalMinutes <= (8 * 60 + 30)) {
+        statusKehadiran = 'Hadir Tepat Waktu';
+      } else if (totalMinutes <= (16 * 60)) {
+        statusKehadiran = 'Terlambat';
+      } else {
+        statusKehadiran = 'Terlambat (Lewat Jam Kantor 16:00)';
+      }
+    } else {
+      statusKehadiran = totalMinutes <= (8 * 60 + 30) ? 'Hadir Tepat Waktu' : 'Terlambat';
+    }
 
     const lokasiStr = 'Lat: ' + userLat.toFixed(6) + ', Lng: ' + userLng.toFixed(6);
 
@@ -728,8 +766,8 @@ function submitClockIn(payload) {
 function submitClockOut(payload) {
   try {
     const role = payload.userRole || payload.role;
-    if (role && !isRoleAdmin(role) && !isRoleFinancial(role) && !isRolePegawai(role)) {
-      return { status: 'error', message: 'Akses ditolak: Fitur presensi clock-out hanya dapat digunakan oleh Pegawai, Financial, dan Admin.' };
+    if (role && !isRoleAdmin(role) && !isRoleFinancial(role) && !isRolePegawai(role) && !isRoleExecutiveCar(role)) {
+      return { status: 'error', message: 'Akses ditolak: Fitur presensi clock-out hanya dapat digunakan oleh Pegawai, Financial, Executive Car, dan Admin.' };
     }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let sheet = ss.getSheetByName('absensi-harian');
@@ -781,12 +819,49 @@ function submitClockOut(payload) {
       };
     }
 
+    // Hitung durasi kerja dari Clock-In (GMT+7 / WIB)
+    const hourStr = Utilities.formatDate(now, 'GMT+7', 'HH');
+    const minStr = Utilities.formatDate(now, 'GMT+7', 'mm');
+    const hours = parseInt(hourStr, 10);
+    const minutes = parseInt(minStr, 10);
+    const totalMinutes = hours * 60 + minutes;
+
+    const existingClockIn = String(data[foundRow - 1][5] || '').trim();
+    let durationHours = 0;
+    let durationMinutes = 0;
+    if (existingClockIn && existingClockIn.indexOf(':') !== -1) {
+      const parts = existingClockIn.split(':');
+      const inH = parseInt(parts[0], 10) || 0;
+      const inM = parseInt(parts[1], 10) || 0;
+      let diff = totalMinutes - (inH * 60 + inM);
+      if (diff < 0) diff = 0;
+      durationHours = Math.floor(diff / 60);
+      durationMinutes = diff % 60;
+    }
+
+    let outMessage = 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB. Terima kasih atas kerja keras hari ini!';
+    if (isRoleExecutiveCar(role)) {
+      if (hours > 23 || (hours === 23 && minutes > 0)) {
+        outMessage = 'Clock-Out berhasil pada pukul ' + timeStr + ' WIB (Melewati batas reguler 23:00 WIB. Durasi kerja: ' + durationHours + ' Jam ' + durationMinutes + ' Menit).';
+      } else if (durationHours >= 12) {
+        outMessage = 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB (Durasi kerja: ' + durationHours + ' Jam ' + durationMinutes + ' Menit - Target 12 Jam Terpenuhi ✅). Terima kasih!';
+      } else {
+        outMessage = 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB (Durasi kerja: ' + durationHours + ' Jam ' + durationMinutes + ' Menit dari asumsi 12 Jam). Terima kasih!';
+      }
+    } else if (isRolePegawai(role) || isRoleFinancial(role)) {
+      if (totalMinutes < (16 * 60)) {
+        outMessage = 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB (Catatan: Pulang lebih awal sebelum jam kantor 16:00 WIB). Terima kasih!';
+      } else {
+        outMessage = 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB. Jam kantor telah usai (16:00 WIB). Terima kasih!';
+      }
+    }
+
     // Update kolom Clock-Out (Kolom 7 / G)
     sheet.getRange(foundRow, 7).setValue(timeStr);
 
     return {
       status: 'success',
-      message: 'Clock-Out berhasil dicatat pada pukul ' + timeStr + ' WIB. Terima kasih atas kerja keras hari ini!',
+      message: outMessage,
       data: {
         tanggal: dateStr,
         clockOut: timeStr,
@@ -866,8 +941,8 @@ function getAbsensiHistoryList(userRole, nik, nama, startDate, endDate, search, 
       faceVerified: r[10]
     }));
 
-    // 1. Filter hak akses: Pegawai & Financial hanya melihat miliknya sendiri
-    if (isRolePegawai(userRole) || isRoleFinancial(userRole)) {
+    // 1. Filter hak akses: Pegawai, Financial, dan Executive Car hanya melihat miliknya sendiri
+    if (isRolePegawai(userRole) || isRoleFinancial(userRole) || isRoleExecutiveCar(userRole)) {
       const cleanNik = String(nik || '').trim().toLowerCase();
       const cleanNama = String(nama || '').trim().toLowerCase();
       list = list.filter(item => {
@@ -916,7 +991,7 @@ function getAbsensiHistoryList(userRole, nik, nama, startDate, endDate, search, 
  */
 function getTodayEmployeesAttendance(userRole) {
   try {
-    if (isRoleAnggota(userRole) || isRolePegawai(userRole) || isRoleFinancial(userRole)) {
+    if (isRoleAnggota(userRole) || isRolePegawai(userRole) || isRoleFinancial(userRole) || isRoleExecutiveCar(userRole)) {
       return { status: 'error', message: 'Akses monitoring presensi hanya untuk Admin, Ketua Koperasi, dan Pengurus.' };
     }
 

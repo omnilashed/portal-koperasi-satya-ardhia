@@ -564,6 +564,7 @@
                 <p class="text-[11px] text-emerald-200 uppercase font-semibold">Waktu Sekarang (WIB)</p>
                 <p id="liveClock" class="text-2xl font-mono font-bold">--:--:--</p>
                 <p id="liveDate" class="text-xs text-emerald-100 mt-0.5">Memuat tanggal...</p>
+                <p id="liveShiftBadge" class="text-[11px] text-emerald-200 font-semibold mt-1">Jam Kerja: 08:00 - 16:00 WIB</p>
               </div>
               <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white">
                 <i data-lucide="clock" class="w-6 h-6"></i>
@@ -1916,6 +1917,7 @@
       if (s.includes('admin')) return 'admin';
       if (s.includes('financial') || s.includes('keuangan')) return 'financial';
       if (s.includes('pengurus')) return 'pengurus';
+      if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
       if (s.includes('pegawai') || s.includes('karyawan')) return 'pegawai';
       return 'user';
     }
@@ -1924,6 +1926,7 @@
     function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
     function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
     function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
+    function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
     function isRoleAnggota(r) { return normalizeRole(r) === 'user'; }
 
     let currentAdminAbsensiMode = 'monitoring'; // 'mandiri' | 'monitoring'
@@ -1956,6 +1959,8 @@
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase";
       } else if (role === 'pegawai') {
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 uppercase";
+      } else if (role === 'executive car') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase";
       } else {
         // Anggota / User
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase";
@@ -2080,7 +2085,7 @@
       }
 
       const canManage = isRoleAdmin(currentUser.role) || isRoleKetua(currentUser.role);
-      const availableRoles = ['Admin', 'Ketua Koperasi', 'Financial', 'Pengurus', 'Pegawai', 'User'];
+      const availableRoles = ['Admin', 'Ketua Koperasi', 'Financial', 'Pengurus', 'Pegawai', 'Executive Car', 'User'];
 
       tbody.innerHTML = usersList.map(u => {
         const status = String(u.accountStatus || 'Pending').trim();
@@ -3108,22 +3113,44 @@
       return Math.round(R * c);
     }
 
-    // Jam Digital Realtime & Tanggal Indonesia
+    // Jam Digital Realtime & Tanggal Indonesia (Asia/Jakarta +7)
     function startLiveClock() {
       if (liveClockInterval) clearInterval(liveClockInterval);
       const clockEl = document.getElementById('liveClock');
       const dateEl = document.getElementById('liveDate');
+      const shiftEl = document.getElementById('liveShiftBadge');
+
+      if (shiftEl && currentUser) {
+        const role = normalizeRole(currentUser.role);
+        if (role === 'executive car') {
+          shiftEl.innerText = 'Shift Executive Car: 03:00 - 23:00 WIB (12 Jam)';
+        } else if (role === 'financial' || role === 'pegawai') {
+          shiftEl.innerText = 'Jam Kerja Kantor: 08:00 - 16:00 WIB';
+        } else {
+          shiftEl.innerText = 'Akses Jam Fleksibel (Radius Halim 1 KM)';
+        }
+      }
 
       function update() {
         const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        if (clockEl) clockEl.innerText = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-        
-        if (dateEl) {
-          const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-          const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-          dateEl.innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-        }
+        const timeParts = new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(now).replace(/\./g, ':');
+
+        const dateStr = new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        }).format(now);
+
+        if (clockEl) clockEl.innerText = timeParts;
+        if (dateEl) dateEl.innerText = dateStr;
       }
 
       update();
@@ -3157,14 +3184,19 @@
         stopWebcam();
         fetchTodayEmployeesList();
         fetchFilteredAbsensiHistory();
-      } else if (role === 'pegawai' || role === 'financial') {
+      } else if (role === 'pegawai' || role === 'financial' || role === 'executive car') {
         // WORKFORCE: Presensi Mandiri (Kamera + GPS Halim)
         if (adminToggle) adminToggle.classList.add('hidden');
         if (secMonitoring) secMonitoring.classList.add('hidden');
         if (secMandiri) secMandiri.classList.remove('hidden');
 
-        if (titleHeader) titleHeader.innerText = 'Presensi Kehadiran Karyawan';
-        if (descHeader) descHeader.innerText = 'Sistem absensi mandiri terintegrasi Face Recognition AI dan validasi radius geofencing 1 KM dari Terminal Bandara Halim.';
+        if (role === 'executive car') {
+          if (titleHeader) titleHeader.innerText = 'Presensi Executive Car (HLP)';
+          if (descHeader) descHeader.innerText = 'Presensi Executive Car (Shift 03:00 - 23:00 WIB, 12 Jam Kerja) dengan Face Recognition AI dan validasi radius geofencing 1 KM dari Terminal Bandara Halim.';
+        } else {
+          if (titleHeader) titleHeader.innerText = 'Presensi Kehadiran Karyawan';
+          if (descHeader) descHeader.innerText = 'Sistem absensi mandiri terintegrasi Face Recognition AI dan validasi radius geofencing 1 KM dari Terminal Bandara Halim.';
+        }
 
         startLiveClock();
         initAbsensiMap();
@@ -4063,7 +4095,8 @@
             unitKerja: currentUser.nik || '-',
             latitude: currentUserLat,
             longitude: currentUserLng,
-            faceVerified: isFaceVerified
+            faceVerified: isFaceVerified,
+            userRole: currentUser.role
           })
         });
 
@@ -4154,7 +4187,8 @@
             nik: currentUser.nik || currentUser.username,
             latitude: currentUserLat,
             longitude: currentUserLng,
-            faceVerified: isFaceVerified
+            faceVerified: isFaceVerified,
+            userRole: currentUser.role
           })
         });
 
@@ -4296,7 +4330,7 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
       if (!currentUser) return;
 
       let url = API_BASE + '/api/absensi/history?role=' + encodeURIComponent(currentUser.role);
-      if (isRolePegawai(currentUser.role) || isRoleFinancial(currentUser.role) || isRoleAnggota(currentUser.role)) {
+      if (isRolePegawai(currentUser.role) || isRoleFinancial(currentUser.role) || isRoleExecutiveCar(currentUser.role) || isRoleAnggota(currentUser.role)) {
         url += '&nik=' + encodeURIComponent(currentUser.nik || '') + '&nama=' + encodeURIComponent(currentUser.nama || '');
       }
 
