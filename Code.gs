@@ -79,6 +79,7 @@ function loginUser(username, password) {
           username: rows[i][0],
           role: rRole,
           nama: rNama,
+          namaLengkap: rNama,
           nik: rNik,
           email: rEmail,
           accountStatus: rAccountStatus
@@ -305,9 +306,11 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
     return {
       rowIndex: index + 2,
       datetime: formattedDate || '-',
+      timestamp: formattedDate || '-',
       tipeFormulir: row[1] || 'Pengajuan Biaya',
       namaKaryawan: row[2] || '-',
       nikUnit: row[3] || '-',
+      nikUnitKerja: row[3] || '-',
       noRekening: row[4] ? String(row[4]) : '-',
       atasNamaRekening: row[5] || '-',
       totalDitransfer: Number(row[6]) || 0,
@@ -324,18 +327,36 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
   const canSeeAll = isRoleAdmin(userRole) || isRoleKetua(userRole) || isRoleFinancial(userRole);
 
   if (!canSeeAll) {
-    const cleanNik = String(userNik || '').trim().toLowerCase();
-    const cleanName = String(userName || '').trim().toLowerCase();
-    const cleanUname = String(userUsername || '').trim().toLowerCase();
+    let cleanNik = String(userNik || '').trim().toLowerCase();
+    let cleanName = String(userName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    let cleanUname = String(userUsername || '').trim().toLowerCase();
+
+    // Auto-resolve dari Users sheet jika cleanName kosong tetapi username ada
+    if ((!cleanName || !cleanNik) && cleanUname) {
+      try {
+        const uSheet = ss.getSheetByName('Users');
+        if (uSheet) {
+          const uData = uSheet.getDataRange().getValues();
+          for (let uIdx = 1; uIdx < uData.length; uIdx++) {
+            if (String(uData[uIdx][0] || '').trim().toLowerCase() === cleanUname) {
+              if (!cleanName) cleanName = String(uData[uIdx][3] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+              if (!cleanNik) cleanNik = String(uData[uIdx][4] || '').trim().toLowerCase();
+              break;
+            }
+          }
+        }
+      } catch (errU) {}
+    }
 
     // Ekstrak angka unik jika NIK berupa nomor identitas (misal: 20246808)
     const nikMatch = cleanNik.match(/\d{3,}/);
     const nikOnly = nikMatch ? nikMatch[0] : '';
+    const cleanUnameWords = cleanUname.replace(/[^a-z0-9]/g, ' ').trim();
 
     list = list.filter(item => {
-      const rowNama = String(item.namaKaryawan || '').trim().toLowerCase();
-      const rowNikUnit = String(item.nikUnit || '').trim().toLowerCase();
-      const rowAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase();
+      const rowNama = String(item.namaKaryawan || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const rowNikUnit = String(item.nikUnit || item.nikUnitKerja || '').trim().toLowerCase();
+      const rowAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
       // 1. Prioritaskan kecocokan Nama Lengkap (Nama Karyawan atau Atas Nama Rekening)
       if (cleanName) {
@@ -353,6 +374,9 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
           return true;
         }
         if (rowNikUnit === cleanUname || rowNikUnit.includes(cleanUname)) {
+          return true;
+        }
+        if (cleanUnameWords && (rowNama.includes(cleanUnameWords) || cleanUnameWords.includes(rowNama))) {
           return true;
         }
       }

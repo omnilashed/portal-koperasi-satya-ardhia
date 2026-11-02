@@ -662,9 +662,11 @@ app.get('/api/pengajuan', async (req, res) => {
     let list = rows.map((r, idx) => ({
       rowIndex: idx + 2,
       timestamp: r[0] || '',
+      datetime: r[0] || '',
       tipeFormulir: r[1] || '',
       namaKaryawan: r[2] || '',
       nikUnitKerja: r[3] || '',
+      nikUnit: r[3] || '',
       noRekening: r[4] || '',
       atasNamaRekening: r[5] || '',
       totalDitransfer: r[6] || '0',
@@ -680,18 +682,35 @@ app.get('/api/pengajuan', async (req, res) => {
     const canSeeAll = isRoleAdmin(role) || isRoleKetua(role) || isRoleFinancial(role);
 
     if (!canSeeAll) {
-      const userNik = String(nik || '').trim().toLowerCase();
-      const userNama = String(nama || '').trim().toLowerCase();
-      const userUname = String(username || '').trim().toLowerCase();
+      let userNik = String(nik || '').trim().toLowerCase();
+      let userNama = String(nama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      let userUname = String(username || '').trim().toLowerCase();
+
+      // Auto-resolve jika userNama atau userNik kosong tetapi username disediakan
+      if ((!userNama || !userNik) && userUname) {
+        try {
+          const userResp = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Users!A2:E'
+          });
+          const uRows = userResp.data.values || [];
+          const matchedU = uRows.find(u => String(u[0] || '').trim().toLowerCase() === userUname);
+          if (matchedU) {
+            if (!userNama) userNama = String(matchedU[3] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            if (!userNik) userNik = String(matchedU[4] || '').trim().toLowerCase();
+          }
+        } catch (eLookup) {}
+      }
 
       // Ekstrak angka unik jika NIK mengandung nomor identitas (misal: "20246808")
       const nikNumberMatch = userNik.match(/\d{3,}/);
       const nikOnly = nikNumberMatch ? nikNumberMatch[0] : '';
+      const userUnameClean = userUname.replace(/[^a-z0-9]/g, ' ').trim();
 
       list = list.filter(item => {
-        const itemNik = String(item.nikUnitKerja || '').trim().toLowerCase();
-        const itemNama = String(item.namaKaryawan || '').trim().toLowerCase();
-        const itemAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase();
+        const itemNik = String(item.nikUnitKerja || item.nikUnit || '').trim().toLowerCase();
+        const itemNama = String(item.namaKaryawan || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        const itemAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
         // 1. Cek kesesuaian Nama Lengkap (Karyawan atau Atas Nama Rekening)
         if (userNama) {
@@ -719,6 +738,9 @@ app.get('/api/pengajuan', async (req, res) => {
             return true;
           }
           if (itemNik === userUname || itemNik.includes(userUname)) {
+            return true;
+          }
+          if (userUnameClean && (itemNama.includes(userUnameClean) || userUnameClean.includes(itemNama))) {
             return true;
           }
         }

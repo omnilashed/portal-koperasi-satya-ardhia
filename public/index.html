@@ -2392,10 +2392,11 @@
           currentUser = {
             username: data.user.username,
             role: data.user.role,
-            nama: data.user.namaLengkap,
-            nik: data.user.nik,
-            email: data.user.email,
-            status: data.user.accountStatus
+            nama: data.user.namaLengkap || data.user.nama || data.user.name || '',
+            namaLengkap: data.user.namaLengkap || data.user.nama || data.user.name || '',
+            nik: data.user.nik || '',
+            email: data.user.email || '',
+            status: data.user.accountStatus || data.user.status || 'Active'
           };
           localStorage.setItem('koperasi_user', JSON.stringify(currentUser));
           showToast(data.message || 'Login berhasil!');
@@ -2895,10 +2896,11 @@
       // Hanya Administrator, Ketua Koperasi, dan Financial yang dapat melihat semua data.
       // Role lainnya hanya melihat data miliknya sendiri (berdasarkan username, nama lengkap, atau NIK).
       const canSeeAll = isRoleAdmin(currentUser.role) || isRoleKetua(currentUser.role) || isRoleFinancial(currentUser.role);
+      const userNamaParam = currentUser.nama || currentUser.namaLengkap || '';
       let url = API_BASE + '/api/pengajuan?role=' + encodeURIComponent(currentUser.role);
       if (!canSeeAll) {
         url += '&nik=' + encodeURIComponent(currentUser.nik || '')
-            + '&nama=' + encodeURIComponent(currentUser.nama || '')
+            + '&nama=' + encodeURIComponent(userNamaParam)
             + '&username=' + encodeURIComponent(currentUser.username || '');
       }
 
@@ -2925,10 +2927,11 @@
 
           let list = (json.data || []).map(r => ({
             rowIndex: r.rowIndex,
-            datetime: r.timestamp,
+            datetime: r.timestamp || r.datetime || '',
             tipeFormulir: r.tipeFormulir,
             namaKaryawan: r.namaKaryawan,
-            nikUnit: r.nikUnitKerja,
+            nikUnit: r.nikUnitKerja || r.nikUnit || '',
+            nikUnitKerja: r.nikUnitKerja || r.nikUnit || '',
             noRekening: r.noRekening,
             atasNamaRekening: r.atasNamaRekening,
             totalDitransfer: r.totalDitransfer,
@@ -2940,18 +2943,25 @@
           // Client-side safety filter: jika bukan Admin, Ketua, atau Financial
           if (!canSeeAll) {
             const userNik = String(currentUser.nik || '').trim().toLowerCase();
-            const userNama = String(currentUser.nama || '').trim().toLowerCase();
+            const userNama = String(currentUser.nama || currentUser.namaLengkap || '').trim().toLowerCase().replace(/\s+/g, ' ');
             const userUname = String(currentUser.username || '').trim().toLowerCase();
+            const userUnameClean = userUname.replace(/[^a-z0-9]/g, ' ').trim();
             const nikMatch = userNik.match(/\d{3,}/);
             const nikOnly = nikMatch ? nikMatch[0] : '';
 
             list = list.filter(item => {
-              const itemNama = String(item.namaKaryawan || '').trim().toLowerCase();
-              const itemNik = String(item.nikUnit || '').trim().toLowerCase();
-              const itemAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase();
+              const itemNama = String(item.namaKaryawan || '').trim().toLowerCase().replace(/\s+/g, ' ');
+              const itemNik = String(item.nikUnit || item.nikUnitKerja || '').trim().toLowerCase();
+              const itemAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
-              if (userNama && (itemNama === userNama || itemNama.includes(userNama) || userNama.includes(itemNama) || itemAtasNama.includes(userNama))) return true;
-              if (userUname && (itemNama === userUname || itemNama.includes(userUname) || itemNik === userUname || itemNik.includes(userUname))) return true;
+              if (userNama) {
+                if (itemNama === userNama || itemNama.includes(userNama) || userNama.includes(itemNama)) return true;
+                if (itemAtasNama && (itemAtasNama === userNama || itemAtasNama.includes(userNama) || userNama.includes(itemAtasNama))) return true;
+              }
+              if (userUname) {
+                if (itemNama === userUname || itemNama.includes(userUname) || itemNik === userUname || itemNik.includes(userUname)) return true;
+                if (userUnameClean && (itemNama.includes(userUnameClean) || userUnameClean.includes(itemNama))) return true;
+              }
               if (nikOnly && itemNik.includes(nikOnly)) return true;
               if (userNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(userNik)) {
                 if (itemNik === userNik || itemNik.startsWith(userNik + ' ') || itemNik.endsWith(' ' + userNik) || itemNik.includes(userNik)) return true;
@@ -6151,6 +6161,8 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
       if (saved) {
         try {
           currentUser = JSON.parse(saved);
+          if (!currentUser.nama && currentUser.namaLengkap) currentUser.nama = currentUser.namaLengkap;
+          if (!currentUser.namaLengkap && currentUser.nama) currentUser.namaLengkap = currentUser.nama;
           initApp();
           return;
         } catch (e) {
