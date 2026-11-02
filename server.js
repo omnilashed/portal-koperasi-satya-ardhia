@@ -646,11 +646,11 @@ app.put('/api/users/role', async (req, res) => {
 
 /**
  * GET /api/pengajuan
- * Query params: role, nik, nama
+ * Query params: role, nik, nama, username
  */
 app.get('/api/pengajuan', async (req, res) => {
   try {
-    const { role, nik, nama } = req.query;
+    const { role, nik, nama, username } = req.query;
 
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
@@ -673,42 +673,69 @@ app.get('/api/pengajuan', async (req, res) => {
       status: r[9] || 'Created'
     }));
 
-    // Jika role adalah User/Anggota atau Pegawai, filter data milik sendiri secara akurat
-    if (isRoleAnggota(role) || isRolePegawai(role)) {
-      const userNik = (nik || '').trim().toLowerCase();
-      const userNama = (nama || '').trim().toLowerCase();
+    // Hak Akses Tracking & Progress:
+    // Yang bisa melihat semua data adalah role Administrator, Ketua Koperasi, dan Financial.
+    // Selain itu (role lainnya), hanya bisa melihat riwayat tracking and progress milik dirinya sendiri
+    // sesuai data berdasarkan username, nama lengkap, atau NIK.
+    const canSeeAll = isRoleAdmin(role) || isRoleKetua(role) || isRoleFinancial(role);
+
+    if (!canSeeAll) {
+      const userNik = String(nik || '').trim().toLowerCase();
+      const userNama = String(nama || '').trim().toLowerCase();
+      const userUname = String(username || '').trim().toLowerCase();
 
       // Ekstrak angka unik jika NIK mengandung nomor identitas (misal: "20246808")
-      const nikNumberMatch = userNik.match(/\d{4,}/);
+      const nikNumberMatch = userNik.match(/\d{3,}/);
       const nikOnly = nikNumberMatch ? nikNumberMatch[0] : '';
 
       list = list.filter(item => {
-        const itemNik = (item.nikUnitKerja || '').toLowerCase();
-        const itemNama = (item.namaKaryawan || '').toLowerCase();
+        const itemNik = String(item.nikUnitKerja || '').trim().toLowerCase();
+        const itemNama = String(item.namaKaryawan || '').trim().toLowerCase();
+        const itemAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase();
 
-        // 1. Cek kesesuaian Nama Lengkap (Karyawan)
-        const isNameMatch = Boolean(
-          userNama && (
+        // 1. Cek kesesuaian Nama Lengkap (Karyawan atau Atas Nama Rekening)
+        if (userNama) {
+          if (
             itemNama === userNama ||
             itemNama.includes(userNama) ||
             userNama.includes(itemNama)
-          )
-        );
-
-        // 2. Cek kesesuaian NIK angka unik (jika ada nomor minimal 4 digit)
-        let isNikMatch = false;
-        if (nikOnly) {
-          isNikMatch = itemNik.includes(nikOnly);
-        } else if (userNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(userNik)) {
-          isNikMatch = itemNik === userNik || itemNik.startsWith(userNik + ' ') || itemNik.endsWith(' ' + userNik);
+          ) {
+            return true;
+          }
+          if (
+            itemAtasNama && (
+              itemAtasNama === userNama ||
+              itemAtasNama.includes(userNama) ||
+              userNama.includes(itemAtasNama)
+            )
+          ) {
+            return true;
+          }
         }
 
-        // Jika Nama cocok, sertakan data
-        if (isNameMatch) return true;
+        // 2. Cek kesesuaian Username
+        if (userUname) {
+          if (itemNama === userUname || itemNama.includes(userUname)) {
+            return true;
+          }
+          if (itemNik === userUname || itemNik.includes(userUname)) {
+            return true;
+          }
+        }
 
-        // Jika hanya NIK yang cocok tanpa nama, hanya izinkan jika NIK berupa nomor identitas unik (bukan teks nama unit)
-        if (isNikMatch && nikOnly) {
+        // 3. Cek kesesuaian NIK
+        if (nikOnly && itemNik.includes(nikOnly)) {
           return true;
+        }
+        if (userNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(userNik)) {
+          if (
+            itemNik === userNik ||
+            itemNik.startsWith(userNik + ' ') ||
+            itemNik.endsWith(' ' + userNik) ||
+            itemNik.includes(userNik)
+          ) {
+            return true;
+          }
         }
 
         return false;

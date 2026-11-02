@@ -2139,7 +2139,7 @@
         if (urlStr.includes('/api/pengajuan') && method === 'POST') return callGas('simpanPengajuan', body);
         if (urlStr.includes('/api/pengajuan')) {
           const u = new URL(urlStr, window.location.href);
-          return callGas('getDataPengajuan', u.searchParams.get('role'), u.searchParams.get('nik'), u.searchParams.get('nama'), '');
+          return callGas('getDataPengajuan', u.searchParams.get('role'), u.searchParams.get('nik'), u.searchParams.get('nama'), u.searchParams.get('username') || (currentUser ? currentUser.username : ''));
         }
         if (urlStr.includes('/api/absensi/face-descriptors')) return callGas('getAllFaceDescriptors');
         if (urlStr.includes('/api/absensi/register-face')) return callGas('registerFaceDescriptor', body.nik, body.nama, JSON.stringify(body.descriptor));
@@ -2891,9 +2891,15 @@
 
       if (!currentUser) return;
 
+      // Hak Akses Tracking & Progress:
+      // Hanya Administrator, Ketua Koperasi, dan Financial yang dapat melihat semua data.
+      // Role lainnya hanya melihat data miliknya sendiri (berdasarkan username, nama lengkap, atau NIK).
+      const canSeeAll = isRoleAdmin(currentUser.role) || isRoleKetua(currentUser.role) || isRoleFinancial(currentUser.role);
       let url = API_BASE + '/api/pengajuan?role=' + encodeURIComponent(currentUser.role);
-      if (isRoleAnggota(currentUser.role) || isRolePegawai(currentUser.role)) {
-        url += '&nik=' + encodeURIComponent(currentUser.nik || '') + '&nama=' + encodeURIComponent(currentUser.nama || '');
+      if (!canSeeAll) {
+        url += '&nik=' + encodeURIComponent(currentUser.nik || '')
+            + '&nama=' + encodeURIComponent(currentUser.nama || '')
+            + '&username=' + encodeURIComponent(currentUser.username || '');
       }
 
       try {
@@ -2917,7 +2923,7 @@
             return isNaN(parsed) ? 0 : parsed;
           }
 
-          globalData = (json.data || []).map(r => ({
+          let list = (json.data || []).map(r => ({
             rowIndex: r.rowIndex,
             datetime: r.timestamp,
             tipeFormulir: r.tipeFormulir,
@@ -2929,7 +2935,32 @@
             cicilan: r.cicilan,
             keterangan: r.keterangan,
             status: r.status
-          })).sort((a, b) => {
+          }));
+
+          // Client-side safety filter: jika bukan Admin, Ketua, atau Financial
+          if (!canSeeAll) {
+            const userNik = String(currentUser.nik || '').trim().toLowerCase();
+            const userNama = String(currentUser.nama || '').trim().toLowerCase();
+            const userUname = String(currentUser.username || '').trim().toLowerCase();
+            const nikMatch = userNik.match(/\d{3,}/);
+            const nikOnly = nikMatch ? nikMatch[0] : '';
+
+            list = list.filter(item => {
+              const itemNama = String(item.namaKaryawan || '').trim().toLowerCase();
+              const itemNik = String(item.nikUnit || '').trim().toLowerCase();
+              const itemAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase();
+
+              if (userNama && (itemNama === userNama || itemNama.includes(userNama) || userNama.includes(itemNama) || itemAtasNama.includes(userNama))) return true;
+              if (userUname && (itemNama === userUname || itemNama.includes(userUname) || itemNik === userUname || itemNik.includes(userUname))) return true;
+              if (nikOnly && itemNik.includes(nikOnly)) return true;
+              if (userNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(userNik)) {
+                if (itemNik === userNik || itemNik.startsWith(userNik + ' ') || itemNik.endsWith(' ' + userNik) || itemNik.includes(userNik)) return true;
+              }
+              return false;
+            });
+          }
+
+          globalData = list.sort((a, b) => {
             const timeA = parseDateToTimestamp(a.datetime);
             const timeB = parseDateToTimestamp(b.datetime);
             if (timeA !== timeB) return timeB - timeA;
@@ -3006,8 +3037,8 @@
         }
       }
 
-      // 3. TAMPILAN ROLE USER & PEGAWAI (PROGRES PENGAJUAN SENDIRI)
-      if (role === 'user' || role === 'pegawai') {
+      // 3. TAMPILAN ROLE READ-ONLY (USER, PEGAWAI, EXECUTIVE CAR, AIR MINUM SENDER, DLL)
+      if (role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial' && role !== 'pengurus') {
         let label = '⏳ Menunggu Approval Pengurus';
         let style = 'bg-amber-50 text-amber-700 border-amber-200';
         

@@ -317,39 +317,56 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
     };
   }).reverse();
 
-  if (isRoleAnggota(userRole) || isRolePegawai(userRole)) {
+  // Hak Akses Tracking & Progress:
+  // Yang bisa melihat semua data adalah role Administrator, Ketua Koperasi, dan Financial.
+  // Selain itu (role lainnya), hanya bisa melihat riwayat tracking and progress milik dirinya sendiri
+  // sesuai data berdasarkan username, nama lengkap, atau NIK.
+  const canSeeAll = isRoleAdmin(userRole) || isRoleKetua(userRole) || isRoleFinancial(userRole);
+
+  if (!canSeeAll) {
     const cleanNik = String(userNik || '').trim().toLowerCase();
     const cleanName = String(userName || '').trim().toLowerCase();
     const cleanUname = String(userUsername || '').trim().toLowerCase();
 
     // Ekstrak angka unik jika NIK berupa nomor identitas (misal: 20246808)
-    const nikMatch = cleanNik.match(/\d{4,}/);
+    const nikMatch = cleanNik.match(/\d{3,}/);
     const nikOnly = nikMatch ? nikMatch[0] : '';
 
     list = list.filter(item => {
       const rowNama = String(item.namaKaryawan || '').trim().toLowerCase();
       const rowNikUnit = String(item.nikUnit || '').trim().toLowerCase();
+      const rowAtasNama = String(item.atasNamaRekening || '').trim().toLowerCase();
 
-      // 1. Prioritaskan kecocokan Nama Lengkap
-      const isNameMatch = Boolean(
-        cleanName && (rowNama === cleanName || rowNama.includes(cleanName) || cleanName.includes(rowNama))
-      );
-
-      // 2. Kecocokan Username
-      const isUnameMatch = Boolean(
-        cleanUname && (rowNama.includes(cleanUname) || rowNikUnit.includes(cleanUname))
-      );
-
-      // 3. Kecocokan NIK angka unik
-      let isNikMatch = false;
-      if (nikOnly) {
-        isNikMatch = rowNikUnit.includes(nikOnly);
-      } else if (cleanNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(cleanNik)) {
-        isNikMatch = rowNikUnit === cleanNik;
+      // 1. Prioritaskan kecocokan Nama Lengkap (Nama Karyawan atau Atas Nama Rekening)
+      if (cleanName) {
+        if (rowNama === cleanName || rowNama.includes(cleanName) || cleanName.includes(rowNama)) {
+          return true;
+        }
+        if (rowAtasNama && (rowAtasNama === cleanName || rowAtasNama.includes(cleanName) || cleanName.includes(rowAtasNama))) {
+          return true;
+        }
       }
 
-      if (isNameMatch || isUnameMatch) return true;
-      if (isNikMatch && nikOnly) return true;
+      // 2. Kecocokan Username
+      if (cleanUname) {
+        if (rowNama === cleanUname || rowNama.includes(cleanUname)) {
+          return true;
+        }
+        if (rowNikUnit === cleanUname || rowNikUnit.includes(cleanUname)) {
+          return true;
+        }
+      }
+
+      // 3. Kecocokan NIK
+      if (nikOnly && rowNikUnit.includes(nikOnly)) {
+        return true;
+      }
+      if (cleanNik && !['karyawan koperasi', 'koperasi', 'unit', 'staff', 'avsec', 'arff', '-'].includes(cleanNik)) {
+        if (rowNikUnit === cleanNik || rowNikUnit.startsWith(cleanNik + ' ') || rowNikUnit.endsWith(' ' + cleanNik) || rowNikUnit.includes(cleanNik)) {
+          return true;
+        }
+      }
+
       return false;
     });
   }
