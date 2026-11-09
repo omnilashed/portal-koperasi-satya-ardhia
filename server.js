@@ -4673,6 +4673,383 @@ app.post('/api/loans/:id/review-finance', async (req, res) => {
 });
 
 /**
+ * POST /api/loans/:id/validate-finance-manual
+ * Financial (atau Admin/Ketua) memvalidasi dokumen pinjaman anggota secara manual
+ * Status berubah menjadi: VALIDATED_BY_FINANCE (Validasi by Financial) & masuk ke Tracking & Progress
+ */
+app.post('/api/loans/:id/validate-finance-manual', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const {
+      approverNik,
+      approverNama,
+      approverRole,
+      catatan = 'Dokumen diverifikasi sah oleh Tim Financial Koperasi SA.',
+      driveUrl = ''
+    } = req.body;
+
+    if (!isRoleFinancial(approverRole) && !isRoleAdmin(approverRole) && !isRoleChairman(approverRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya bagian Financial atau Pengurus yang berwenang melakukan validasi ini.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AG"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Permohonan pinjaman ' + loanId + ' tidak ditemukan.' });
+    }
+
+    const rowNum = targetIdx + 2;
+    const bLoan = rows[targetIdx];
+    const ts = getFormattedTimestamp();
+    const newStatus = 'VALIDATED_BY_FINANCE';
+
+    // 1. Update status workflow di LoanRequests (Col Y)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newStatus]] }
+    });
+
+    // 2. Simpan info verifikasi di Kolom AE:AG
+    await ensureSheetGridCapacity(sheets, 'LoanRequests', 35);
+    const finalDriveUrl = driveUrl || `Validasi Manual by Financial (${approverNama || 'Sri Wahyuningsih'})`;
+    try {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'LoanRequests'!AE${rowNum}:AG${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[
+            finalDriveUrl,
+            'VALIDASI_BY_FINANCIAL',
+            ts
+          ]]
+        }
+      });
+    } catch (e) {
+      console.warn('AE:AG update notice:', e.message);
+    }
+
+    // Update catatan (Col AA)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!AA${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[catatan]] }
+    });
+
+    // 3. MASUK KE BAGIAN TRACKING & PROGRESS ('Form Responses 1')!
+    const plafonNum = parseInt(String(bLoan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const cicilanNum = parseInt(String(bLoan[17] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+    const frRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Form Responses 1'!A2:J"
+    });
+    const frRows = frRes.data.values || [];
+    const existingFrIdx = frRows.findIndex(r => String(r[8] || '').includes(bLoan[1]));
+
+    if (existingFrIdx !== -1) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'Form Responses 1'!J${existingFrIdx + 2}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['Validasi by Financial']] }
+      });
+    } else {
+      const appendFrRes = await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'Form Responses 1'!A:J",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            ts,
+            'Peminjaman Tunai',
+            bLoan[6], // pemohonNama
+            bLoan[7] ? `${bLoan[5]} - ${bLoan[7]}` : bLoan[5], // nikUnitKerja
+            String(bLoan[21]), // bankNoRekening
+            bLoan[22], // bankAtasNama
+            'Rp' + plafonNum.toLocaleString('id-ID'),
+            bLoan[14], // tenorBulan
+            `${bLoan[1]}: ${bLoan[12]} (Cicilan Rp${cicilanNum.toLocaleString('id-ID')}/bln) | Validasi by Financial`,
+            'Validasi by Financial'
+          ]]
+        }
+      });
+
+      if (appendFrRes.data && appendFrRes.data.updates && appendFrRes.data.updates.updatedRange) {
+        const match = appendFrRes.data.updates.updatedRange.match(/\!A(\d+)/);
+        if (match) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'LoanRequests'!Z${rowNum}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[match[1]]] }
+          });
+        }
+      }
+    }
+
+    // 4. Catat jejak otorisasi di LoanApprovals
+    const approvalId = 'LA-VALFIN-' + Date.now();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanApprovals'!A:I",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          loanId,
+          ts,
+          'FINANCE_MANUAL_VALIDATION',
+          'VALIDATED_BY_FINANCE',
+          catatan,
+          String(approverNik || ''),
+          approverNama || 'Sri Wahyuningsih',
+          approverRole || 'Financial'
+        ]]
+      }
+    });
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: approverNik, nama: approverNama, role: approverRole },
+      'PINJAMAN_KOPERASI',
+      'VALIDATE_FINANCE_MANUAL',
+      loanId,
+      { statusSebelumnya: bLoan[24] },
+      { newStatus: 'VALIDATED_BY_FINANCE', catatan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Permohonan pinjaman ${bLoan[1]} berhasil divalidasi oleh Financial (Status: Validasi by Financial) dan resmi masuk ke Tracking & Progress!`,
+      statusWorkflow: 'VALIDATED_BY_FINANCE'
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/validate-finance-manual:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/:id/request-manual-validation
+ * Anggota mengajukan permintaan validasi dokumen via Financial (WhatsApp)
+ */
+app.post('/api/loans/:id/request-manual-validation', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const { requesterNik, requesterNama } = req.body;
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AG"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Permohonan pinjaman tidak ditemukan.' });
+    }
+
+    const rowNum = targetIdx + 2;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['PENDING_FINANCE_MANUAL']] }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Permintaan validasi via Financial berhasil diajukan. Status telah diperbarui ke antrean Finance.',
+      statusWorkflow: 'PENDING_FINANCE_MANUAL'
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/request-manual-validation:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+const DEFAULT_APP_SETTINGS = {
+  financeWaNumber: '6282114083230',
+  financePicName: 'Sri Wahyuningsih',
+  financePicRole: 'Financial Koperasi Satya Ardhia'
+};
+
+async function ensureAppSettingsSheet(sheets) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const hasSheet = (meta.data.sheets || []).some(s => s.properties.title === 'AppSettings');
+  if (!hasSheet) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          addSheet: {
+            properties: {
+              title: 'AppSettings',
+              gridProperties: { rowCount: 100, columnCount: 10 }
+            }
+          }
+        }]
+      }
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'AppSettings'!A1:E4",
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [
+          ['SettingKey', 'SettingValue', 'Keterangan', 'WaktuUpdate', 'UpdatedBy'],
+          ['FINANCE_WA_NUMBER', '6282114083230', 'Nomor WhatsApp resmi Tim Financial untuk validasi manual e-Materai', getFormattedTimestamp(), 'SYSTEM_INIT'],
+          ['FINANCE_PIC_NAME', 'Sri Wahyuningsih', 'Nama petugas Financial penerima validasi berkas', getFormattedTimestamp(), 'SYSTEM_INIT'],
+          ['FINANCE_PIC_ROLE', 'Financial Koperasi Satya Ardhia', 'Jabatan PIC Financial', getFormattedTimestamp(), 'SYSTEM_INIT']
+        ]
+      }
+    });
+  }
+}
+
+async function getOrCreateAppSettings(sheets) {
+  try {
+    await ensureAppSettingsSheet(sheets);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'AppSettings'!A2:E"
+    });
+    const rows = res.data.values || [];
+    const settings = { ...DEFAULT_APP_SETTINGS };
+    for (const r of rows) {
+      const key = String(r[0] || '').trim().toUpperCase();
+      const val = String(r[1] || '').trim();
+      if (key === 'FINANCE_WA_NUMBER' && val) settings.financeWaNumber = val;
+      if (key === 'FINANCE_PIC_NAME' && val) settings.financePicName = val;
+      if (key === 'FINANCE_PIC_ROLE' && val) settings.financePicRole = val;
+    }
+    return settings;
+  } catch (e) {
+    console.warn('getOrCreateAppSettings fallback:', e.message);
+    return { ...DEFAULT_APP_SETTINGS };
+  }
+}
+
+/**
+ * GET /api/settings
+ * Ambil konfigurasi aplikasi (termasuk nomor direct WhatsApp Finance)
+ */
+app.get('/api/settings', async (req, res) => {
+  try {
+    const sheets = await getSheetsClient();
+    const settings = await getOrCreateAppSettings(sheets);
+    return res.json({ success: true, settings });
+  } catch (error) {
+    console.error('Error GET /api/settings:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/settings/finance-wa
+ * Update nomor direct WhatsApp Financial & info PIC (Khusus Admin / Ketua Koperasi)
+ */
+app.post('/api/settings/finance-wa', async (req, res) => {
+  try {
+    const {
+      financeWaNumber,
+      financePicName,
+      financePicRole,
+      updatedByNik,
+      updatedByNama,
+      updatedByRole
+    } = req.body;
+
+    if (!isRoleAdmin(updatedByRole) && !isRoleChairman(updatedByRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Admin atau Ketua Koperasi yang dapat mengubah pengaturan ini.' });
+    }
+
+    if (!financeWaNumber) {
+      return res.status(400).json({ success: false, message: 'Nomor WhatsApp wajib diisi.' });
+    }
+
+    let cleanNumber = String(financeWaNumber).replace(/[^0-9]/g, '');
+    if (cleanNumber.startsWith('0')) cleanNumber = '62' + cleanNumber.slice(1);
+    else if (!cleanNumber.startsWith('62')) cleanNumber = '62' + cleanNumber;
+
+    const sheets = await getSheetsClient();
+    await ensureAppSettingsSheet(sheets);
+
+    const ts = getFormattedTimestamp();
+    const updaterInfo = `${updatedByNama || 'Admin'} (${updatedByNik || '-'})`;
+
+    const resSheet = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'AppSettings'!A2:E"
+    });
+    const rows = resSheet.data.values || [];
+
+    async function updateOrInsertKey(key, value, keterangan) {
+      const idx = rows.findIndex(r => String(r[0] || '').trim().toUpperCase() === key);
+      if (idx !== -1) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'AppSettings'!B${idx + 2}:E${idx + 2}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[value, keterangan, ts, updaterInfo]] }
+        });
+      } else {
+        await sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: "'AppSettings'!A:E",
+          valueInputOption: 'USER_ENTERED',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: { values: [[key, value, keterangan, ts, updaterInfo]] }
+        });
+      }
+    }
+
+    await updateOrInsertKey('FINANCE_WA_NUMBER', cleanNumber, 'Nomor WhatsApp resmi Tim Financial untuk validasi manual e-Materai');
+    if (financePicName) {
+      await updateOrInsertKey('FINANCE_PIC_NAME', financePicName, 'Nama petugas Financial penerima validasi berkas');
+    }
+    if (financePicRole) {
+      await updateOrInsertKey('FINANCE_PIC_ROLE', financePicRole, 'Jabatan PIC Financial');
+    }
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: updatedByNik, nama: updatedByNama, role: updatedByRole },
+      'PENGATURAN_SISTEM',
+      'UPDATE_FINANCE_WA',
+      'SETTING_FINANCE_WA',
+      {},
+      { cleanNumber, financePicName, financePicRole },
+      req
+    );
+
+    const updatedSettings = await getOrCreateAppSettings(sheets);
+    return res.json({
+      success: true,
+      message: 'Nomor WhatsApp Financial berhasil disimpan!',
+      settings: updatedSettings
+    });
+  } catch (error) {
+    console.error('Error POST /api/settings/finance-wa:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * POST /api/loans/:id/upload-ematerai
  * Upload PDF hasil pembubuhan e-materai dari PajakInd, cek validitas & simpan ke Google Drive, lalu masukkan ke Tracking & Progress
  */

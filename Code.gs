@@ -3166,6 +3166,197 @@ function reviewFinanceLoan(payload) {
   }
 }
 
+function getAppSettings() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('AppSettings');
+    var settings = {
+      financeWaNumber: '6282114083230',
+      financePicName: 'Sri Wahyuningsih',
+      financePicRole: 'Financial Koperasi Satya Ardhia'
+    };
+    if (!sheet) return { success: true, settings: settings };
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var k = String(data[i][0] || '').trim().toUpperCase();
+      var v = String(data[i][1] || '').trim();
+      if (k === 'FINANCE_WA_NUMBER' && v) settings.financeWaNumber = v;
+      if (k === 'FINANCE_PIC_NAME' && v) settings.financePicName = v;
+      if (k === 'FINANCE_PIC_ROLE' && v) settings.financePicRole = v;
+    }
+    return { success: true, settings: settings };
+  } catch (err) {
+    return { success: false, message: err.toString() };
+  }
+}
+
+function saveAppSetting(payload) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('AppSettings');
+    if (!sheet) {
+      sheet = ss.insertSheet('AppSettings');
+      sheet.appendRow(['SettingKey', 'SettingValue', 'Keterangan', 'WaktuUpdate', 'UpdatedBy']);
+    }
+    var jkt = getGasJakartaDateTime();
+    var cleanNumber = String(payload.financeWaNumber || '').replace(/[^0-9]/g, '');
+    if (cleanNumber.indexOf('0') === 0) cleanNumber = '62' + cleanNumber.substring(1);
+    else if (cleanNumber.indexOf('62') !== 0) cleanNumber = '62' + cleanNumber;
+
+    var data = sheet.getDataRange().getValues();
+    var waIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0] || '').trim().toUpperCase() === 'FINANCE_WA_NUMBER') {
+        waIdx = i + 1;
+        break;
+      }
+    }
+    var updater = (payload.updatedByNama || 'Admin') + ' (' + (payload.updatedByNik || '-') + ')';
+    if (waIdx !== -1) {
+      sheet.getRange(waIdx, 2, 1, 4).setValues([[cleanNumber, 'Nomor WhatsApp resmi Tim Financial', jkt.timestampStr, updater]]);
+    } else {
+      sheet.appendRow(['FINANCE_WA_NUMBER', cleanNumber, 'Nomor WhatsApp resmi Tim Financial', jkt.timestampStr, updater]);
+    }
+
+    if (payload.financePicName) {
+      var nameIdx = -1;
+      for (var n = 1; n < data.length; n++) {
+        if (String(data[n][0] || '').trim().toUpperCase() === 'FINANCE_PIC_NAME') {
+          nameIdx = n + 1;
+          break;
+        }
+      }
+      if (nameIdx !== -1) {
+        sheet.getRange(nameIdx, 2, 1, 4).setValues([[payload.financePicName, 'Nama petugas Financial', jkt.timestampStr, updater]]);
+      } else {
+        sheet.appendRow(['FINANCE_PIC_NAME', payload.financePicName, 'Nama petugas Financial', jkt.timestampStr, updater]);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Nomor WhatsApp Financial berhasil disimpan!',
+      settings: {
+        financeWaNumber: cleanNumber,
+        financePicName: payload.financePicName || 'Sri Wahyuningsih',
+        financePicRole: payload.financePicRole || 'Financial Koperasi Satya Ardhia'
+      }
+    };
+  } catch (err) {
+    return { success: false, message: err.toString() };
+  }
+}
+
+function validateLoanByFinancial(payload) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet) return { status: 'error', success: false, message: 'Sheet LoanRequests tidak ditemukan.' };
+
+    var data = sheet.getDataRange().getValues();
+    var targetIdx = -1;
+    var bLoan = null;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetIdx = i + 1;
+        bLoan = data[i];
+        break;
+      }
+    }
+    if (targetIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    var jkt = getGasJakartaDateTime();
+    var newStatus = 'VALIDATED_BY_FINANCE';
+
+    sheet.getRange(targetIdx, 25).setValue(newStatus);
+    if (sheet.getMaxColumns() < 35) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 35 - sheet.getMaxColumns());
+    }
+    var finalDrive = payload.driveUrl || ('Validasi Manual by Financial (' + (payload.approverNama || 'Sri Wahyuningsih') + ')');
+    sheet.getRange(targetIdx, 31, 1, 3).setValues([[finalDrive, 'VALIDASI_BY_FINANCIAL', jkt.timestampStr]]);
+    if (payload.catatan) {
+      sheet.getRange(targetIdx, 27).setValue(payload.catatan);
+    }
+
+    // Masuk Form Responses 1
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    if (frSheet) {
+      var frData = frSheet.getDataRange().getValues();
+      var foundFr = -1;
+      for (var f = 1; f < frData.length; f++) {
+        if (String(frData[f][8] || '').indexOf(bLoan[1]) !== -1) {
+          foundFr = f + 1;
+          break;
+        }
+      }
+      if (foundFr !== -1) {
+        frSheet.getRange(foundFr, 10).setValue('Validasi by Financial');
+      } else {
+        var plafonNum = parseInt(String(bLoan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        var cicilanNum = parseInt(String(bLoan[17] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        frSheet.appendRow([
+          jkt.timestampStr,
+          'Peminjaman Tunai',
+          bLoan[6],
+          bLoan[7] ? (bLoan[5] + ' - ' + bLoan[7]) : bLoan[5],
+          String(bLoan[21]),
+          bLoan[22],
+          'Rp' + plafonNum.toLocaleString('id-ID'),
+          bLoan[14],
+          bLoan[1] + ': ' + bLoan[12] + ' (Cicilan Rp' + cicilanNum.toLocaleString('id-ID') + '/bln) | Validasi by Financial',
+          'Validasi by Financial'
+        ]);
+      }
+    }
+
+    var appSheet = ss.getSheetByName('LoanApprovals');
+    if (appSheet) {
+      appSheet.appendRow([
+        'LA-VALFIN-' + new Date().getTime(),
+        payload.loanId,
+        jkt.timestampStr,
+        'FINANCE_MANUAL_VALIDATION',
+        'VALIDATED_BY_FINANCE',
+        payload.catatan || 'Validasi berkas e-Materai disahkan langsung oleh Tim Financial',
+        String(payload.approverNik || ''),
+        payload.approverNama || 'Sri Wahyuningsih',
+        payload.approverRole || 'Financial'
+      ]);
+    }
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Permohonan pinjaman berhasil divalidasi oleh Financial (Status: Validasi by Financial) dan resmi masuk ke Tracking & Progress!'
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function requestManualLoanValidation(payload) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet) return { status: 'error', success: false, message: 'Sheet tidak ditemukan.' };
+
+    var data = sheet.getDataRange().getValues();
+    var targetIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetIdx = i + 1;
+        break;
+      }
+    }
+    if (targetIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    sheet.getRange(targetIdx, 25).setValue('PENDING_FINANCE_MANUAL');
+    return { status: 'success', success: true, message: 'Permintaan validasi manual berhasil diajukan.' };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
 function uploadEmateraiLoan(payload) {
   try {
     var check = validateGasPdfSecurityAndEmaterai(payload.pdfBase64, payload.fileName);

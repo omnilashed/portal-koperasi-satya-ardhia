@@ -498,6 +498,13 @@
         badgeSt.innerText = 'Wajib e-Materai (PajakInd)';
         document.getElementById('noticeEmateraiGuide').classList.remove('hidden');
         document.getElementById('btnPajakindPortal').classList.remove('hidden');
+      } else if (st === 'PENDING_FINANCE_MANUAL') {
+        badgeSt.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-600 text-white animate-pulse';
+        badgeSt.innerText = 'Menunggu Validasi WA Finance';
+      } else if (st === 'VALIDATED_BY_FINANCE' || st === 'VALIDASI_BY_FINANCIAL') {
+        badgeSt.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white';
+        badgeSt.innerText = 'Validasi by Financial';
+        document.getElementById('materaiVerifiedStamp').classList.remove('hidden');
       } else if (st === 'VERIFIED_MATERAI') {
         badgeSt.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white';
         badgeSt.innerText = 'Terverifikasi e-Materai';

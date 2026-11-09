@@ -337,6 +337,10 @@
           </div>
 
           <div class="flex items-center space-x-2 flex-shrink-0">
+            <button id="btnHeaderSettings" onclick="openAdminSettingsModal()" style="display: none;" class="px-2.5 sm:px-3 py-1.5 border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl transition text-xs font-semibold flex items-center gap-1.5 shadow-2xs" title="Pengaturan Sistem & Kontak Financial (Khusus Admin / Ketua)">
+              <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-600"></i>
+              <span class="hidden sm:inline">Pengaturan</span>
+            </button>
             <button onclick="handleLogout()" class="px-2.5 sm:px-3 py-1.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition text-xs font-semibold flex items-center gap-1.5 shadow-2xs" title="Keluar / Logout">
               <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
               <span class="hidden sm:inline">Keluar</span>
@@ -2603,6 +2607,10 @@
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
+              <button type="button" onclick="openAdminSettingsModal()" class="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/25 text-white text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-sm" title="Edit Nomor WhatsApp & Info PIC Financial">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+                <span>Setting WA Finance</span>
+              </button>
               <button onclick="refreshApprovalData()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow-sm">
                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                 <span>Segarkan Antrean</span>
@@ -2771,7 +2779,9 @@
               <select id="filterLoansApprovalStatus" onchange="filterAndRenderLoansApprovalTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white">
                 <option value="ALL">Semua Status</option>
                 <option value="PENDING_FINANCE" selected>Menunggu Review Finance</option>
-                <option value="PENDING_EMATERAI">Menunggu e-Materai</option>
+                <option value="PENDING_EMATERAI">Menunggu e-Materai (PajakInd)</option>
+                <option value="PENDING_FINANCE_MANUAL">Menunggu Validasi WA Finance</option>
+                <option value="VALIDATED_BY_FINANCE">Validasi by Financial</option>
                 <option value="VERIFIED_MATERAI">e-Materai Valid (Tracking)</option>
                 <option value="REJECTED">Ditolak (Rejected)</option>
               </select>
@@ -2812,7 +2822,7 @@
 
 
     
-    <!-- MODAL: PEMBUBUHAN e-MATERAI RP10.000 VIA PAJAKIND & VERIFIKASI DRIVE -->
+    <!-- MODAL: PEMBUBUHAN e-MATERAI RP10.000 VIA PAJAKIND (2 OPSI: CEK OTOMATIS & DIRECT WA FINANCE) -->
   <div id="modalEmateraiProcess" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 my-8 space-y-6">
       
@@ -2823,8 +2833,8 @@
             <i data-lucide="stamp" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">Pembubuhan e-Materai Rp10.000</h3>
-            <p class="text-xs text-slate-500">Verifikasi dokumen pinjaman resmi via PajakInd (Distributor Peruri Resmi)</p>
+            <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">Validasi Dokumen &amp; e-Materai Rp10.000</h3>
+            <p class="text-xs text-slate-500">Pilih metode verifikasi berkas pinjaman: mandiri via PajakInd atau bantuan Tim Financial</p>
           </div>
         </div>
         <button type="button" onclick="closeEmateraiModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
@@ -2836,7 +2846,7 @@
       <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4 sm:p-5 rounded-2xl text-white space-y-3 relative overflow-hidden shadow-md">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Permohonan Pinjaman Tunai</span>
-          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/30 text-amber-300 border border-amber-400/30">
+          <span id="emateraiStatusBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/30 text-amber-300 border border-amber-400/30">
             DISETUJUI FINANCE · MENUNGGU e-MATERAI
           </span>
         </div>
@@ -2860,74 +2870,266 @@
         </div>
       </div>
 
-      <!-- 2 Tombol Aksi Utama: Unduh Dokumen & Buka PajakInd -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button type="button" onclick="downloadOfficialLoanPdf(currentEmateraiLoanId)" class="w-full py-3 px-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm">
-          <i data-lucide="download" class="w-4 h-4 text-indigo-600"></i>
-          <span>1. Unduh Formulir PDF Resmi</span>
-        </button>
-
-        <a href="https://web.pajakind.com/" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-emerald-200">
-          <i data-lucide="external-link" class="w-4 h-4"></i>
-          <span>2. Buka web.pajakind.com ↗</span>
-        </a>
-      </div>
-
-      <!-- Panduan Tata Cara Pembelian & Pembubuhan e-Materai PajakInd -->
-      <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 sm:p-5 space-y-2 text-xs text-amber-950">
-        <p class="font-extrabold text-amber-900 flex items-center gap-1.5 text-sm">
-          <i data-lucide="help-circle" class="w-4 h-4 text-amber-600"></i>
-          Tata Cara Pembelian & Pembubuhan e-Materai Rp10.000:
-        </p>
-        <ol class="list-decimal list-inside space-y-1.5 pl-1 text-slate-700 leading-relaxed font-medium">
-          <li><strong>Unduh Formulir PDF Pinjaman</strong> Anda menggunakan tombol nomor 1 di atas.</li>
-          <li>Kunjungi situs distributor resmi e-Materai: <a href="https://web.pajakind.com/" target="_blank" class="text-amber-800 underline font-bold">https://web.pajakind.com/</a> lalu masuk ke akun Anda.</li>
-          <li>Pilih menu <strong>Beli Kuota e-Materai</strong> (Rp10.000) dan bayar secara instan menggunakan QRIS atau transfer bank.</li>
-          <li>Pilih menu <strong>Pembubuhan Dokumen (Stamping)</strong>, lalu upload file formulir PDF pinjaman yang sudah diunduh.</li>
-          <li>Geser stempel digital e-Materai Rp10.000 ke area kolom tanda tangan Pemohon (berdampingan).</li>
-          <li>Klik <strong>Bubuhkan Dokumen</strong> dan masukkan PIN pengamanan Anda.</li>
-          <li><strong>Unduh (Download)</strong> file PDF yang telah resmi memiliki stempel & sertifikat tanda tangan digital Peruri.</li>
-        </ol>
-      </div>
-
-      <!-- Form Upload Dokumen Bermaterai -->
-      <div class="space-y-4 pt-1 border-t border-slate-100">
+      <!-- PILIHAN 2 METODE VALIDASI e-MATERAI -->
+      <div class="space-y-4">
         <div>
-          <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-            <i data-lucide="upload-cloud" class="w-4 h-4 text-orange-600"></i>
-            <span>3. Unggah Dokumen PDF yang Telah Dibubuhi e-Materai</span>
-          </h4>
-          <p class="text-[11px] text-slate-500 mt-0.5">Sistem akan memvalidasi tanda tangan digital Peruri/PajakInd dan menyimpan dokumen ke Google Drive sebelum memasukkannya ke Tracking & Progress.</p>
-        </div>
-
-        <div class="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-2xl p-5 text-center space-y-2 transition bg-slate-50/50">
-          <i data-lucide="file-check-2" class="w-8 h-8 text-orange-500 mx-auto"></i>
-          <div>
-            <label for="inputEmateraiPdf" class="cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
-              Pilih Berkas PDF Dokumen Bermaterai
-            </label>
-            <p class="text-[10px] text-slate-400 mt-1">Hanya format PDF standar (Maks. 10 MB). Berkas non-PDF atau tanpa tanda tangan digital akan ditolak sistem.</p>
-          </div>
-          <input type="file" id="inputEmateraiPdf" accept="application/pdf,.pdf" onchange="handleEmateraiFileChange(event)" class="hidden">
-          <div id="emateraiSelectedFileInfo" class="hidden text-xs font-semibold text-slate-700 bg-white p-2 rounded-xl border border-slate-200 inline-flex items-center gap-2 mt-2">
-            <i data-lucide="file" class="w-4 h-4 text-indigo-600"></i>
-            <span id="emateraiSelectedFileName">-</span>
-            <span id="emateraiSelectedFileSize" class="text-[10px] text-slate-400">(-)</span>
+          <p class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Pilih 2 Langkah Metode Validasi:</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
+            <button type="button" id="tabEmateraiAutoBtn" onclick="switchEmateraiTab('auto')" class="py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 bg-white text-indigo-700 font-extrabold text-xs shadow-xs">
+              <i data-lucide="cpu" class="w-4 h-4 text-indigo-600"></i>
+              <span>1. Cek Otomatis Sistem</span>
+            </button>
+            <button type="button" id="tabEmateraiWaBtn" onclick="switchEmateraiTab('wa')" class="py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 font-bold text-xs">
+              <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600"></i>
+              <span>2. Direct WA Finance</span>
+            </button>
           </div>
         </div>
 
-        <!-- Status & Feedback Alert -->
-        <div id="emateraiStatusAlert" class="hidden p-3.5 rounded-2xl text-xs font-medium"></div>
+        <!-- KONTEN OPSI 1: CEK OTOMATIS SISTEM -->
+        <div id="tabEmateraiAutoContent" class="space-y-4">
+          <!-- 2 Tombol Aksi Utama: Unduh Dokumen & Buka PajakInd -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button type="button" onclick="downloadOfficialLoanPdf(currentEmateraiLoanId)" class="w-full py-3 px-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm">
+              <i data-lucide="download" class="w-4 h-4 text-indigo-600"></i>
+              <span>1. Unduh Formulir PDF Resmi</span>
+            </button>
 
-        <button type="button" id="btnSubmitEmaterai" onclick="submitEmateraiPdf()" class="w-full py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-orange-200 transition flex items-center justify-center gap-2">
-          <i data-lucide="shield-check" class="w-4 h-4"></i>
-          <span id="btnSubmitEmateraiText">Verifikasi e-Materai & Simpan ke Google Drive</span>
-        </button>
+            <a href="https://web.pajakind.com/" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-emerald-200">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              <span>2. Buka web.pajakind.com ↗</span>
+            </a>
+          </div>
+
+          <!-- Panduan Tata Cara Pembelian & Pembubuhan e-Materai PajakInd -->
+          <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 sm:p-5 space-y-2 text-xs text-amber-950">
+            <p class="font-extrabold text-amber-900 flex items-center gap-1.5 text-sm">
+              <i data-lucide="help-circle" class="w-4 h-4 text-amber-600"></i>
+              Tata Cara Pembelian &amp; Pembubuhan e-Materai Rp10.000:
+            </p>
+            <ol class="list-decimal list-inside space-y-1.5 pl-1 text-slate-700 leading-relaxed font-medium">
+              <li><strong>Unduh Formulir PDF Pinjaman</strong> Anda menggunakan tombol nomor 1 di atas.</li>
+              <li>Kunjungi situs distributor resmi e-Materai: <a href="https://web.pajakind.com/" target="_blank" class="text-amber-800 underline font-bold">https://web.pajakind.com/</a> lalu masuk ke akun Anda.</li>
+              <li>Pilih menu <strong>Beli Kuota e-Materai</strong> (Rp10.000) dan bayar secara instan menggunakan QRIS atau transfer bank.</li>
+              <li>Pilih menu <strong>Pembubuhan Dokumen (Stamping)</strong>, lalu upload file formulir PDF pinjaman yang sudah diunduh.</li>
+              <li>Geser stempel digital e-Materai Rp10.000 ke area kolom tanda tangan Pemohon (berdampingan).</li>
+              <li>Klik <strong>Bubuhkan Dokumen</strong> dan masukkan PIN pengamanan Anda.</li>
+              <li><strong>Unduh (Download)</strong> file PDF yang telah resmi memiliki stempel &amp; sertifikat tanda tangan digital Peruri.</li>
+            </ol>
+          </div>
+
+          <!-- Form Upload Dokumen Bermaterai -->
+          <div class="space-y-4 pt-1 border-t border-slate-100">
+            <div>
+              <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                <i data-lucide="upload-cloud" class="w-4 h-4 text-orange-600"></i>
+                <span>3. Unggah Dokumen PDF yang Telah Dibubuhi e-Materai</span>
+              </h4>
+              <p class="text-[11px] text-slate-500 mt-0.5">Sistem akan memvalidasi tanda tangan digital Peruri/PajakInd dan menyimpan dokumen ke Google Drive sebelum memasukkannya ke Tracking &amp; Progress.</p>
+            </div>
+
+            <div class="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-2xl p-5 text-center space-y-2 transition bg-slate-50/50">
+              <i data-lucide="file-check-2" class="w-8 h-8 text-orange-500 mx-auto"></i>
+              <div>
+                <label for="inputEmateraiPdf" class="cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
+                  Pilih Berkas PDF Dokumen Bermaterai
+                </label>
+                <p class="text-[10px] text-slate-400 mt-1">Hanya format PDF standar (Maks. 10 MB). Berkas non-PDF atau tanpa tanda tangan digital akan ditolak sistem.</p>
+              </div>
+              <input type="file" id="inputEmateraiPdf" accept="application/pdf,.pdf" onchange="handleEmateraiFileChange(event)" class="hidden">
+              <div id="emateraiSelectedFileInfo" class="hidden text-xs font-semibold text-slate-700 bg-white p-2 rounded-xl border border-slate-200 inline-flex items-center gap-2 mt-2">
+                <i data-lucide="file" class="w-4 h-4 text-indigo-600"></i>
+                <span id="emateraiSelectedFileName">-</span>
+                <span id="emateraiSelectedFileSize" class="text-[10px] text-slate-400">(-)</span>
+              </div>
+            </div>
+
+            <!-- Status & Feedback Alert -->
+            <div id="emateraiStatusAlert" class="hidden p-3.5 rounded-2xl text-xs font-medium"></div>
+
+            <button type="button" id="btnSubmitEmaterai" onclick="submitEmateraiPdf()" class="w-full py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-orange-200 transition flex items-center justify-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span id="btnSubmitEmateraiText">Verifikasi e-Materai &amp; Simpan ke Google Drive</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- KONTEN OPSI 2: DIRECT WHATSAPP FINANCE -->
+        <div id="tabEmateraiWaContent" class="hidden space-y-4">
+          <div class="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div class="flex items-center space-x-3">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200 flex-shrink-0">
+                <i data-lucide="phone-call" class="w-6 h-6"></i>
+              </div>
+              <div class="min-w-0">
+                <h4 class="font-extrabold text-emerald-950 text-sm sm:text-base">Layanan Validasi Manual via Tim Financial</h4>
+                <p class="text-xs text-emerald-800">Hubungi langsung staf Financial Koperasi untuk bantuan pengecekan &amp; pengesahan berkas.</p>
+              </div>
+            </div>
+
+            <div class="bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-100 space-y-1.5 text-xs text-slate-700">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500 font-medium">Petugas Financial:</span>
+                <span id="emateraiPicName" class="font-bold text-slate-900">Sri Wahyuningsih</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500 font-medium">Jabatan / Role:</span>
+                <span id="emateraiPicRole" class="font-medium text-slate-700">Financial Koperasi Satya Ardhia</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500 font-medium">Nomor Direct WhatsApp:</span>
+                <span id="emateraiPicWaDisplay" class="font-mono font-bold text-emerald-700 text-xs sm:text-sm">+62 821-1408-3230</span>
+              </div>
+            </div>
+
+            <div class="text-xs text-slate-600 leading-relaxed space-y-1">
+              <p><strong>Langkah Mudah Bantuan Validasi:</strong></p>
+              <p>1. Unduh terlebih dahulu dokumen formulir permohonan kredit tunai Anda menggunakan tombol di bawah.</p>
+              <p>2. Kirimkan berkas PDF ke nomor WhatsApp Financial, staf Financial akan memvalidasi materai &amp; kelengkapan berkas Anda.</p>
+              <p>3. Klik <strong>"Direct ke WhatsApp Financial"</strong> untuk langsung berkirim pesan otomatis yang berisi rincian surat &amp; data Anda.</p>
+              <p>4. Setelah disahkan Financial, status permohonan pinjaman akan berubah menjadi <strong>"Validasi by Financial"</strong> dan otomatis masuk ke Tracking &amp; Progress.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button type="button" onclick="downloadOfficialLoanPdf(currentEmateraiLoanId)" class="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="download" class="w-4 h-4 text-slate-600"></i>
+              <span>Unduh Formulir PDF</span>
+            </button>
+            <button type="button" id="btnRequestManualFinance" onclick="requestManualFinanceValidation()" class="w-full py-2.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold text-xs flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="send" class="w-4 h-4 text-purple-600"></i>
+              <span>Kirim ke Antrean Finance</span>
+            </button>
+          </div>
+
+          <div id="emateraiWaStatusAlert" class="hidden p-3.5 rounded-2xl text-xs font-medium"></div>
+
+          <button type="button" onclick="openDirectWhatsAppFinance()" class="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2">
+            <i data-lucide="message-circle" class="w-5 h-5"></i>
+            <span>Direct ke WhatsApp Financial (<span id="emateraiBtnWaNumber">+62 821-1408-3230</span>)</span>
+          </button>
+        </div>
       </div>
 
     </div>
   </div>
 
+  <!-- MODAL: VALIDASI MANUAL BY FINANCIAL (KHUSUS FINANCIAL / ADMIN / KETUA) -->
+  <div id="modalFinanceManualValidation" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-8 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shadow-sm">
+            <i data-lucide="badge-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base">Validasi Berkas by Financial</h3>
+            <p class="text-xs text-slate-500">Pengesahan dokumen permohonan pinjaman oleh Tim Financial</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeFinanceManualValidationModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Info Pinjaman Card -->
+      <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
+        <div class="flex justify-between items-center">
+          <span class="text-slate-500 font-medium">Nomor Surat:</span>
+          <span id="valFinNomorSurat" class="font-mono font-bold text-slate-900">-</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-slate-500 font-medium">Nama Pemohon:</span>
+          <span id="valFinPemohon" class="font-bold text-slate-800">-</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-slate-500 font-medium">Plafon Pinjaman:</span>
+          <span id="valFinPlafon" class="font-extrabold text-emerald-700">-</span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Validasi Financial</label>
+          <textarea id="valFinCatatan" rows="2" class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500">Dokumen dan bukti e-Materai telah diperiksa dan dinyatakan sah oleh Tim Financial Koperasi Satya Ardhia.</textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Link Dokumen Google Drive (Opsional)</label>
+          <input type="url" id="valFinDriveUrl" placeholder="https://drive.google.com/file/d/..." class="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <p class="text-[10px] text-slate-400 mt-1">Kosongkan jika dokumen fisik/file WA disimpan terpisah.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeFinanceManualValidationModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition">
+          Batal
+        </button>
+        <button type="button" id="btnConfirmValFin" onclick="submitFinanceManualValidation()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold text-xs shadow-md shadow-blue-200 transition flex items-center gap-1.5">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          <span>Sahkan (Validasi by Financial)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SETTING ADMIN NOMOR DIRECT WHATSAPP FINANCE -->
+  <div id="modalAdminSettings" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-8 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shadow-sm">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base">Pengaturan Kontak Direct WA Finance</h3>
+            <p class="text-xs text-slate-500">Khusus Administrator &amp; Ketua Koperasi</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAdminSettingsModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formAdminSettings" onsubmit="handleSaveAdminSettings(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp Direct Financial *</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600">
+              <i data-lucide="phone" class="w-4 h-4"></i>
+            </div>
+            <input type="text" id="settingFinanceWaNumber" required placeholder="+62 821-1408-3230 atau 082114083230" class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Nomor ini menjadi tujuan chat WhatsApp anggota saat memilih validasi manual via Financial.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nama Petugas / PIC Financial</label>
+          <input type="text" id="settingFinancePicName" placeholder="Sri Wahyuningsih" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Jabatan / Role PIC</label>
+          <input type="text" id="settingFinancePicRole" placeholder="Financial Koperasi Satya Ardhia" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="bg-amber-50/80 border border-amber-200 p-3 rounded-2xl text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
+          <span>Pengaturan tersimpan otomatis di spreadsheet <strong>AppSettings</strong> dan langsung aktif di seluruh tombol Direct WhatsApp anggota.</span>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeAdminSettingsModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition">
+            Batal
+          </button>
+          <button type="submit" id="btnSaveAdminSettings" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-200 transition flex items-center gap-1.5">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Simpan Perubahan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
 </main>
 
@@ -3693,6 +3895,20 @@
           const m = urlStr.match(/\/api\/loans\/([^\/]+)\/upload-ematerai/);
           return callGas('uploadEmateraiLoan', { loanId: m ? m[1] : '', ...body });
         }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/validate-finance-manual/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/validate-finance-manual/);
+          return callGas('validateLoanByFinancial', { loanId: m ? m[1] : '', ...body });
+        }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/request-manual-validation/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/request-manual-validation/);
+          return callGas('requestManualLoanValidation', { loanId: m ? m[1] : '', ...body });
+        }
+        if (urlStr.includes('/api/settings/finance-wa')) {
+          return callGas('saveAppSetting', body);
+        }
+        if (urlStr.includes('/api/settings')) {
+          return callGas('getAppSettings');
+        }
 
         // Bridge Bank Accounts
         if (urlStr.includes('/api/bank-accounts/me')) {
@@ -4184,6 +4400,16 @@
       } else {
         tabUsersBtn.style.display = 'none';
         tabUsersBtn.disabled = true;
+      }
+
+      // 2b. Tombol Setting Admin Header
+      const btnHeaderSettings = document.getElementById('btnHeaderSettings');
+      if (btnHeaderSettings) {
+        if (role === 'admin' || role === 'ketua koperasi') {
+          btnHeaderSettings.style.display = 'inline-flex';
+        } else {
+          btnHeaderSettings.style.display = 'none';
+        }
       }
 
       // 2b. Tab Data Operasional & Dashboard (Executive Car, Air Minum Sender, Admin, Ketua, Pengurus)
@@ -8696,8 +8922,10 @@ async function fetchMyLoans() {
 
 function getWorkflowBadge(status) {
   const s = String(status || '').toUpperCase();
-  if (s === 'PENDING_FINANCE') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Menunggu Persetujuan Finance</span>';
+  if (s === 'PENDING_FINANCE') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Menunggu Review Finance</span>';
   if (s === 'PENDING_EMATERAI') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">Wajib e-Materai (PajakInd)</span>';
+  if (s === 'PENDING_FINANCE_MANUAL') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300 animate-pulse">Menunggu Validasi WA Finance</span>';
+  if (s === 'VALIDATED_BY_FINANCE' || s === 'VALIDASI_BY_FINANCIAL') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300">Validasi by Financial</span>';
   if (s === 'VERIFIED_MATERAI') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">e-Materai Valid (Tracking Active)</span>';
   if (s === 'PENDING_PIC_SIMPIN') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Menunggu PIC Simpin</span>';
   if (s === 'PENDING_KETUA') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">Menunggu Ketua Koperasi</span>';
@@ -8729,10 +8957,10 @@ function renderMyLoansTable(loans) {
       <td class="py-3 px-4 text-center">${getWorkflowBadge(l.statusWorkflow)}</td>
       <td class="py-3 px-4 text-center whitespace-nowrap">
         <div class="flex items-center justify-center gap-1.5 flex-wrap">
-          ${l.statusWorkflow === 'PENDING_EMATERAI' ? `
+          ${(l.statusWorkflow === 'PENDING_EMATERAI' || l.statusWorkflow === 'PENDING_FINANCE_MANUAL') ? `
             <button onclick="openEmateraiModal('${l.loanId}', '${l.nomorSurat}', '${l.pemohonNama}', ${l.jumlahPinjaman}, ${l.tenorBulan})" class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-extrabold text-xs shadow-md shadow-orange-200 transition inline-flex items-center gap-1 animate-pulse">
               <i data-lucide="stamp" class="w-3.5 h-3.5"></i>
-              <span>Upload e-Materai</span>
+              <span>${l.statusWorkflow === 'PENDING_FINANCE_MANUAL' ? 'Validasi / Upload' : 'Upload e-Materai'}</span>
             </button>
           ` : ''}
           ${l.dokumenMateraiUrl ? `
@@ -9823,16 +10051,175 @@ async function handleRejectRuleRequest(approvalId, namaAnggota, ruleId) {
 
 
 // ============================================================================
-// CONTROLLER CLIENT: APPROVAL FINANCE PINJAMAN & PEMBUBUHAN e-MATERAI PAJAKIND
+// CONTROLLER CLIENT: APPROVAL FINANCE PINJAMAN, e-MATERAI & DIRECT WA SETTINGS
 // ============================================================================
 
 let currentEmateraiLoanId = null;
+let currentEmateraiLoanData = null;
 let currentEmateraiFileBase64 = null;
 let currentEmateraiFileName = null;
+let currentValFinLoanId = null;
 let loansApprovalList = [];
+let currentAppSettings = {
+  financeWaNumber: '6282114083230',
+  financePicName: 'Sri Wahyuningsih',
+  financePicRole: 'Financial Koperasi Satya Ardhia'
+};
+
+// ----------------------------------------------------
+// APP SETTINGS CONTROLLER (NOMOR DIRECT WA FINANCE)
+// ----------------------------------------------------
+
+async function fetchAppSettings() {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings`);
+    const data = await res.json();
+    if (data.success && data.settings) {
+      currentAppSettings = { ...currentAppSettings, ...data.settings };
+      updateAppSettingsDisplay();
+    }
+  } catch (err) {
+    console.warn('Gagal memuat pengaturan:', err.message);
+  }
+}
+
+function updateAppSettingsDisplay() {
+  const wa = currentAppSettings.financeWaNumber || '6282114083230';
+  const formattedWa = formatWaNumberDisplay(wa);
+  const pic = currentAppSettings.financePicName || 'Sri Wahyuningsih';
+  const role = currentAppSettings.financePicRole || 'Financial Koperasi Satya Ardhia';
+
+  const dispWa = document.getElementById('emateraiPicWaDisplay');
+  if (dispWa) dispWa.innerText = formattedWa;
+
+  const btnWa = document.getElementById('emateraiBtnWaNumber');
+  if (btnWa) btnWa.innerText = formattedWa;
+
+  const dispPic = document.getElementById('emateraiPicName');
+  if (dispPic) dispPic.innerText = pic;
+
+  const dispRole = document.getElementById('emateraiPicRole');
+  if (dispRole) dispRole.innerText = role;
+}
+
+function formatWaNumberDisplay(num) {
+  let s = String(num || '').replace(/[^0-9]/g, '');
+  if (s.startsWith('62') && s.length >= 11) {
+    return '+62 ' + s.slice(2, 5) + '-' + s.slice(5, 9) + '-' + s.slice(9);
+  }
+  return num ? ('+' + s) : '+62 821-1408-3230';
+}
+
+function openAdminSettingsModal() {
+  const role = normalizeRole(currentUser ? currentUser.role : '');
+  if (role !== 'admin' && role !== 'ketua koperasi') {
+    showToast('Hanya Administrator atau Ketua Koperasi yang dapat mengakses pengaturan ini.', true);
+    return;
+  }
+
+  const inputWa = document.getElementById('settingFinanceWaNumber');
+  const inputPic = document.getElementById('settingFinancePicName');
+  const inputRole = document.getElementById('settingFinancePicRole');
+
+  if (inputWa) inputWa.value = currentAppSettings.financeWaNumber || '6282114083230';
+  if (inputPic) inputPic.value = currentAppSettings.financePicName || 'Sri Wahyuningsih';
+  if (inputRole) inputRole.value = currentAppSettings.financePicRole || 'Financial Koperasi Satya Ardhia';
+
+  document.getElementById('modalAdminSettings').classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeAdminSettingsModal() {
+  document.getElementById('modalAdminSettings').classList.add('hidden');
+}
+
+async function handleSaveAdminSettings(e) {
+  e.preventDefault();
+  const inputWa = document.getElementById('settingFinanceWaNumber');
+  const inputPic = document.getElementById('settingFinancePicName');
+  const inputRole = document.getElementById('settingFinancePicRole');
+  const btn = document.getElementById('btnSaveAdminSettings');
+
+  const waVal = inputWa ? inputWa.value.trim() : '';
+  const picVal = inputPic ? inputPic.value.trim() : '';
+  const roleVal = inputRole ? inputRole.value.trim() : '';
+
+  if (!waVal) {
+    showToast('Nomor WhatsApp wajib diisi.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Menyimpan...</span>`;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/finance-wa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        financeWaNumber: waVal,
+        financePicName: picVal,
+        financePicRole: roleVal,
+        updatedByNik: currentUser.nik || currentUser.username,
+        updatedByNama: currentUser.nama || currentUser.username,
+        updatedByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (data.settings) currentAppSettings = { ...currentAppSettings, ...data.settings };
+      updateAppSettingsDisplay();
+      showToast(data.message || 'Pengaturan WhatsApp Financial berhasil disimpan!');
+      closeAdminSettingsModal();
+    } else {
+      showToast(data.message || 'Gagal menyimpan pengaturan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i><span>Simpan Perubahan</span>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
+// ----------------------------------------------------
+// TAB e-MATERAI MODAL SWITCHER (OPSI 1 & 2)
+// ----------------------------------------------------
+
+function switchEmateraiTab(tab) {
+  const autoBtn = document.getElementById('tabEmateraiAutoBtn');
+  const waBtn = document.getElementById('tabEmateraiWaBtn');
+  const autoContent = document.getElementById('tabEmateraiAutoContent');
+  const waContent = document.getElementById('tabEmateraiWaContent');
+
+  if (tab === 'wa') {
+    if (autoBtn) {
+      autoBtn.className = "py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 font-bold text-xs";
+    }
+    if (waBtn) {
+      waBtn.className = "py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 bg-white text-emerald-700 font-extrabold text-xs shadow-xs";
+    }
+    if (autoContent) autoContent.classList.add('hidden');
+    if (waContent) waContent.classList.remove('hidden');
+    updateAppSettingsDisplay();
+  } else {
+    if (autoBtn) {
+      autoBtn.className = "py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 bg-white text-indigo-700 font-extrabold text-xs shadow-xs";
+    }
+    if (waBtn) {
+      waBtn.className = "py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 font-bold text-xs";
+    }
+    if (autoContent) autoContent.classList.remove('hidden');
+    if (waContent) waContent.classList.add('hidden');
+  }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
 
 function openEmateraiModal(loanId, nomorSurat, pemohonNama, plafon, tenor) {
   currentEmateraiLoanId = loanId;
+  currentEmateraiLoanData = { loanId, nomorSurat, pemohonNama, plafon, tenor };
   currentEmateraiFileBase64 = null;
   currentEmateraiFileName = null;
 
@@ -9853,12 +10240,20 @@ function openEmateraiModal(loanId, nomorSurat, pemohonNama, plafon, tenor) {
     alertBox.innerHTML = '';
   }
 
+  const alertWaBox = document.getElementById('emateraiWaStatusAlert');
+  if (alertWaBox) {
+    alertWaBox.className = 'hidden';
+    alertWaBox.innerHTML = '';
+  }
+
   const btnSubmit = document.getElementById('btnSubmitEmaterai');
   if (btnSubmit) {
     btnSubmit.disabled = false;
     document.getElementById('btnSubmitEmateraiText').innerText = 'Verifikasi e-Materai & Simpan ke Google Drive';
   }
 
+  switchEmateraiTab('auto');
+  updateAppSettingsDisplay();
   document.getElementById('modalEmateraiProcess').classList.remove('hidden');
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -9866,6 +10261,70 @@ function openEmateraiModal(loanId, nomorSurat, pemohonNama, plafon, tenor) {
 function closeEmateraiModal() {
   document.getElementById('modalEmateraiProcess').classList.add('hidden');
   currentEmateraiLoanId = null;
+  currentEmateraiLoanData = null;
+}
+
+function openDirectWhatsAppFinance() {
+  if (!currentEmateraiLoanData) return;
+  const rawNum = currentAppSettings.financeWaNumber || '6282114083230';
+  let cleanNum = String(rawNum).replace(/[^0-9]/g, '');
+  if (cleanNum.startsWith('0')) cleanNum = '62' + cleanNum.slice(1);
+  else if (!cleanNum.startsWith('62')) cleanNum = '62' + cleanNum;
+
+  const pic = currentAppSettings.financePicName || 'Sri Wahyuningsih';
+  const role = currentAppSettings.financePicRole || 'Financial Koperasi Satya Ardhia';
+  const pemohon = currentEmateraiLoanData.pemohonNama || currentUser.nama || currentUser.username;
+  const nik = currentUser.nik || currentUser.username || '-';
+  const noSurat = currentEmateraiLoanData.nomorSurat || '-';
+  const plafon = formatRupiahNumber(currentEmateraiLoanData.plafon || 0);
+  const tenor = currentEmateraiLoanData.tenor || '-';
+
+  const text = `Halo Ibu ${pic} (${role}),\n\nSaya ingin mengajukan validasi manual berkas pinjaman kredit tunai saya:\n- Nomor Surat: ${noSurat}\n- Nama Pemohon: ${pemohon}\n- NIK: ${nik}\n- Plafon Pinjaman: ${plafon}\n- Tenor: ${tenor} Bulan\n\nMohon bantuannya untuk memeriksa dan memvalidasi berkas saya di dashboard agar permohonan dapat segera dilanjutkan ke tahap berikutnya. Terima kasih!`;
+
+  const waUrl = `https://wa.me/${cleanNum}?text=${encodeURIComponent(text)}`;
+  window.open(waUrl, '_blank');
+}
+
+async function requestManualFinanceValidation() {
+  if (!currentEmateraiLoanId) return;
+  const btn = document.getElementById('btnRequestManualFinance');
+  const alertBox = document.getElementById('emateraiWaStatusAlert');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${currentEmateraiLoanId}/request-manual-validation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requesterNik: currentUser.nik || currentUser.username,
+        requesterNama: currentUser.nama || currentUser.username
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (alertBox) {
+        alertBox.className = 'p-3 rounded-2xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200';
+        alertBox.innerHTML = `<div class="flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i><span>Permintaan validasi via WA berhasil dikirim ke antrean Finance! Status Anda kini "Menunggu Validasi WA Finance".</span></div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+      showToast('Permintaan validasi via WA berhasil diajukan ke antrean Finance!');
+      if (typeof loadLoansData === 'function') loadLoansData();
+      if (typeof loadLoansApprovalData === 'function') loadLoansApprovalData();
+      if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
+    } else {
+      if (alertBox) {
+        alertBox.className = 'p-3 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
+        alertBox.innerText = data.message || 'Gagal mengirim permintaan.';
+      }
+    }
+  } catch (err) {
+    if (alertBox) {
+      alertBox.className = 'p-3 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
+      alertBox.innerText = 'Koneksi error: ' + err.message;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function downloadOfficialLoanPdf(loanId) {
@@ -9873,57 +10332,35 @@ function downloadOfficialLoanPdf(loanId) {
   if (!loanId) return;
 
   showToast('Membuka dokumen resmi untuk diunduh / dicetak...');
-  openLoanDocumentModal(loanId);
+  const url = `loan-document-preview.html?id=${encodeURIComponent(loanId)}&print=true`;
+  window.open(url, '_blank');
 }
 
 function handleEmateraiFileChange(e) {
   const file = e.target.files[0];
-  const alertBox = document.getElementById('emateraiStatusAlert');
-  const fileInfo = document.getElementById('emateraiSelectedFileInfo');
+  if (!file) return;
 
-  if (!file) {
-    currentEmateraiFileBase64 = null;
-    currentEmateraiFileName = null;
-    if (fileInfo) fileInfo.classList.add('hidden');
-    return;
-  }
-
-  // Cek MIME type & ekstensi
   if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    showToast('Format berkas tidak valid. Harap pilih file PDF standar.', true);
-    if (alertBox) {
-      alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
-      alertBox.innerHTML = '<i data-lucide="alert-octagon" class="w-4 h-4 inline mr-1 text-red-600"></i> Berkas bukan format PDF. Sistem menolak berkas non-PDF demi keamanan.';
-      alertBox.classList.remove('hidden');
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    }
+    showToast('Hanya berkas format PDF yang diizinkan!', true);
     e.target.value = '';
     return;
   }
 
-  // Cek ukuran maks 10MB
   if (file.size > 10 * 1024 * 1024) {
-    showToast('Ukuran file melebihi batas maksimal 10 MB.', true);
-    if (alertBox) {
-      alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
-      alertBox.innerHTML = 'Ukuran file melebihi batas 10 MB. Silakan kompresi berkas terlebih dahulu.';
-      alertBox.classList.remove('hidden');
-    }
+    showToast('Ukuran berkas terlalu besar! Maksimal 10 MB.', true);
     e.target.value = '';
     return;
   }
 
   currentEmateraiFileName = file.name;
-
+  const fileInfo = document.getElementById('emateraiSelectedFileInfo');
   if (fileInfo) {
     document.getElementById('emateraiSelectedFileName').innerText = file.name;
     document.getElementById('emateraiSelectedFileSize').innerText = `(${(file.size / 1024).toFixed(1)} KB)`;
     fileInfo.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 
-  if (alertBox) alertBox.classList.add('hidden');
-
-  // Baca base64
   const reader = new FileReader();
   reader.onload = function(evt) {
     currentEmateraiFileBase64 = evt.target.result;
@@ -9933,27 +10370,24 @@ function handleEmateraiFileChange(e) {
 
 async function submitEmateraiPdf() {
   if (!currentEmateraiLoanId) {
-    showToast('ID Pinjaman tidak valid.', true);
+    showToast('Permohonan pinjaman tidak valid.', true);
     return;
   }
-
   if (!currentEmateraiFileBase64) {
-    showToast('Silakan pilih file PDF yang telah dibubuhi e-Materai terlebih dahulu.', true);
+    showToast('Silakan pilih berkas PDF yang telah dibubuhi e-Materai terlebih dahulu.', true);
     return;
   }
 
-  const btn = document.getElementById('btnSubmitEmaterai');
+  const btnSubmit = document.getElementById('btnSubmitEmaterai');
   const btnText = document.getElementById('btnSubmitEmateraiText');
   const alertBox = document.getElementById('emateraiStatusAlert');
 
-  btn.disabled = true;
-  btnText.innerText = 'Memeriksa e-Materai & Mengunggah ke Drive...';
-  if (alertBox) {
-    alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-2';
-    alertBox.innerHTML = '<span class="inline-block animate-spin"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memindai keamanan berkas dan memvalidasi stempel digital Peruri/PajakInd...';
-    alertBox.classList.remove('hidden');
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-  }
+  btnSubmit.disabled = true;
+  btnText.innerText = 'Memvalidasi Tanda Tangan Digital & Mengunggah...';
+
+  alertBox.className = 'p-3.5 rounded-2xl text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200';
+  alertBox.innerHTML = `<div class="flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-amber-600"></i><span>Sistem sedang memeriksa tanda tangan digital Peruri/PajakInd dan mengamankan berkas ke Google Drive...</span></div>`;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 
   try {
     const res = await fetch(`${API_BASE}/api/loans/${currentEmateraiLoanId}/upload-ematerai`, {
@@ -9963,83 +10397,129 @@ async function submitEmateraiPdf() {
         pdfBase64: currentEmateraiFileBase64,
         fileName: currentEmateraiFileName || 'dokumen_bermaterai.pdf',
         uploaderNik: currentUser.nik || currentUser.username,
-        uploaderNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        uploaderNama: currentUser.nama || currentUser.username,
         uploaderRole: currentUser.role
       })
     });
 
     let data;
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      data = await res.json();
-    } else {
-      const rawText = await res.text();
-      if (res.status === 413) {
-        data = { success: false, message: 'Ukuran file dokumen PDF melebihi batas upload server (Maksimal 20 MB).' };
-      } else {
-        try {
-          data = JSON.parse(rawText);
-        } catch (e) {
-          const cleanErr = rawText.replace(/<[^>]*>?/gm, '').trim();
-          data = {
-            success: false,
-            message: cleanErr.length > 0 ? cleanErr.substring(0, 160) : `Server merespon dengan status ${res.status} (Gagal memproses)`
-          };
-        }
+    const resText = await res.text();
+    try {
+      data = JSON.parse(resText);
+    } catch (parseErr) {
+      if (resText.includes('413') || resText.toLowerCase().includes('payload too large')) {
+        throw new Error('Ukuran file dokumen terlalu besar (melebihi batas server). Harap kompres file di bawah 5 MB.');
       }
+      throw new Error('Respon server tidak valid (' + resText.substring(0, 50) + '...)');
     }
 
     if (data.success) {
-      if (alertBox) {
-        alertBox.className = 'p-4 rounded-2xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-200 space-y-1.5';
-        alertBox.innerHTML = `
-          <div class="flex items-center gap-1.5 text-emerald-800 text-sm">
-            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>
-            <span>Verifikasi e-Materai Berhasil!</span>
-          </div>
-          <p class="text-[11px] text-emerald-700 font-normal">Sertifikat digital: <strong>${data.provider || 'PajakInd / Peruri'}</strong>. Dokumen telah diarsipkan di Google Drive dan permohonan pinjaman resmi masuk ke <strong>Tracking & Progress</strong>.</p>
-          <div class="pt-1">
-            <a href="${data.driveUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs text-indigo-700 underline font-extrabold hover:text-indigo-900">
-              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-              Buka File di Google Drive
-            </a>
-          </div>
-        `;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-      }
+      alertBox.className = 'p-4 rounded-2xl text-xs font-semibold bg-emerald-50 text-emerald-900 border border-emerald-200 space-y-1.5';
+      alertBox.innerHTML = `
+        <div class="flex items-center gap-2 font-bold text-emerald-800">
+          <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>
+          <span>Validasi e-Materai Berhasil!</span>
+        </div>
+        <p class="text-[11px] text-emerald-700 leading-relaxed">${data.message}</p>
+        ${data.driveUrl ? `<p class="pt-1"><a href="${data.driveUrl}" target="_blank" class="underline text-indigo-700 font-bold inline-flex items-center gap-1"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Lihat Berkas di Google Drive</a></p>` : ''}
+      `;
+      btnText.innerText = '✓ e-Materai Terverifikasi Resmi';
+      btnSubmit.className = 'w-full py-3 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-default';
 
-      showToast('e-Materai berhasil diverifikasi! Permohonan telah masuk ke Tracking & Progress.');
+      showToast('Berkas e-Materai sah! Permohonan resmi masuk ke Tracking & Progress.');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+
       setTimeout(() => {
         closeEmateraiModal();
-        if (typeof fetchMyLoans === 'function') fetchMyLoans();
-        if (typeof fetchAllLoans === 'function') fetchAllLoans();
+        if (typeof loadLoansData === 'function') loadLoansData();
         if (typeof loadLoansApprovalData === 'function') loadLoansApprovalData();
+        if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
+        if (typeof switchTab === 'function') switchTab('tracking');
       }, 2500);
 
     } else {
-      btn.disabled = false;
+      btnSubmit.disabled = false;
       btnText.innerText = 'Coba Verifikasi Ulang';
-      if (alertBox) {
-        alertBox.className = 'p-4 rounded-2xl text-xs font-semibold bg-red-50 text-red-900 border border-red-200 space-y-1';
-        alertBox.innerHTML = `
-          <div class="flex items-center gap-1.5 text-red-800 font-bold">
-            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600"></i>
-            <span>Verifikasi Ditolak</span>
-          </div>
-          <p class="text-[11px] text-red-700">${data.message || 'Dokumen belum terdeteksi dibubuhi e-Materai resmi.'}</p>
-        `;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-      }
-      showToast(data.message || 'Verifikasi e-Materai gagal.', true);
+      alertBox.className = 'p-3.5 rounded-2xl text-xs font-medium bg-rose-50 text-rose-900 border border-rose-200 space-y-1';
+      alertBox.innerHTML = `
+        <div class="flex items-center gap-1.5 font-bold text-rose-800">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+          <span>Verifikasi Ditolak</span>
+        </div>
+        <p class="text-[11px] leading-relaxed">${data.message || 'Dokumen belum dibubuhi e-Materai sah atau tanda tangan digital tidak ditemukan.'}</p>
+      `;
+      showToast(data.message || 'Verifikasi dokumen gagal.', true);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     }
   } catch (err) {
-    btn.disabled = false;
-    btnText.innerText = 'Verifikasi e-Materai & Simpan ke Google Drive';
-    if (alertBox) {
-      alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
-      alertBox.innerText = 'Koneksi server gagal: ' + err.message;
-    }
+    btnSubmit.disabled = false;
+    btnText.innerText = 'Coba Verifikasi Ulang';
+    alertBox.className = 'p-3.5 rounded-2xl text-xs font-medium bg-red-50 text-red-900 border border-red-200';
+    alertBox.innerText = 'Koneksi server gagal: ' + err.message;
     showToast('Koneksi server gagal: ' + err.message, true);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
+// ----------------------------------------------------
+// VALIDASI MANUAL BY FINANCIAL CONTROLLER
+// ----------------------------------------------------
+
+function openFinanceManualValidationModal(loanId, nomorSurat, pemohonNama, plafon, tenor) {
+  currentValFinLoanId = loanId;
+  document.getElementById('valFinNomorSurat').innerText = nomorSurat || '-';
+  document.getElementById('valFinPemohon').innerText = pemohonNama || '-';
+  document.getElementById('valFinPlafon').innerText = formatRupiahNumber(plafon || 0) + (tenor ? ` (${tenor} Bulan)` : '');
+  document.getElementById('valFinDriveUrl').value = '';
+  document.getElementById('valFinCatatan').value = 'Dokumen dan bukti e-Materai telah diperiksa dan dinyatakan sah oleh Tim Financial Koperasi Satya Ardhia.';
+
+  document.getElementById('modalFinanceManualValidation').classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeFinanceManualValidationModal() {
+  document.getElementById('modalFinanceManualValidation').classList.add('hidden');
+  currentValFinLoanId = null;
+}
+
+async function submitFinanceManualValidation() {
+  if (!currentValFinLoanId) return;
+  const btn = document.getElementById('btnConfirmValFin');
+  const catatan = document.getElementById('valFinCatatan').value.trim();
+  const driveUrl = document.getElementById('valFinDriveUrl').value.trim();
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Menyahkan...</span>`;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${currentValFinLoanId}/validate-finance-manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approverNik: currentUser.nik || currentUser.username,
+        approverNama: currentUser.nama || currentUser.username,
+        approverRole: currentUser.role,
+        catatan: catatan || 'Dokumen diverifikasi sah oleh Tim Financial.',
+        driveUrl
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Permohonan pinjaman berhasil disahkan Financial!');
+      closeFinanceManualValidationModal();
+      loadLoansApprovalData();
+      if (typeof loadLoansData === 'function') loadLoansData();
+      if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
+    } else {
+      showToast(data.message || 'Gagal memvalidasi pinjaman.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Sahkan (Validasi by Financial)</span>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 }
 
@@ -10071,7 +10551,7 @@ async function loadLoansApprovalData() {
       loansApprovalList = data.loans;
       filterAndRenderLoansApprovalTable();
 
-      const pendingCount = loansApprovalList.filter(l => l.statusWorkflow === 'PENDING_FINANCE').length;
+      const pendingCount = loansApprovalList.filter(l => l.statusWorkflow === 'PENDING_FINANCE' || l.statusWorkflow === 'PENDING_FINANCE_MANUAL').length;
       const badgeLoans = document.getElementById('badgePillLoans');
       if (badgeLoans) {
         badgeLoans.innerText = pendingCount;
@@ -10096,10 +10576,16 @@ function renderLoansApprovalTable(loans) {
     return;
   }
 
+  const role = normalizeRole(currentUser ? currentUser.role : '');
+  const canApproveFinance = role === 'financial' || role === 'admin' || role === 'ketua koperasi';
+
   tbody.innerHTML = loans.map(l => {
     const isPendingFinance = l.statusWorkflow === 'PENDING_FINANCE';
     const isPendingMaterai = l.statusWorkflow === 'PENDING_EMATERAI';
+    const isPendingManual = l.statusWorkflow === 'PENDING_FINANCE_MANUAL';
+    const isValidatedByFinance = l.statusWorkflow === 'VALIDATED_BY_FINANCE';
     const isVerifiedMaterai = l.statusWorkflow === 'VERIFIED_MATERAI';
+    const canValidateManual = (isPendingMaterai || isPendingManual) && canApproveFinance;
 
     return `
     <tr class="hover:bg-slate-50/80 transition">
@@ -10134,13 +10620,19 @@ function renderLoansApprovalTable(loans) {
               <span>Tolak</span>
             </button>
           ` : ''}
-          ${isVerifiedMaterai && l.dokumenMateraiUrl ? `
+          ${canValidateManual ? `
+            <button onclick="openFinanceManualValidationModal('${l.loanId}', '${l.nomorSurat}', '${l.pemohonNama}', ${l.jumlahPinjaman}, ${l.tenorBulan})" class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold text-xs shadow-md shadow-blue-200 transition inline-flex items-center gap-1" title="Validasi langsung berkas e-Materai oleh Tim Financial">
+              <i data-lucide="badge-check" class="w-3.5 h-3.5"></i>
+              <span>Validasi by Financial</span>
+            </button>
+          ` : ''}
+          ${(isVerifiedMaterai || isValidatedByFinance) && l.dokumenMateraiUrl && l.dokumenMateraiUrl.startsWith('http') ? `
             <a href="${l.dokumenMateraiUrl}" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs transition inline-flex items-center gap-1 border border-emerald-200">
               <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
               <span>Lihat Drive</span>
             </a>
           ` : ''}
-          <a href="loan-document-preview.html?id=${encodeURIComponent(l.loanId)}" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200" title="Buka Formulir di Tab Baru untuk Preview & Download PDF">
+          <a href="loan-document-preview.html?id=${encodeURIComponent(l.loanId)}" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200" title="Buka Formulir di Tab Baru untuk Preview &amp; Download PDF">
             <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
             <span>Berkas</span>
           </a>
@@ -10152,9 +10644,9 @@ function renderLoansApprovalTable(loans) {
 }
 
 async function handleApproveFinanceLoan(loanId, nomorSurat) {
-  if (!confirm(`Setujui pengajuan pinjaman ${nomorSurat}?\n\nSetelah disetujui, anggota wajib mengunduh formulir dan membubuhi e-Materai Rp10.000 via https://web.pajakind.com/ sebelum permohonan masuk ke Tracking & Progress.`)) return;
+  if (!confirm(`Setujui pengajuan pinjaman ${nomorSurat}?\n\nSetelah disetujui, anggota dapat membubuhi e-Materai Rp10.000 via PajakInd atau menghubungi langsung Financial via WhatsApp untuk bantuan validasi.`)) return;
 
-  const catatan = prompt('Catatan persetujuan Finance (opsional):', 'Disetujui Finance, lanjut pembubuhan e-Materai Rp10.000 di PajakInd');
+  const catatan = prompt('Catatan persetujuan Finance (opsional):', 'Disetujui Finance, lanjut validasi e-Materai (PajakInd atau WhatsApp Financial)');
   if (catatan === null) return;
 
   try {
@@ -10214,6 +10706,11 @@ async function handleRejectFinanceLoan(loanId, nomorSurat) {
   } catch (err) {
     showToast('Koneksi server gagal: ' + err.message, true);
   }
+}
+
+// Inisialisasi awal pengaturan aplikasi saat script termuat
+if (typeof fetchAppSettings === 'function') {
+  fetchAppSettings();
 }
 
 </script>
