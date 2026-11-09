@@ -22,6 +22,37 @@
     /* Hide scrollbar for horizontal menu tabs */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Custom Sleek ScrollView for Menu Tabs */
+    .tabs-scrollview {
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 transparent;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+    .tabs-scrollview::-webkit-scrollbar {
+      height: 5px;
+    }
+    .tabs-scrollview::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+      margin: 0 40px;
+    }
+    .tabs-scrollview::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 9999px;
+      border: 1px solid #f1f5f9;
+    }
+    .tabs-scrollview::-webkit-scrollbar-thumb:hover {
+      background: #059669;
+    }
+    .cursor-grab {
+      cursor: grab;
+    }
+    .cursor-grabbing {
+      cursor: grabbing !important;
+      user-select: none !important;
+    }
     #absensiMap { z-index: 10; }
 
     /* Animated Checkmark and Cross */
@@ -295,14 +326,16 @@
           </div>
         </div>
 
-        <!-- Baris 2: Nav Tabs (Full-width dengan scroll horizontal halus, tombol panah & mouse-wheel support) -->
-        <div class="py-2 flex items-center relative min-w-0">
-          <button id="btnNavScrollLeft" onclick="scrollNavTabs('left')" class="hidden md:flex items-center justify-center w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-slate-600 hover:text-emerald-700 hover:border-emerald-300 shadow-2xs mr-1 z-10 flex-shrink-0 transition" title="Geser Tab Kiri">
+        <!-- Baris 2: Nav Tabs ScrollView (Mudah digeser dengan Touch, Mouse Drag, Wheel, atau Tombol Panah) -->
+        <div class="py-2.5 flex items-center relative min-w-0 group/nav">
+          <!-- Tombol Panah Geser Kiri -->
+          <button id="btnNavScrollLeft" onclick="scrollNavTabs('left')" class="flex items-center justify-center w-8 h-8 rounded-xl bg-white/95 border border-slate-200 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 shadow-sm mr-1.5 z-20 flex-shrink-0 transition active:scale-95" title="Geser Tab Kiri (Bisa juga drag/geser mouse)">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
           </button>
 
-          <div id="navTabsScrollWrapper" class="w-full overflow-x-auto no-scrollbar scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
-            <div class="flex bg-slate-100 p-1 rounded-xl text-xs sm:text-sm font-medium w-max space-x-1" id="navTabsContainer">
+          <!-- ScrollView Wrapper -->
+          <div id="navTabsScrollWrapper" class="w-full overflow-x-auto tabs-scrollview scroll-smooth cursor-grab select-none pb-1.5 -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div class="flex bg-slate-100/90 p-1.5 rounded-2xl text-xs sm:text-sm font-medium w-max space-x-1.5 shadow-2xs border border-slate-200/60" id="navTabsContainer">
               <!-- Tab 1: Tracking (Semua Role) -->
               <button id="tabTrackBtn" onclick="switchTab('tracking')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm flex-shrink-0 whitespace-nowrap">
                 <i data-lucide="list-checks" class="w-4 h-4"></i>
@@ -354,7 +387,7 @@
             </div>
           </div>
 
-          <button id="btnNavScrollRight" onclick="scrollNavTabs('right')" class="hidden md:flex items-center justify-center w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-slate-600 hover:text-emerald-700 hover:border-emerald-300 shadow-2xs ml-1 z-10 flex-shrink-0 transition" title="Geser Tab Kanan">
+          <button id="btnNavScrollRight" onclick="scrollNavTabs('right')" class="flex items-center justify-center w-8 h-8 rounded-xl bg-white/95 border border-slate-200 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 shadow-sm ml-1.5 z-20 flex-shrink-0 transition active:scale-95" title="Geser Tab Kanan (Bisa juga drag/geser mouse)">
             <i data-lucide="chevron-right" class="w-4 h-4"></i>
           </button>
         </div>
@@ -3779,17 +3812,120 @@
       }
 
       lucide.createIcons();
+      setupNavTabsScrollView();
       switchTab('tracking');
+    }
+
+    // ================= TABS SCROLLVIEW CONTROLLER =================
+    // Mendukung geser via: Drag Mouse (Click & Drag), Touch, Mouse Wheel, & Tombol Panah
+    function setupNavTabsScrollView() {
+      const navScrollEl = document.getElementById('navTabsScrollWrapper');
+      if (!navScrollEl || navScrollEl._scrollviewInit) return;
+      navScrollEl._scrollviewInit = true;
+
+      let isDragging = false;
+      let startX = 0;
+      let startScrollLeft = 0;
+      let hasDragged = false;
+
+      // 1. Mouse Drag to Scroll (Pan-to-scroll pada Desktop)
+      navScrollEl.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        hasDragged = false;
+        startX = e.pageX - navScrollEl.offsetLeft;
+        startScrollLeft = navScrollEl.scrollLeft;
+        navScrollEl.classList.add('cursor-grabbing');
+        navScrollEl.classList.remove('cursor-grab');
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          navScrollEl.classList.remove('cursor-grabbing');
+          navScrollEl.classList.add('cursor-grab');
+          setTimeout(() => { hasDragged = false; }, 50);
+        }
+      });
+
+      navScrollEl.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.pageX - navScrollEl.offsetLeft;
+        const walk = (x - startX) * 1.6; // multiplier kecepatan drag
+        if (Math.abs(walk) > 4) {
+          hasDragged = true;
+        }
+        navScrollEl.scrollLeft = startScrollLeft - walk;
+        updateNavScrollButtons();
+      });
+
+      // Cegah navigasi tab terpencet saat pengguna sedang melakukan drag geser
+      navScrollEl.addEventListener('click', (e) => {
+        if (hasDragged) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+
+      // 2. Mouse Wheel Horizontal Scroll
+      navScrollEl.addEventListener('wheel', (e) => {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          navScrollEl.scrollLeft += e.deltaY;
+          updateNavScrollButtons();
+        }
+      }, { passive: false });
+
+      // 3. Scroll event listener untuk update tombol panah
+      navScrollEl.addEventListener('scroll', updateNavScrollButtons);
+      window.addEventListener('resize', updateNavScrollButtons);
+      setTimeout(updateNavScrollButtons, 300);
+    }
+
+    function scrollNavTabs(direction) {
+      const container = document.getElementById('navTabsScrollWrapper');
+      if (!container) return;
+      const scrollAmount = Math.max(container.clientWidth * 0.65, 220);
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+      setTimeout(updateNavScrollButtons, 350);
+    }
+
+    function updateNavScrollButtons() {
+      const container = document.getElementById('navTabsScrollWrapper');
+      const btnLeft = document.getElementById('btnNavScrollLeft');
+      const btnRight = document.getElementById('btnNavScrollRight');
+      if (!container || !btnLeft || !btnRight) return;
+
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (maxScroll <= 4) {
+        btnLeft.classList.add('opacity-30', 'pointer-events-none');
+        btnRight.classList.add('opacity-30', 'pointer-events-none');
+      } else {
+        if (container.scrollLeft <= 5) {
+          btnLeft.classList.add('opacity-30', 'pointer-events-none');
+        } else {
+          btnLeft.classList.remove('opacity-30', 'pointer-events-none');
+        }
+
+        if (container.scrollLeft >= maxScroll - 5) {
+          btnRight.classList.add('opacity-30', 'pointer-events-none');
+        } else {
+          btnRight.classList.remove('opacity-30', 'pointer-events-none');
+        }
+      }
     }
 
     function switchTab(tab) {
       const role = currentUser ? normalizeRole(currentUser.role) : 'user';
 
       // Strict RBAC tab guards
-      if (tab === 'users' && role !== 'admin' && role !== 'ketua koperasi') {
+      if (tab === 'users' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'pengurus') {
         tab = 'tracking';
       }
-      if (tab === 'form' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial') {
+      if (tab === 'form' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial' && role !== 'pengurus') {
         tab = 'tracking';
       }
       if (tab === 'absensi' && role === 'user') {
@@ -3841,6 +3977,27 @@
       else onLeaveAbsensiTab();
       if (tab === 'operasional') onEnterOperasionalTab();
 
+      // Auto-center active tab di ScrollView
+      try {
+        const activeBtnMap = {
+          tracking: 'tabTrackBtn',
+          simpanan: 'tabSimpananBtn',
+          pinjaman: 'tabPinjamanBtn',
+          users: 'tabUsersBtn',
+          absensi: 'tabAbsensiBtn',
+          operasional: 'tabOperasionalBtn',
+          form: 'tabFormBtn'
+        };
+        const activeBtnId = activeBtnMap[tab];
+        if (activeBtnId) {
+          const activeBtnEl = document.getElementById(activeBtnId);
+          if (activeBtnEl) {
+            activeBtnEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      } catch (err) {}
+
+      updateNavScrollButtons();
       lucide.createIcons();
     }
 
