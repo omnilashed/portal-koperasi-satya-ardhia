@@ -14,6 +14,7 @@ function normalizeRole(r) {
   if (s.includes('ketua')) return 'ketua koperasi';
   if (s.includes('admin')) return 'admin';
   if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+  if (s.includes('pic simpin') || s.includes('pic-simpin') || s.includes('simpin')) return 'pic simpin';
   if (s.includes('pengurus')) return 'pengurus';
   if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
   if (s.includes('air-minum') || s.includes('air minum') || s.includes('air_minum') || s.includes('airminum') || s.includes('kurir air')) return 'air-minum-sender';
@@ -24,6 +25,7 @@ function isRoleAdmin(r) { return normalizeRole(r) === 'admin'; }
 function isRoleKetua(r) { return normalizeRole(r) === 'ketua koperasi'; }
 function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
 function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
+function isRolePicSimpin(r) { return normalizeRole(r) === 'pic simpin'; }
 function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
 function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
 function isRoleAirMinumSender(r) { return normalizeRole(r) === 'air-minum-sender'; }
@@ -1568,5 +1570,1309 @@ function getOperasionalSummary(role, period) {
     };
   } catch (err) {
     return { status: 'error', message: err.toString() };
+  }
+}
+
+
+// ==========================================
+// 7. MODUL SIMPANAN SUKARELA & PINJAMAN KOPERASI (GAS BACKEND)
+// ==========================================
+
+function getGasJakartaDateTime(d) {
+  var dt = d || new Date();
+  var ts = Utilities.formatDate(dt, "GMT+7", "dd/MM/yyyy HH:mm");
+  var dateStr = Utilities.formatDate(dt, "GMT+7", "yyyy-MM-dd");
+  var timeStr = Utilities.formatDate(dt, "GMT+7", "HH:mm:ss");
+  var year = Utilities.formatDate(dt, "GMT+7", "yyyy");
+  var month = Utilities.formatDate(dt, "GMT+7", "MM");
+  var day = Utilities.formatDate(dt, "GMT+7", "dd");
+  return { timestampStr: ts, dateStr: dateStr, timeStr: timeStr, year: year, month: month, day: day };
+}
+
+function getGasRomanMonth(monthZeroIndexed) {
+  var roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+  return roman[monthZeroIndexed] || 'I';
+}
+
+function recordGasFinancialAudit(actor, modul, aksi, targetId, detailSebelum, detailSesudah) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('FinancialAuditLog');
+    if (!sheet) return;
+    var logId = 'AUDIT-' + new Date().getTime() + '-' + Math.floor(Math.random() * 1000);
+    var ts = Utilities.formatDate(new Date(), "GMT+7", "dd/MM/yyyy HH:mm");
+    sheet.appendRow([
+      logId,
+      ts,
+      modul || '',
+      aksi || '',
+      String(targetId || ''),
+      String((actor && actor.nik) || ''),
+      (actor && actor.nama) || '',
+      (actor && actor.role) || '',
+      typeof detailSebelum === 'object' ? JSON.stringify(detailSebelum) : String(detailSebelum || ''),
+      typeof detailSesudah === 'object' ? JSON.stringify(detailSesudah) : String(detailSesudah || ''),
+      'GAS_WEB_APP',
+      'Google Apps Script Environment'
+    ]);
+  } catch (err) {
+    Logger.log('FinancialAuditLog Error: ' + err.toString());
+  }
+}
+
+function calculateGasLoanSchedule(plafon, tenor) {
+  var p = parseInt(plafon, 10);
+  var t = parseInt(tenor, 10);
+
+  if (isNaN(p) || p < 10000000 || p > 50000000 || p % 1000000 !== 0) {
+    throw new Error('Plafon pinjaman harus antara Rp 10.000.000 s/d Rp 50.000.000 dengan kelipatan Rp 1.000.000');
+  }
+
+  var validTenors = p <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
+  if (validTenors.indexOf(t) === -1) {
+    throw new Error('Tenor ' + t + ' bulan tidak tersedia untuk plafon Rp ' + p);
+  }
+
+  var rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+  var rate = rateMap[t];
+  var totalBiaya = Math.round(p * rate);
+  var totalKewajiban = p + totalBiaya;
+  var cicilanNormal = Math.round(totalKewajiban / t);
+
+  var jadwal = [];
+  var akumulasi = 0;
+  for (var i = 1; i <= t; i++) {
+    if (i === t) {
+      var cicilanAkhir = totalKewajiban - akumulasi;
+      jadwal.push({ bulanKe: i, angsuran: cicilanAkhir });
+      akumulasi += cicilanAkhir;
+    } else {
+      jadwal.push({ bulanKe: i, angsuran: cicilanNormal });
+      akumulasi += cicilanNormal;
+    }
+  }
+
+  return {
+    plafon: p,
+    tenor: t,
+    rate: rate,
+    ratePersen: Math.round(rate * 100) + '%',
+    totalBiaya: totalBiaya,
+    totalKewajiban: totalKewajiban,
+    cicilanBulanan: cicilanNormal,
+    cicilanAkhir: jadwal[jadwal.length - 1].angsuran,
+    jadwal: jadwal
+  };
+}
+
+function calculateGasMemberSimpananSaldo(targetNik) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('SimpananSukarelaLedger');
+  if (!sheet) {
+    return { nik: targetNik, saldo: 0, totalSetoranBulanIni: 0, totalSetoranAll: 0, totalPenarikanAll: 0, mutasiCount: 0, mutasiList: [] };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var jkt = getGasJakartaDateTime();
+  var currentMonthYear = '-' + jkt.month + '-' + jkt.year;
+
+  var saldo = 0;
+  var totalSetoranBulanIni = 0;
+  var totalSetoranAll = 0;
+  var totalPenarikanAll = 0;
+  var mutasiList = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    var txId = r[0] || '';
+    var timestamp = r[1] || '';
+    var tanggal = r[2] || '';
+    var nik = String(r[3] || '').trim();
+    var nama = r[4] || '';
+    var unit = r[5] || '';
+    var jenis = String(r[6] || '').trim().toUpperCase();
+    var sumber = r[7] || '';
+    var nominal = parseInt(String(r[8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    var saldoSebelumnya = parseInt(String(r[9] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    var saldoSesudahnya = parseInt(String(r[10] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    var keterangan = r[11] || '';
+    var refPembayaran = r[12] || '';
+    var buktiUrl = r[13] || '';
+    var status = String(r[14] || '').trim().toUpperCase();
+    var dibuatOlehNama = r[16] || '';
+    var reversalOf = r[18] || '';
+
+    if (nik === String(targetNik).trim()) {
+      if (status === 'POSTED') {
+        if (jenis === 'SETORAN' || jenis === 'OPENING_BALANCE') {
+          saldo += nominal;
+          totalSetoranAll += nominal;
+          if (String(tanggal).indexOf(currentMonthYear) !== -1 || String(timestamp).indexOf(jkt.month + '/' + jkt.year) !== -1) {
+            totalSetoranBulanIni += nominal;
+          }
+        } else if (jenis === 'PENARIKAN') {
+          saldo -= nominal;
+          totalPenarikanAll += nominal;
+        } else if (jenis === 'KOREKSI') {
+          saldo += nominal;
+        }
+      }
+
+      mutasiList.push({
+        rowIndex: i + 1,
+        txId: txId,
+        timestamp: timestamp,
+        tanggal: tanggal,
+        nik: nik,
+        nama: nama,
+        unit: unit,
+        jenis: jenis,
+        sumber: sumber,
+        nominal: nominal,
+        saldoSebelumnya: saldoSebelumnya,
+        saldoSesudahnya: saldoSesudahnya,
+        keterangan: keterangan,
+        refPembayaran: refPembayaran,
+        buktiUrl: buktiUrl,
+        status: status,
+        dibuatOlehNama: dibuatOlehNama,
+        reversalOf: reversalOf
+      });
+    }
+  }
+
+  return {
+    nik: targetNik,
+    saldo: saldo,
+    totalSetoranBulanIni: totalSetoranBulanIni,
+    totalSetoranAll: totalSetoranAll,
+    totalPenarikanAll: totalPenarikanAll,
+    mutasiCount: mutasiList.length,
+    mutasiList: mutasiList.reverse()
+  };
+}
+
+function generateGasLoanNomorSurat() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('LoanRequests');
+  var jkt = getGasJakartaDateTime();
+  var roman = getGasRomanMonth(parseInt(jkt.month, 10) - 1);
+  var year = jkt.year;
+
+  var maxSeq = 80;
+  if (sheet && sheet.getLastRow() > 1) {
+    var values = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < values.length; i++) {
+      var noSurat = String(values[i][0] || '');
+      var match = noSurat.match(/^(\d+)\/SK\.SIMPIN/i);
+      if (match) {
+        var num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+  }
+
+  var nextSeq = String(maxSeq + 1);
+  while (nextSeq.length < 3) nextSeq = '0' + nextSeq;
+  return nextSeq + '/SK.SIMPIN/' + roman + '/' + year;
+}
+
+// ----------------------------------------------------
+// PUBLIC API FUNCTIONS FOR FRONTEND / GAS BRIDGE
+// ----------------------------------------------------
+
+function getSimpananSummary(nik, role, targetNik) {
+  try {
+    var isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role);
+    var lookupNik = (isOfficer && targetNik) ? targetNik : nik;
+    var memberData = calculateGasMemberSimpananSaldo(lookupNik);
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
+    var ruleInfo = null;
+
+    if (rulesSheet && rulesSheet.getLastRow() > 1) {
+      var rData = rulesSheet.getDataRange().getValues();
+      for (var i = 1; i < rData.length; i++) {
+        if (String(rData[i][2] || '').trim() === String(lookupNik).trim() && String(rData[i][10] || '').toUpperCase() === 'ACTIVE') {
+          ruleInfo = {
+            ruleId: rData[i][0],
+            nominalRutin: parseInt(rData[i][5], 10) || 0,
+            tanggalEksekusi: rData[i][7] || '25',
+            status: rData[i][10],
+            terakhirDijalankan: rData[i][14] || '-'
+          };
+          break;
+        }
+      }
+    }
+
+    var overallSummary = null;
+    if (isOfficer) {
+      var ledgerSheet = ss.getSheetByName('SimpananSukarelaLedger');
+      if (ledgerSheet && ledgerSheet.getLastRow() > 1) {
+        var lData = ledgerSheet.getDataRange().getValues();
+        var grandTotal = 0;
+        var grandSetoranBulanIni = 0;
+        var membersMap = {};
+        var jkt = getGasJakartaDateTime();
+        var currentMonthYear = '-' + jkt.month + '-' + jkt.year;
+
+        for (var j = 1; j < lData.length; j++) {
+          var rNik = String(lData[j][3] || '').trim();
+          var jns = String(lData[j][6] || '').trim().toUpperCase();
+          var nom = parseInt(String(lData[j][8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+          var st = String(lData[j][14] || '').trim().toUpperCase();
+          var tgl = lData[j][2] || '';
+
+          if (st === 'POSTED') {
+            if (rNik) membersMap[rNik] = true;
+            if (jns === 'SETORAN' || jns === 'OPENING_BALANCE') {
+              grandTotal += nom;
+              if (String(tgl).indexOf(currentMonthYear) !== -1) grandSetoranBulanIni += nom;
+            } else if (jns === 'PENARIKAN') {
+              grandTotal -= nom;
+            }
+          }
+        }
+        overallSummary = {
+          grandTotalSaldo: grandTotal,
+          grandSetoranBulanIni: grandSetoranBulanIni,
+          totalAnggotaMenabung: Object.keys(membersMap).length
+        };
+      }
+    }
+
+    return { status: 'success', success: true, member: memberData, rule: ruleInfo, overall: overallSummary };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getSimpananTransactions(nik, role, targetNik, page, limit, search) {
+  try {
+    var isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role);
+    var lookupNik = (isOfficer && targetNik) ? targetNik : (!isOfficer ? nik : null);
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('SimpananSukarelaLedger');
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return { status: 'success', success: true, data: [], totalCount: 0, page: 1, totalPages: 1 };
+    }
+
+    var data = sheet.getDataRange().getValues();
+    var transactions = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      var rowNik = String(r[3] || '').trim();
+      if (lookupNik && rowNik !== lookupNik) continue;
+
+      var txId = r[0] || '';
+      var nama = r[4] || '';
+      var keterangan = r[11] || '';
+      var refPembayaran = r[12] || '';
+
+      if (search) {
+        var q = search.toLowerCase();
+        var match = txId.toLowerCase().indexOf(q) !== -1 ||
+                    nama.toLowerCase().indexOf(q) !== -1 ||
+                    rowNik.toLowerCase().indexOf(q) !== -1 ||
+                    keterangan.toLowerCase().indexOf(q) !== -1 ||
+                    refPembayaran.toLowerCase().indexOf(q) !== -1;
+        if (!match) continue;
+      }
+
+      transactions.push({
+        rowIndex: i + 1,
+        txId: txId,
+        timestamp: r[1] || '',
+        tanggal: r[2] || '',
+        nik: rowNik,
+        nama: nama,
+        unit: r[5] || '',
+        jenis: String(r[6] || '').trim().toUpperCase(),
+        sumber: r[7] || '',
+        nominal: parseInt(String(r[8] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        saldoSebelumnya: parseInt(String(r[9] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        saldoSesudahnya: parseInt(String(r[10] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        keterangan: keterangan,
+        refPembayaran: refPembayaran,
+        buktiUrl: r[13] || '',
+        status: String(r[14] || '').trim().toUpperCase(),
+        dibuatOlehNama: r[16] || '',
+        reversalOf: r[18] || ''
+      });
+    }
+
+    transactions.reverse();
+    var p = parseInt(page, 10) || 1;
+    var l = parseInt(limit, 10) || 20;
+    var paginated = transactions.slice((p - 1) * l, p * l);
+
+    return {
+      status: 'success',
+      success: true,
+      data: paginated,
+      totalCount: transactions.length,
+      page: p,
+      totalPages: Math.ceil(transactions.length / l)
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function submitSimpananTransaction(payload) {
+  try {
+    var role = payload.createdByRole;
+    if (!isRoleFinancial(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya role Financial atau Administrator yang berhak mencatat mutasi simpanan.' };
+    }
+
+    var nom = parseInt(payload.nominal, 10);
+    if (isNaN(nom) || nom <= 0) {
+      return { status: 'error', success: false, message: 'Nominal transaksi harus berupa angka positif.' };
+    }
+
+    var jenisUpper = String(payload.jenisTransaksi || '').trim().toUpperCase();
+    var currentMember = calculateGasMemberSimpananSaldo(payload.nik);
+    var saldoSebelumnya = currentMember.saldo;
+
+    if (jenisUpper === 'PENARIKAN' && nom > saldoSebelumnya) {
+      return { status: 'error', success: false, message: 'Saldo tidak mencukupi untuk penarikan. Saldo saat ini: Rp ' + saldoSebelumnya };
+    }
+
+    var saldoSesudahnya = saldoSebelumnya;
+    if (jenisUpper === 'SETORAN' || jenisUpper === 'OPENING_BALANCE') saldoSesudahnya += nom;
+    else if (jenisUpper === 'PENARIKAN') saldoSesudahnya -= nom;
+    else if (jenisUpper === 'KOREKSI') saldoSesudahnya += nom;
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('SimpananSukarelaLedger');
+    var txId = 'TX-SIMP-' + new Date().getTime();
+    var jkt = getGasJakartaDateTime();
+    var tgl = payload.tanggal || jkt.dateStr;
+
+    sheet.appendRow([
+      txId,
+      jkt.timestampStr,
+      tgl,
+      String(payload.nik).trim(),
+      payload.nama,
+      payload.unitKerja || '',
+      jenisUpper,
+      'MANUAL_FINANCIAL',
+      nom,
+      saldoSebelumnya,
+      saldoSesudahnya,
+      payload.keterangan || '-',
+      payload.refPembayaran || '-',
+      payload.buktiUrl || '-',
+      'POSTED',
+      String(payload.createdByNik || ''),
+      payload.createdByNama || '',
+      payload.createdByRole || '',
+      ''
+    ]);
+
+    recordGasFinancialAudit(
+      { nik: payload.createdByNik, nama: payload.createdByNama, role: payload.createdByRole },
+      'SIMPANAN_SUKARELA',
+      'INPUT_' + jenisUpper,
+      txId,
+      { saldoSebelumnya: saldoSebelumnya },
+      { saldoSesudahnya: saldoSesudahnya, nominal: nom, nik: payload.nik }
+    );
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Transaksi ' + jenisUpper + ' sebesar Rp ' + nom + ' berhasil dicatat.',
+      txId: txId,
+      saldoSesudahnya: saldoSesudahnya
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function submitSimpananReversal(payload) {
+  try {
+    var role = payload.createdByRole;
+    if (!isRoleFinancial(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya role Financial atau Administrator yang berhak membatalkan mutasi simpanan.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('SimpananSukarelaLedger');
+    var data = sheet.getDataRange().getValues();
+    var targetRowIdx = -1;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.txId) {
+        targetRowIdx = i + 1;
+        break;
+      }
+    }
+
+    if (targetRowIdx === -1) {
+      return { status: 'error', success: false, message: 'Transaksi tidak ditemukan.' };
+    }
+
+    var oldRow = data[targetRowIdx - 1];
+    if (String(oldRow[14]).toUpperCase() === 'REVERSED') {
+      return { status: 'error', success: false, message: 'Transaksi sudah dibatalkan sebelumnya.' };
+    }
+
+    var nik = oldRow[3];
+    var nama = oldRow[4];
+    var unit = oldRow[5];
+    var oldJenis = String(oldRow[6] || '').toUpperCase();
+    var oldNominal = parseInt(String(oldRow[8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+    var cur = calculateGasMemberSimpananSaldo(nik);
+    var saldoSebelumnya = cur.saldo;
+    var saldoSesudahnya = saldoSebelumnya;
+    if (oldJenis === 'SETORAN' || oldJenis === 'OPENING_BALANCE' || oldJenis === 'KOREKSI') {
+      saldoSesudahnya = saldoSebelumnya - oldNominal;
+    } else if (oldJenis === 'PENARIKAN') {
+      saldoSesudahnya = saldoSebelumnya + oldNominal;
+    }
+
+    // Set REVERSED pada baris lama
+    sheet.getRange(targetRowIdx, 15).setValue('REVERSED');
+
+    var revTxId = 'REV-' + new Date().getTime();
+    var jkt = getGasJakartaDateTime();
+
+    sheet.appendRow([
+      revTxId,
+      jkt.timestampStr,
+      jkt.dateStr,
+      String(nik),
+      nama,
+      unit,
+      'REVERSAL',
+      'MANUAL_REVERSAL',
+      oldNominal,
+      saldoSebelumnya,
+      saldoSesudahnya,
+      'Reversal dari ' + payload.txId + ': ' + payload.reason,
+      payload.txId,
+      '-',
+      'POSTED',
+      String(payload.createdByNik || ''),
+      payload.createdByNama || '',
+      payload.createdByRole || '',
+      payload.txId
+    ]);
+
+    recordGasFinancialAudit(
+      { nik: payload.createdByNik, nama: payload.createdByNama, role: payload.createdByRole },
+      'SIMPANAN_SUKARELA',
+      'REVERSAL_TRANSACTION',
+      payload.txId,
+      { status: 'POSTED', nominal: oldNominal },
+      { status: 'REVERSED', reversalTxId: revTxId }
+    );
+
+    return { status: 'success', success: true, message: 'Transaksi berhasil dibatalkan.', reversalTxId: revTxId, saldoSesudahnya: saldoSesudahnya };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getLoanRates() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRateMaster');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, rates: [] };
+
+    var data = sheet.getDataRange().getValues();
+    var rates = [];
+    for (var i = 1; i < data.length; i++) {
+      rates.push({
+        rateId: data[i][0],
+        plafonMin: parseInt(data[i][1], 10) || 0,
+        plafonMax: parseInt(data[i][2], 10) || 0,
+        tenorBulan: parseInt(data[i][3], 10) || 0,
+        persentaseTotal: parseFloat(data[i][4]) || 0,
+        keterangan: data[i][5] || ''
+      });
+    }
+    return { status: 'success', success: true, rates: rates };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function simulateLoanCalculation(plafon, tenor) {
+  try {
+    var sim = calculateGasLoanSchedule(plafon, tenor);
+    return { status: 'success', success: true, simulation: sim };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function applyLoanRequest(payload) {
+  try {
+    var calc = calculateGasLoanSchedule(payload.jumlahPinjaman, payload.tenorBulan);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Pastikan rekening terdaftar
+    var bankSheet = ss.getSheetByName('MemberBankAccounts');
+    if (bankSheet) {
+      var bData = bankSheet.getDataRange().getValues();
+      var found = false;
+      for (var i = 1; i < bData.length; i++) {
+        if (String(bData[i][1]).trim() === String(payload.pemohonNik).trim() && String(bData[i][4]).trim() === String(payload.bankNoRekening).trim()) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        var accId = 'ACC-' + new Date().getTime();
+        var jktNow = getGasJakartaDateTime();
+        bankSheet.appendRow([
+          accId,
+          String(payload.pemohonNik).trim(),
+          payload.pemohonNama,
+          payload.bankNama,
+          String(payload.bankNoRekening),
+          payload.bankAtasNama,
+          'VERIFIED',
+          jktNow.timestampStr,
+          String(payload.createdByNik || ''),
+          payload.createdByNama || '',
+          '-',
+          'ACTIVE',
+          jktNow.timestampStr
+        ]);
+      }
+    }
+
+    var nomorSurat = generateGasLoanNomorSurat();
+    var loanId = 'LN-' + new Date().getTime();
+    var jkt = getGasJakartaDateTime();
+
+    var startMonth = (parseInt(jkt.month, 10) % 12) + 1;
+    var startYear = parseInt(jkt.month, 10) === 12 ? parseInt(jkt.year, 10) + 1 : parseInt(jkt.year, 10);
+    var tmtMulaiGaji = (startMonth < 10 ? '0' + startMonth : startMonth) + '/' + startYear;
+    var endTotalMonths = (startYear * 12 + startMonth - 1) + calc.tenor - 1;
+    var endYear = Math.floor(endTotalMonths / 12);
+    var endMonth = (endTotalMonths % 12) + 1;
+    var tmtSelesaiGaji = (endMonth < 10 ? '0' + endMonth : endMonth) + '/' + endYear;
+
+    var reqSheet = ss.getSheetByName('LoanRequests');
+    reqSheet.appendRow([
+      loanId,
+      nomorSurat,
+      jkt.timestampStr,
+      jkt.dateStr,
+      isRoleFinancial(payload.createdByRole) ? 'FINANCIAL' : 'ANGGOTA',
+      String(payload.pemohonNik).trim(),
+      payload.pemohonNama,
+      payload.pemohonUnit || '',
+      payload.kantorCabang || 'Bandara Internasional Halim Perdanakusuma (HLP)',
+      payload.penghasilanBulanan || 0,
+      payload.alamat || '',
+      String(payload.noTelepon || ''),
+      payload.keperluan,
+      calc.plafon,
+      calc.tenor,
+      calc.ratePersen,
+      calc.totalKewajiban,
+      calc.cicilanBulanan,
+      tmtMulaiGaji,
+      tmtSelesaiGaji,
+      payload.bankNama,
+      String(payload.bankNoRekening),
+      payload.bankAtasNama,
+      'VERIFIED',
+      'PENDING_PIC_SIMPIN',
+      '',
+      '',
+      String(payload.createdByNik || ''),
+      payload.createdByNama || '',
+      payload.createdByRole || ''
+    ]);
+
+    // Backward compatibility Form Responses 1
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    if (frSheet) {
+      frSheet.appendRow([
+        jkt.timestampStr,
+        'Peminjaman Tunai',
+        payload.pemohonNama,
+        payload.pemohonUnit ? (payload.pemohonNik + ' - ' + payload.pemohonUnit) : payload.pemohonNik,
+        String(payload.bankNoRekening),
+        payload.bankAtasNama,
+        'Rp' + calc.plafon,
+        calc.tenor,
+        nomorSurat + ': ' + payload.keperluan + ' (Cicilan Rp' + calc.cicilanBulanan + '/bln)',
+        'Pending PIC Simpin'
+      ]);
+    }
+
+    recordGasFinancialAudit(
+      { nik: payload.createdByNik, nama: payload.createdByNama, role: payload.createdByRole },
+      'PINJAMAN_KOPERASI',
+      'APPLY_LOAN',
+      loanId,
+      {},
+      { nomorSurat: nomorSurat, plafon: calc.plafon, tenor: calc.tenor }
+    );
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Permohonan pinjaman ' + nomorSurat + ' berhasil diajukan.',
+      loanId: loanId,
+      nomorSurat: nomorSurat,
+      simulation: calc
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getAllLoanRequests(role, status, search) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, loans: [] };
+
+    var data = sheet.getDataRange().getValues();
+    var loans = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      var wf = r[24] || 'PENDING_PIC_SIMPIN';
+      if (status && wf.toUpperCase() !== status.toUpperCase()) continue;
+
+      var nomorSurat = r[1] || '';
+      var nama = r[6] || '';
+      var nik = r[5] || '';
+      var kep = r[12] || '';
+
+      if (search) {
+        var q = search.toLowerCase();
+        var match = nomorSurat.toLowerCase().indexOf(q) !== -1 ||
+                    nama.toLowerCase().indexOf(q) !== -1 ||
+                    String(nik).toLowerCase().indexOf(q) !== -1 ||
+                    kep.toLowerCase().indexOf(q) !== -1;
+        if (!match) continue;
+      }
+
+      loans.push({
+        rowIndex: i + 1,
+        loanId: r[0],
+        nomorSurat: nomorSurat,
+        timestamp: r[2],
+        tanggalPermohonan: r[3],
+        asalPengajuan: r[4],
+        pemohonNik: nik,
+        pemohonNama: nama,
+        pemohonUnit: r[7],
+        kantorCabang: r[8],
+        penghasilanBulanan: r[9],
+        alamat: r[10],
+        noTelepon: r[11],
+        keperluan: kep,
+        jumlahPinjaman: parseInt(String(r[13] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        tenorBulan: parseInt(r[14], 10) || 0,
+        persentaseTenor: r[15],
+        totalKewajiban: parseInt(String(r[16] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        cicilanBulanan: parseInt(String(r[17] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        tmtMulaiGaji: r[18],
+        tmtSelesaiGaji: r[19],
+        bankNama: r[20],
+        bankNoRekening: r[21],
+        bankAtasNama: r[22],
+        statusRekening: r[23],
+        statusWorkflow: wf,
+        catatan: r[26] || '-'
+      });
+    }
+
+    loans.reverse();
+    return { status: 'success', success: true, loans: loans };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getMyLoanApplications(nik) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, loans: [] };
+
+    var data = sheet.getDataRange().getValues();
+    var myLoans = [];
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][5] || '').trim() === String(nik).trim()) {
+        myLoans.push({
+          rowIndex: i + 1,
+          loanId: data[i][0],
+          nomorSurat: data[i][1],
+          timestamp: data[i][2],
+          pemohonNama: data[i][6],
+          pemohonUnit: data[i][7],
+          keperluan: data[i][12],
+          jumlahPinjaman: parseInt(String(data[i][13] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+          tenorBulan: parseInt(data[i][14], 10) || 0,
+          cicilanBulanan: parseInt(String(data[i][17] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+          statusWorkflow: data[i][24] || 'PENDING_PIC_SIMPIN',
+          bankNama: data[i][20],
+          bankNoRekening: data[i][21],
+          bankAtasNama: data[i][22]
+        });
+      }
+    }
+
+    myLoans.reverse();
+    return { status: 'success', success: true, loans: myLoans };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getLoanDocumentData(loanId) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet) return { status: 'error', success: false, message: 'Sheet LoanRequests tidak ditemukan.' };
+
+    var data = sheet.getDataRange().getValues();
+    var loan = null;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === loanId || data[i][1] === loanId) {
+        loan = data[i];
+        break;
+      }
+    }
+
+    if (!loan) return { status: 'error', success: false, message: 'Data pinjaman tidak ditemukan.' };
+
+    var appSheet = ss.getSheetByName('LoanApprovals');
+    var picApp = null;
+    var ketuaApp = null;
+    if (appSheet && appSheet.getLastRow() > 1) {
+      var appData = appSheet.getDataRange().getValues();
+      for (var a = 1; a < appData.length; a++) {
+        if (appData[a][1] === loan[0]) {
+          if (appData[a][3] === 'PIC_SIMPIN') picApp = appData[a];
+          if (appData[a][3] === 'KETUA_KOPERASI') ketuaApp = appData[a];
+        }
+      }
+    }
+
+    var disbSheet = ss.getSheetByName('LoanDisbursements');
+    var disb = null;
+    if (disbSheet && disbSheet.getLastRow() > 1) {
+      var disbData = disbSheet.getDataRange().getValues();
+      for (var d = 1; d < disbData.length; d++) {
+        if (disbData[d][1] === loan[0]) {
+          disb = disbData[d];
+          break;
+        }
+      }
+    }
+
+    var docPayload = {
+      kop: {
+        namaKoperasi: 'KOPERASI KARYAWAN SATYA ARDHIA',
+        kantor: 'BANDARA INTERNASIONAL HALIM PERDANAKUSUMA - JAKARTA TIMUR',
+        surat: 'FORMULIR PERMOHONAN PINJAMAN KREDIT TUNAI'
+      },
+      surat: {
+        nomorSurat: loan[1],
+        lampiran: '1 (satu) Berkas',
+        perihal: 'Permohonan Pinjaman Kredit Tunai'
+      },
+      pemohon: {
+        nama: loan[6],
+        nik: loan[5],
+        jabatanUnit: loan[7] || '-',
+        kantorCabang: loan[8] || 'Bandara Internasional Halim Perdanakusuma (HLP)',
+        gajiBulanan: parseInt(String(loan[9] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        alamat: loan[10] || '-',
+        noTelepon: loan[11] || '-'
+      },
+      pinjaman: {
+        fasilitasKredit: 'Pinjaman Kredit Tunai Anggota',
+        jumlahPinjaman: parseInt(String(loan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        tenorBulan: parseInt(loan[14], 10) || 0,
+        sukuBungaTotal: loan[15] || '-',
+        totalKewajiban: parseInt(String(loan[16] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        cicilanBulanan: parseInt(String(loan[17] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        keperluan: loan[12],
+        tmtMulaiGaji: loan[18] || '-',
+        tmtSelesaiGaji: loan[19] || '-',
+        bankTujuan: loan[20],
+        noRekening: loan[21],
+        atasNama: loan[22]
+      },
+      signatures: {
+        pemohon: {
+          title: 'Pemohon',
+          nama: loan[6],
+          keterangan: 'Anggota Koperasi SA'
+        },
+        penjamin: {
+          title: 'Mengetahui / Penjamin',
+          nama: '( ........................................ )',
+          keterangan: 'Suami / Istri / Penjamin'
+        },
+        picSimpin: {
+          title: 'Diperiksa oleh (PIC Simpin)',
+          nama: picApp ? picApp[7] : 'Lukman Harun Lubis',
+          jabatan: 'Divisi Simpin',
+          tanggal: picApp ? picApp[2] : '-',
+          status: picApp ? picApp[4] : 'PENDING'
+        },
+        ketuaKoperasi: {
+          title: 'Menyetujui (Ketua Koperasi)',
+          nama: ketuaApp ? ketuaApp[7] : 'Fathi Mubarak',
+          jabatan: 'Ketua Koperasi Satya Ardhia',
+          tanggal: ketuaApp ? ketuaApp[2] : '-',
+          status: ketuaApp ? ketuaApp[4] : 'PENDING'
+        },
+        financial: {
+          title: 'Dibukukan / Dibayarkan (Financial)',
+          nama: disb ? disb[13] : 'Sri Wahyuningsih',
+          jabatan: 'Bendahara / Keuangan',
+          tanggal: disb ? disb[3] : '-',
+          status: disb ? 'DISBURSED' : 'PENDING'
+        }
+      },
+      statusWorkflow: loan[24],
+      disbursement: disb ? {
+        tanggal: disb[3],
+        nominal: disb[4],
+        noReferensi: disb[5],
+        buktiUrl: disb[9]
+      } : null
+    };
+
+    return { status: 'success', success: true, document: docPayload };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function reviewLoanPic(payload) {
+  try {
+    var role = payload.reviewerRole;
+    if (!isRolePicSimpin(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya PIC Simpin atau Administrator yang berwenang melakukan verifikasi ini.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    var data = sheet.getDataRange().getValues();
+    var targetRowIdx = -1;
+    var targetRow = null;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetRowIdx = i + 1;
+        targetRow = data[i];
+        break;
+      }
+    }
+
+    if (targetRowIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    var newStatus = 'PENDING_KETUA';
+    var statusFR = 'Pending Ketua Koperasi';
+    if (payload.action === 'REVISION') {
+      newStatus = 'REVISION_REQUESTED';
+      statusFR = 'Perlu Revisi (PIC Simpin)';
+    } else if (payload.action === 'REJECT') {
+      newStatus = 'REJECTED';
+      statusFR = 'Rejected (PIC Simpin)';
+    }
+
+    sheet.getRange(targetRowIdx, 25).setValue(newStatus);
+    if (payload.catatan) sheet.getRange(targetRowIdx, 27).setValue(payload.catatan);
+
+    var appSheet = ss.getSheetByName('LoanApprovals');
+    var jkt = getGasJakartaDateTime();
+    appSheet.appendRow([
+      'LA-PIC-' + new Date().getTime(),
+      payload.loanId,
+      jkt.timestampStr,
+      'PIC_SIMPIN',
+      payload.action === 'APPROVE' ? 'APPROVED' : (payload.action === 'REVISION' ? 'REVISION' : 'REJECTED'),
+      payload.catatan || '-',
+      String(payload.reviewerNik || ''),
+      payload.reviewerNama || 'Lukman Harun Lubis',
+      payload.reviewerRole || 'PIC Simpin'
+    ]);
+
+    // Sync FR
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    if (frSheet && frSheet.getLastRow() > 1) {
+      var frData = frSheet.getDataRange().getValues();
+      var nomorSurat = targetRow[1];
+      for (var f = 1; f < frData.length; f++) {
+        if (String(frData[f][8] || '').indexOf(nomorSurat) !== -1) {
+          frSheet.getRange(f + 1, 10).setValue(statusFR);
+          break;
+        }
+      }
+    }
+
+    recordGasFinancialAudit(
+      { nik: payload.reviewerNik, nama: payload.reviewerNama, role: payload.reviewerRole },
+      'PINJAMAN_KOPERASI',
+      'REVIEW_PIC_SIMPIN',
+      payload.loanId,
+      { status: 'PENDING_PIC_SIMPIN' },
+      { status: newStatus, action: payload.action }
+    );
+
+    return { status: 'success', success: true, message: 'Verifikasi PIC Simpin berhasil diproses. Status: ' + newStatus };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function reviewLoanChairman(payload) {
+  try {
+    var role = payload.reviewerRole;
+    if (!isRoleKetua(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya Ketua Koperasi atau Administrator yang berwenang memberikan persetujuan pinjaman ini.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    var data = sheet.getDataRange().getValues();
+    var targetRowIdx = -1;
+    var targetRow = null;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetRowIdx = i + 1;
+        targetRow = data[i];
+        break;
+      }
+    }
+
+    if (targetRowIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    var newStatus = 'READY_FOR_DISBURSEMENT';
+    var statusFR = 'Approved Ketua (Siap Cair)';
+    if (payload.action === 'REVISION') {
+      newStatus = 'REVISION_REQUESTED';
+      statusFR = 'Perlu Revisi (Ketua Koperasi)';
+    } else if (payload.action === 'REJECT') {
+      newStatus = 'REJECTED';
+      statusFR = 'Rejected (Ketua Koperasi)';
+    }
+
+    sheet.getRange(targetRowIdx, 25).setValue(newStatus);
+
+    var appSheet = ss.getSheetByName('LoanApprovals');
+    var jkt = getGasJakartaDateTime();
+    appSheet.appendRow([
+      'LA-KETUA-' + new Date().getTime(),
+      payload.loanId,
+      jkt.timestampStr,
+      'KETUA_KOPERASI',
+      payload.action === 'APPROVE' ? 'APPROVED' : (payload.action === 'REVISION' ? 'REVISION' : 'REJECTED'),
+      payload.catatan || '-',
+      String(payload.reviewerNik || ''),
+      payload.reviewerNama || 'Fathi Mubarak',
+      payload.reviewerRole || 'Ketua Koperasi'
+    ]);
+
+    // Sync FR
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    if (frSheet && frSheet.getLastRow() > 1) {
+      var frData = frSheet.getDataRange().getValues();
+      var nomorSurat = targetRow[1];
+      for (var f = 1; f < frData.length; f++) {
+        if (String(frData[f][8] || '').indexOf(nomorSurat) !== -1) {
+          frSheet.getRange(f + 1, 10).setValue(statusFR);
+          break;
+        }
+      }
+    }
+
+    recordGasFinancialAudit(
+      { nik: payload.reviewerNik, nama: payload.reviewerNama, role: payload.reviewerRole },
+      'PINJAMAN_KOPERASI',
+      'REVIEW_CHAIRMAN',
+      payload.loanId,
+      { status: 'PENDING_KETUA' },
+      { status: newStatus, action: payload.action }
+    );
+
+    return { status: 'success', success: true, message: 'Persetujuan Ketua Koperasi berhasil diproses. Status: ' + newStatus };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function disburseLoan(payload) {
+  try {
+    var role = payload.disbursedByRole;
+    if (!isRoleFinancial(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya role Financial atau Administrator yang berwenang memproses pencairan pinjaman.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    var data = sheet.getDataRange().getValues();
+    var targetRowIdx = -1;
+    var targetRow = null;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetRowIdx = i + 1;
+        targetRow = data[i];
+        break;
+      }
+    }
+
+    if (targetRowIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    sheet.getRange(targetRowIdx, 25).setValue('DISBURSED');
+
+    var disbSheet = ss.getSheetByName('LoanDisbursements');
+    var jkt = getGasJakartaDateTime();
+    var disbId = 'DISB-' + new Date().getTime();
+
+    disbSheet.appendRow([
+      disbId,
+      payload.loanId,
+      jkt.timestampStr,
+      payload.tanggalPencairan || jkt.dateStr,
+      payload.nominalPencairan || targetRow[13],
+      payload.nomorReferensi,
+      payload.bankTujuan || targetRow[20],
+      String(payload.noRekeningTujuan || targetRow[21]),
+      payload.atasNamaTujuan || targetRow[22],
+      payload.buktiUrl || '-',
+      payload.catatan || '-',
+      'COMPLETED',
+      String(payload.disbursedByNik || ''),
+      payload.disbursedByNama || 'Sri Wahyuningsih'
+    ]);
+
+    // Sync FR Done
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    if (frSheet && frSheet.getLastRow() > 1) {
+      var frData = frSheet.getDataRange().getValues();
+      var nomorSurat = targetRow[1];
+      for (var f = 1; f < frData.length; f++) {
+        if (String(frData[f][8] || '').indexOf(nomorSurat) !== -1) {
+          frSheet.getRange(f + 1, 10).setValue('Done');
+          break;
+        }
+      }
+    }
+
+    recordGasFinancialAudit(
+      { nik: payload.disbursedByNik, nama: payload.disbursedByNama, role: payload.disbursedByRole },
+      'PINJAMAN_KOPERASI',
+      'DISBURSE_LOAN',
+      payload.loanId,
+      { status: 'READY_FOR_DISBURSEMENT' },
+      { status: 'DISBURSED', nomorReferensi: payload.nomorReferensi }
+    );
+
+    return { status: 'success', success: true, message: 'Pencairan pinjaman berhasil dicatat dengan Nomor Referensi: ' + payload.nomorReferensi };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getMyBankAccounts(nik) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('MemberBankAccounts');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, accounts: [] };
+
+    var data = sheet.getDataRange().getValues();
+    var accounts = [];
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][1]).trim() === String(nik).trim() && String(data[i][11]).toUpperCase() === 'ACTIVE') {
+        accounts.push({
+          accountId: data[i][0],
+          nik: data[i][1],
+          namaAnggota: data[i][2],
+          namaBank: data[i][3],
+          nomorRekening: data[i][4],
+          atasNamaRekening: data[i][5],
+          statusVerifikasi: data[i][6] || 'UNVERIFIED',
+          tanggalVerifikasi: data[i][7] || '-'
+        });
+      }
+    }
+
+    return { status: 'success', success: true, accounts: accounts };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function requestBankAccountChange(payload) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('BankAccountChangeRequests');
+    var reqId = 'REQ-BANK-' + new Date().getTime();
+    var jkt = getGasJakartaDateTime();
+
+    sheet.appendRow([
+      reqId,
+      String(payload.nik).trim(),
+      payload.namaAnggota,
+      payload.bankLama || '-',
+      String(payload.rekeningLama || '-'),
+      payload.atasNamaLama || '-',
+      payload.bankBaru,
+      String(payload.rekeningBaru),
+      payload.atasNamaBaru,
+      payload.alasan,
+      payload.buktiUrl || '-',
+      'REQUESTED',
+      '-',
+      '',
+      '',
+      ''
+    ]);
+
+    recordGasFinancialAudit(
+      { nik: payload.nik, nama: payload.namaAnggota, role: 'Anggota' },
+      'BANK_ACCOUNTS',
+      'REQUEST_CHANGE',
+      reqId,
+      { rekeningLama: payload.rekeningLama },
+      { rekeningBaru: payload.rekeningBaru }
+    );
+
+    return { status: 'success', success: true, message: 'Permohonan perubahan rekening berhasil diajukan.', reqId: reqId };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getBankAccountRequests(role) {
+  try {
+    if (!isRoleAdmin(role)) return { status: 'error', success: false, message: 'Akses ditolak.' };
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('BankAccountChangeRequests');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, requests: [] };
+
+    var data = sheet.getDataRange().getValues();
+    var requests = [];
+
+    for (var i = 1; i < data.length; i++) {
+      requests.push({
+        rowIndex: i + 1,
+        requestId: data[i][0],
+        nik: data[i][1],
+        namaAnggota: data[i][2],
+        bankLama: data[i][3],
+        rekeningLama: data[i][4],
+        atasNamaLama: data[i][5],
+        bankBaru: data[i][6],
+        rekeningBaru: data[i][7],
+        atasNamaBaru: data[i][8],
+        alasan: data[i][9],
+        buktiUrl: data[i][10],
+        status: data[i][11] || 'REQUESTED',
+        catatanAdmin: data[i][12] || '-'
+      });
+    }
+
+    requests.reverse();
+    return { status: 'success', success: true, requests: requests };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function reviewBankAccountRequest(payload) {
+  try {
+    if (!isRoleAdmin(payload.adminRole)) return { status: 'error', success: false, message: 'Hanya Admin.' };
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('BankAccountChangeRequests');
+    var data = sheet.getDataRange().getValues();
+    var targetRowIdx = -1;
+    var bReq = null;
+
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.reqId) {
+        targetRowIdx = i + 1;
+        bReq = data[i];
+        break;
+      }
+    }
+
+    if (targetRowIdx === -1) return { status: 'error', success: false, message: 'Request tidak ditemukan.' };
+
+    var newStatus = payload.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    var jkt = getGasJakartaDateTime();
+
+    sheet.getRange(targetRowIdx, 12, 1, 5).setValues([[
+      newStatus,
+      payload.catatan || '-',
+      String(payload.adminNik || ''),
+      payload.adminNama || 'Administrator',
+      jkt.timestampStr
+    ]]);
+
+    if (payload.action === 'APPROVE') {
+      var bankSheet = ss.getSheetByName('MemberBankAccounts');
+      if (bankSheet && bankSheet.getLastRow() > 1) {
+        var bData = bankSheet.getDataRange().getValues();
+        for (var b = 1; b < bData.length; b++) {
+          if (String(bData[b][1]).trim() === String(bReq[1]).trim()) {
+            bankSheet.getRange(b + 1, 12).setValue('INACTIVE');
+          }
+        }
+      }
+      if (bankSheet) {
+        bankSheet.appendRow([
+          'ACC-' + new Date().getTime(),
+          String(bReq[1]).trim(),
+          bReq[2],
+          bReq[6],
+          String(bReq[7]),
+          bReq[8],
+          'VERIFIED',
+          jkt.timestampStr,
+          String(payload.adminNik || ''),
+          payload.adminNama || 'Administrator',
+          bReq[10] || '-',
+          'ACTIVE',
+          jkt.timestampStr
+        ]);
+      }
+    }
+
+    recordGasFinancialAudit(
+      { nik: payload.adminNik, nama: payload.adminNama, role: payload.adminRole },
+      'BANK_ACCOUNTS',
+      'REVIEW_CHANGE_REQUEST',
+      payload.reqId,
+      { status: 'REQUESTED' },
+      { status: newStatus }
+    );
+
+    return { status: 'success', success: true, message: 'Permohonan perubahan rekening ' + newStatus + '.' };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
   }
 }

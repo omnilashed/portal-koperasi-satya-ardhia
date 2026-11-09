@@ -166,6 +166,7 @@ function normalizeRole(r) {
   if (s.includes('ketua')) return 'ketua koperasi';
   if (s.includes('admin')) return 'admin';
   if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+  if (s.includes('pic simpin') || s.includes('pic-simpin') || s.includes('simpin')) return 'pic simpin';
   if (s.includes('pengurus')) return 'pengurus';
   if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
   if (s.includes('air-minum') || s.includes('air minum') || s.includes('air_minum') || s.includes('airminum') || s.includes('kurir air')) return 'air-minum-sender';
@@ -176,6 +177,7 @@ function isRoleAdmin(r) { return normalizeRole(r) === 'admin'; }
 function isRoleKetua(r) { return normalizeRole(r) === 'ketua koperasi'; }
 function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
 function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
+function isRolePicSimpin(r) { return normalizeRole(r) === 'pic simpin'; }
 function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
 function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
 function isRoleAirMinumSender(r) { return normalizeRole(r) === 'air-minum-sender'; }
@@ -1135,6 +1137,50 @@ async function ensureAllSheetsExist() {
       {
         title: 'operasional-air-minum',
         headers: ['Timestamp', 'Tanggal', 'Waktu', 'NIK', 'Nama Petugas', 'Kategori Penerima', 'Nama Tenant / Stakeholder', 'Jumlah Galon', 'Metode Pembayaran', 'Catatan']
+      },
+      {
+        title: 'SimpananSukarelaLedger',
+        headers: ['TxID', 'Timestamp', 'Tanggal', 'NIK', 'NamaAnggota', 'UnitKerja', 'JenisTransaksi', 'Sumber', 'Nominal', 'SaldoSebelumnya', 'SaldoSesudahnya', 'Keterangan', 'RefPembayaran', 'BuktiURL', 'Status', 'DibuatOlehNIK', 'DibuatOlehNama', 'DibuatOlehRole', 'ReversalOfTxID']
+      },
+      {
+        title: 'SimpananSukarelaRules',
+        headers: ['RuleID', 'Timestamp', 'NIK', 'NamaAnggota', 'UnitKerja', 'NominalRutin', 'Frekuensi', 'TanggalEksekusi', 'TanggalMulai', 'TanggalAkhir', 'StatusRule', 'Keterangan', 'DibuatOlehNIK', 'DibuatOlehNama', 'TerakhirDijalankan', 'JadwalBerikutnya', 'RuleVersion']
+      },
+      {
+        title: 'SimpananSukarelaApprovals',
+        headers: ['ApprovalID', 'RuleID', 'Timestamp', 'NIK', 'NamaAnggota', 'TipePerubahan', 'KonfigurasiLamaJSON', 'KonfigurasiBaruJSON', 'DiajukanOlehNIK', 'DiajukanOlehNama', 'StatusApproval', 'CatatanReview', 'DiprosesOlehNIK', 'DiprosesOlehNama', 'WaktuProses']
+      },
+      {
+        title: 'SimpananSukarelaJobLog',
+        headers: ['JobID', 'Timestamp', 'TanggalEksekusi', 'RuleID', 'NIK', 'NamaAnggota', 'Nominal', 'StatusEksekusi', 'PesanError', 'IdempotencyKey']
+      },
+      {
+        title: 'LoanRateMaster',
+        headers: ['RateID', 'PlafonMin', 'PlafonMax', 'TenorBulan', 'PersentaseTotal', 'Keterangan']
+      },
+      {
+        title: 'LoanRequests',
+        headers: ['LoanID', 'NomorSurat', 'Timestamp', 'TanggalPermohonan', 'AsalPengajuan', 'PemohonNIK', 'PemohonNama', 'PemohonUnit', 'KantorCabang', 'PenghasilanBulanan', 'Alamat', 'NoTelepon', 'Keperluan', 'JumlahPinjaman', 'TenorBulan', 'PersentaseTenor', 'TotalKewajiban', 'CicilanBulanan', 'TmtMulaiGaji', 'TmtSelesaiGaji', 'BankNama', 'BankNoRekening', 'BankAtasNama', 'StatusRekening', 'StatusWorkflow', 'FormResponsesRowIndex', 'Catatan', 'CreatedByNIK', 'CreatedByNama', 'CreatedByRole']
+      },
+      {
+        title: 'LoanApprovals',
+        headers: ['ApprovalID', 'LoanID', 'Timestamp', 'Tahap', 'Status', 'Catatan', 'ApproverNIK', 'ApproverNama', 'ApproverRole']
+      },
+      {
+        title: 'LoanDisbursements',
+        headers: ['DisbursementID', 'LoanID', 'Timestamp', 'TanggalPencairan', 'NominalPencairan', 'NomorReferensi', 'BankTujuan', 'NoRekeningTujuan', 'AtasNamaTujuan', 'BuktiURL', 'Catatan', 'Status', 'DisbursedByNIK', 'DisbursedByNama']
+      },
+      {
+        title: 'MemberBankAccounts',
+        headers: ['AccountID', 'NIK', 'NamaAnggota', 'NamaBank', 'NomorRekening', 'AtasNamaRekening', 'StatusVerifikasi', 'TanggalVerifikasi', 'VerifikatorNIK', 'VerifikatorNama', 'BuktiVerifikasiURL', 'StatusAktif', 'TimestampUpdate']
+      },
+      {
+        title: 'BankAccountChangeRequests',
+        headers: ['RequestID', 'NIK', 'NamaAnggota', 'BankLama', 'RekeningLama', 'AtasNamaLama', 'BankBaru', 'RekeningBaru', 'AtasNamaBaru', 'AlasanPenggantian', 'BuktiURL', 'StatusRequest', 'CatatanAdmin', 'DiprosesOlehNIK', 'DiprosesOlehNama', 'WaktuProses']
+      },
+      {
+        title: 'FinancialAuditLog',
+        headers: ['LogID', 'Timestamp', 'Modul', 'Aksi', 'TargetID', 'ActorNIK', 'ActorNama', 'ActorRole', 'DetailSebelum', 'DetailSesudah', 'IPAddress', 'UserAgent']
       }
     ];
 
@@ -2553,6 +2599,2145 @@ app.get('/api/operasional/summary', async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// ==========================================
+// 6. MODUL SIMPANAN SUKARELA & PINJAMAN KOPERASI
+// ==========================================
+
+// Helper: Format Bulan Romawi
+function getRomanMonth(monthZeroIndexed) {
+  const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+  return roman[monthZeroIndexed] || 'I';
+}
+
+// Helper: Catat Log Audit Finansial
+async function recordFinancialAudit(sheets, actor, modul, aksi, targetId, detailSebelum, detailSesudah, req) {
+  try {
+    const logId = 'AUDIT-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const ts = getFormattedTimestamp();
+    const ip = req ? (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '') : '';
+    const ua = req ? (req.headers['user-agent'] || '') : '';
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'FinancialAuditLog'!A:L",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          logId,
+          ts,
+          modul || '',
+          aksi || '',
+          String(targetId || ''),
+          String(actor.nik || ''),
+          actor.nama || '',
+          actor.role || '',
+          typeof detailSebelum === 'object' ? JSON.stringify(detailSebelum) : String(detailSebelum || ''),
+          typeof detailSesudah === 'object' ? JSON.stringify(detailSesudah) : String(detailSesudah || ''),
+          String(ip),
+          String(ua).substring(0, 200)
+        ]]
+      }
+    });
+  } catch (err) {
+    console.error('[FinancialAuditLog Warning]:', err.message);
+  }
+}
+
+// Helper: Kalkulasi Saldo Simpanan Sukarela Anggota
+async function calculateMemberSimpananSaldo(sheets, targetNik) {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'SimpananSukarelaLedger'!A2:S"
+  });
+  const rows = res.data.values || [];
+  const jakarta = getJakartaDateTime();
+  const currentMonthYear = '-' + jakarta.month + '-' + jakarta.year;
+
+  let saldo = 0;
+  let totalSetoranBulanIni = 0;
+  let totalSetoranAll = 0;
+  let totalPenarikanAll = 0;
+  let mutasiList = [];
+
+  rows.forEach((r, idx) => {
+    const txId = r[0] || '';
+    const timestamp = r[1] || '';
+    const tanggal = r[2] || '';
+    const nik = String(r[3] || '').trim();
+    const nama = r[4] || '';
+    const unit = r[5] || '';
+    const jenis = String(r[6] || '').trim().toUpperCase(); // SETORAN, PENARIKAN, KOREKSI, OPENING_BALANCE
+    const sumber = r[7] || '';
+    const nominal = parseInt(String(r[8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const keterangan = r[11] || '';
+    const refPembayaran = r[12] || '';
+    const buktiUrl = r[13] || '';
+    const status = String(r[14] || '').trim().toUpperCase(); // POSTED, REVERSED
+    const dibuatOlehNama = r[16] || '';
+    const reversalOf = r[18] || '';
+
+    if (nik === String(targetNik).trim()) {
+      if (status === 'POSTED') {
+        if (jenis === 'SETORAN' || jenis === 'OPENING_BALANCE') {
+          saldo += nominal;
+          totalSetoranAll += nominal;
+          if (tanggal.includes(currentMonthYear) || timestamp.includes(jakarta.month + '/' + jakarta.year) || timestamp.includes('/' + jakarta.month + '/')) {
+            totalSetoranBulanIni += nominal;
+          }
+        } else if (jenis === 'PENARIKAN') {
+          saldo -= nominal;
+          totalPenarikanAll += nominal;
+        } else if (jenis === 'KOREKSI') {
+          // Koreksi nominal positif atau penyesuaian
+          saldo += nominal;
+        }
+      }
+
+      mutasiList.push({
+        rowIndex: idx + 2,
+        txId,
+        timestamp,
+        tanggal,
+        nik,
+        nama,
+        unit,
+        jenis,
+        sumber,
+        nominal,
+        keterangan,
+        refPembayaran,
+        buktiUrl,
+        status,
+        dibuatOlehNama,
+        reversalOf
+      });
+    }
+  });
+
+  return {
+    nik: targetNik,
+    saldo,
+    totalSetoranBulanIni,
+    totalSetoranAll,
+    totalPenarikanAll,
+    mutasiCount: mutasiList.length,
+    mutasiList: mutasiList.reverse() // terbaru di atas
+  };
+}
+
+// Helper: Kalkulasi Pinjaman Berdasarkan Tabel Resmi
+function calculateLoanSchedule(plafon, tenor) {
+  const p = parseInt(plafon, 10);
+  const t = parseInt(tenor, 10);
+
+  if (isNaN(p) || p < 10000000 || p > 50000000 || p % 1000000 !== 0) {
+    throw new Error('Plafon pinjaman harus antara Rp 10.000.000 s/d Rp 50.000.000 dengan kelipatan Rp 1.000.000');
+  }
+
+  const validTenors = p <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
+  if (!validTenors.includes(t)) {
+    throw new Error('Tenor ' + t + ' bulan tidak tersedia untuk plafon Rp ' + p.toLocaleString('id-ID'));
+  }
+
+  const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+  const rate = rateMap[t];
+  const totalBiaya = Math.round(p * rate);
+  const totalKewajiban = p + totalBiaya;
+  const cicilanNormal = Math.round(totalKewajiban / t);
+
+  // Buat rincian jadwal angsuran (alokasi selisih sen ke bulan terakhir)
+  const jadwal = [];
+  let akumulasi = 0;
+  for (let i = 1; i <= t; i++) {
+    if (i === t) {
+      const cicilanAkhir = totalKewajiban - akumulasi;
+      jadwal.push({ bulanKe: i, angsuran: cicilanAkhir });
+      akumulasi += cicilanAkhir;
+    } else {
+      jadwal.push({ bulanKe: i, angsuran: cicilanNormal });
+      akumulasi += cicilanNormal;
+    }
+  }
+
+  return {
+    plafon: p,
+    tenor: t,
+    rate,
+    ratePersen: Math.round(rate * 100) + '%',
+    totalBiaya,
+    totalKewajiban,
+    cicilanBulanan: cicilanNormal,
+    cicilanAkhir: jadwal[jadwal.length - 1].angsuran,
+    jadwal
+  };
+}
+
+// Helper: Generate Nomor Surat Pinjaman Format: XXX/SK.SIMPIN/MM/YYYY
+async function generateLoanNomorSurat(sheets) {
+  const jakarta = getJakartaDateTime();
+  const roman = getRomanMonth(parseInt(jakarta.month, 10) - 1);
+  const year = jakarta.year;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "'LoanRequests'!A2:B"
+  });
+  const rows = res.data.values || [];
+  let maxSeq = 80; // Baseline urutan melanjutkan format formulir 081/SK.SIMPIN
+
+  rows.forEach(r => {
+    const noSurat = String(r[1] || '');
+    const match = noSurat.match(/^(\d+)\/SK\.SIMPIN/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) maxSeq = num;
+    }
+  });
+
+  const nextSeq = String(maxSeq + 1).padStart(3, '0');
+  return `${nextSeq}/SK.SIMPIN/${roman}/${year}`;
+}
+
+// ----------------------------------------------------
+// 6.1 ENDPOINTS: SALDO & PENYIMPANAN SUKARELA
+// ----------------------------------------------------
+
+/**
+ * GET /api/simpanan/summary
+ * Mengambil ringkasan saldo sukarela (user sendiri, atau rekap seluruh koperasi untuk Financial/Admin/Ketua)
+ */
+app.get('/api/simpanan/summary', async (req, res) => {
+  try {
+    const { nik, role, targetNik } = req.query;
+    if (!nik) {
+      return res.status(400).json({ success: false, message: 'Parameter NIK diperlukan.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role);
+    const lookupNik = (isOfficer && targetNik) ? targetNik : nik;
+
+    const memberData = await calculateMemberSimpananSaldo(sheets, lookupNik);
+
+    // Ambil info auto-input rule anggota jika ada
+    const rulesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A2:Q"
+    });
+    const rulesRows = rulesRes.data.values || [];
+    const activeRule = rulesRows.find(r => String(r[2] || '').trim() === String(lookupNik).trim() && String(r[10] || '').toUpperCase() === 'ACTIVE');
+
+    let ruleInfo = null;
+    if (activeRule) {
+      ruleInfo = {
+        ruleId: activeRule[0],
+        nominalRutin: parseInt(activeRule[5], 10) || 0,
+        tanggalEksekusi: activeRule[7] || '25',
+        status: activeRule[10],
+        terakhirDijalankan: activeRule[14] || '-'
+      };
+    }
+
+    // Jika Financial/Admin/Ketua, berikan juga total agregat koperasi
+    let overallSummary = null;
+    if (isOfficer) {
+      const ledgerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'SimpananSukarelaLedger'!A2:S"
+      });
+      const allRows = ledgerRes.data.values || [];
+      let grandTotalSaldo = 0;
+      let grandSetoranBulanIni = 0;
+      const uniqueMembers = new Set();
+      const jakarta = getJakartaDateTime();
+      const currentMonthYear = '-' + jakarta.month + '-' + jakarta.year;
+
+      allRows.forEach(r => {
+        const rNik = String(r[3] || '').trim();
+        const jenis = String(r[6] || '').trim().toUpperCase();
+        const nominal = parseInt(String(r[8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        const status = String(r[14] || '').trim().toUpperCase();
+        const tgl = r[2] || '';
+
+        if (status === 'POSTED') {
+          if (rNik) uniqueMembers.add(rNik);
+          if (jenis === 'SETORAN' || jenis === 'OPENING_BALANCE') {
+            grandTotalSaldo += nominal;
+            if (tgl.includes(currentMonthYear)) grandSetoranBulanIni += nominal;
+          } else if (jenis === 'PENARIKAN') {
+            grandTotalSaldo -= nominal;
+          }
+        }
+      });
+
+      overallSummary = {
+        grandTotalSaldo,
+        grandSetoranBulanIni,
+        totalAnggotaMenabung: uniqueMembers.size
+      };
+    }
+
+    return res.json({
+      success: true,
+      member: memberData,
+      rule: ruleInfo,
+      overall: overallSummary
+    });
+  } catch (error) {
+    console.error('Error GET /api/simpanan/summary:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/simpanan/transactions
+ * Mengambil daftar mutasi simpanan sukarela
+ */
+app.get('/api/simpanan/transactions', async (req, res) => {
+  try {
+    const { nik, role, targetNik, page = 1, limit = 20, search = '' } = req.query;
+    if (!nik) {
+      return res.status(400).json({ success: false, message: 'Parameter NIK diperlukan.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role);
+    const lookupNik = (isOfficer && targetNik) ? targetNik : (!isOfficer ? nik : null);
+
+    const ledgerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaLedger'!A2:S"
+    });
+    const rows = ledgerRes.data.values || [];
+
+    let transactions = [];
+    rows.forEach((r, idx) => {
+      const txId = r[0] || '';
+      const timestamp = r[1] || '';
+      const tanggal = r[2] || '';
+      const rowNik = String(r[3] || '').trim();
+      const nama = r[4] || '';
+      const unit = r[5] || '';
+      const jenis = String(r[6] || '').trim().toUpperCase();
+      const sumber = r[7] || '';
+      const nominal = parseInt(String(r[8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      const saldoSebelumnya = parseInt(String(r[9] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      const saldoSesudahnya = parseInt(String(r[10] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      const keterangan = r[11] || '';
+      const refPembayaran = r[12] || '';
+      const buktiUrl = r[13] || '';
+      const status = String(r[14] || '').trim().toUpperCase();
+      const dibuatOlehNama = r[16] || '';
+      const reversalOf = r[18] || '';
+
+      // Filter hak akses
+      if (lookupNik && rowNik !== lookupNik) return;
+
+      // Filter search
+      if (search) {
+        const q = search.toLowerCase();
+        const match = txId.toLowerCase().includes(q) ||
+                      nama.toLowerCase().includes(q) ||
+                      rowNik.toLowerCase().includes(q) ||
+                      keterangan.toLowerCase().includes(q) ||
+                      refPembayaran.toLowerCase().includes(q);
+        if (!match) return;
+      }
+
+      transactions.push({
+        rowIndex: idx + 2,
+        txId,
+        timestamp,
+        tanggal,
+        nik: rowNik,
+        nama,
+        unit,
+        jenis,
+        sumber,
+        nominal,
+        saldoSebelumnya,
+        saldoSesudahnya,
+        keterangan,
+        refPembayaran,
+        buktiUrl,
+        status,
+        dibuatOlehNama,
+        reversalOf
+      });
+    });
+
+    transactions.reverse(); // Terbaru di atas
+    const totalCount = transactions.length;
+    const p = parseInt(page, 10) || 1;
+    const l = parseInt(limit, 10) || 20;
+    const paginated = transactions.slice((p - 1) * l, p * l);
+
+    return res.json({
+      success: true,
+      data: paginated,
+      totalCount,
+      page: p,
+      totalPages: Math.ceil(totalCount / l)
+    });
+  } catch (error) {
+    console.error('Error GET /api/simpanan/transactions:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/simpanan/transactions
+ * Input transaksi simpanan sukarela manual (Khusus Financial / Admin)
+ */
+app.post('/api/simpanan/transactions', async (req, res) => {
+  try {
+    const {
+      nik,
+      nama,
+      unitKerja,
+      jenisTransaksi, // SETORAN, PENARIKAN, KOREKSI
+      nominal,
+      tanggal,
+      keterangan,
+      refPembayaran,
+      buktiUrl,
+      createdByNik,
+      createdByNama,
+      createdByRole
+    } = req.body;
+
+    if (!isRoleFinancial(createdByRole) && !isRoleAdmin(createdByRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya role Financial atau Administrator yang berhak mencatat mutasi simpanan sukarela.' });
+    }
+
+    if (!nik || !nama || !nominal || !jenisTransaksi) {
+      return res.status(400).json({ success: false, message: 'NIK, Nama, Jenis Transaksi, dan Nominal wajib diisi.' });
+    }
+
+    const nom = parseInt(nominal, 10);
+    if (isNaN(nom) || nom <= 0) {
+      return res.status(400).json({ success: false, message: 'Nominal transaksi harus berupa angka positif lebih dari 0.' });
+    }
+
+    const jenisUpper = jenisTransaksi.trim().toUpperCase();
+    if (!['SETORAN', 'PENARIKAN', 'KOREKSI', 'OPENING_BALANCE'].includes(jenisUpper)) {
+      return res.status(400).json({ success: false, message: 'Jenis transaksi tidak valid.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const currentMember = await calculateMemberSimpananSaldo(sheets, nik);
+    const saldoSebelumnya = currentMember.saldo;
+
+    if (jenisUpper === 'PENARIKAN' && nom > saldoSebelumnya) {
+      return res.status(400).json({
+        success: false,
+        message: `Saldo tidak mencukupi untuk penarikan. Saldo saat ini: Rp ${saldoSebelumnya.toLocaleString('id-ID')}, Permintaan penarikan: Rp ${nom.toLocaleString('id-ID')}.`
+      });
+    }
+
+    let saldoSesudahnya = saldoSebelumnya;
+    if (jenisUpper === 'SETORAN' || jenisUpper === 'OPENING_BALANCE') saldoSesudahnya += nom;
+    else if (jenisUpper === 'PENARIKAN') saldoSesudahnya -= nom;
+    else if (jenisUpper === 'KOREKSI') saldoSesudahnya += nom;
+
+    const jakarta = getJakartaDateTime();
+    const tgl = tanggal || jakarta.dateStr;
+    const txId = 'TX-SIMP-' + Date.now() + '-' + Math.floor(Math.random() * 100);
+    const ts = getFormattedTimestamp();
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaLedger'!A:S",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          txId,
+          ts,
+          tgl,
+          String(nik).trim(),
+          nama,
+          unitKerja || '',
+          jenisUpper,
+          'MANUAL_FINANCIAL',
+          nom,
+          saldoSebelumnya,
+          saldoSesudahnya,
+          keterangan || '-',
+          refPembayaran || '-',
+          buktiUrl || '-',
+          'POSTED',
+          String(createdByNik || ''),
+          createdByNama || '',
+          createdByRole || '',
+          ''
+        ]]
+      }
+    });
+
+    // Audit log
+    await recordFinancialAudit(
+      sheets,
+      { nik: createdByNik, nama: createdByNama, role: createdByRole },
+      'SIMPANAN_SUKARELA',
+      'INPUT_' + jenisUpper,
+      txId,
+      { saldoSebelumnya },
+      { saldoSesudahnya, nominal: nom, nik, nama },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Transaksi ${jenisUpper} sebesar Rp ${nom.toLocaleString('id-ID')} berhasil dicatat ke buku ledger.`,
+      txId,
+      saldoSebelumnya,
+      saldoSesudahnya
+    });
+  } catch (error) {
+    console.error('Error POST /api/simpanan/transactions:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/simpanan/transactions/reversal
+ * Koreksi / Pembatalan transaksi ledger (Khusus Financial / Admin)
+ */
+app.post('/api/simpanan/transactions/reversal', async (req, res) => {
+  try {
+    const { txId, reason, createdByNik, createdByNama, createdByRole } = req.body;
+
+    if (!isRoleFinancial(createdByRole) && !isRoleAdmin(createdByRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya role Financial atau Administrator yang berhak membatalkan mutasi simpanan.' });
+    }
+
+    if (!txId || !reason) {
+      return res.status(400).json({ success: false, message: 'TxID dan Alasan pembatalan wajib diisi.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const ledgerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaLedger'!A2:S"
+    });
+    const rows = ledgerRes.data.values || [];
+
+    const targetIndex = rows.findIndex(r => r[0] === txId);
+    if (targetIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Transaksi ' + txId + ' tidak ditemukan.' });
+    }
+
+    const oldRow = rows[targetIndex];
+    const oldStatus = oldRow[14] || '';
+    if (oldStatus.toUpperCase() === 'REVERSED') {
+      return res.status(400).json({ success: false, message: 'Transaksi ' + txId + ' sudah dibatalkan sebelumnya.' });
+    }
+
+    const nik = oldRow[3];
+    const nama = oldRow[4];
+    const unit = oldRow[5];
+    const oldJenis = String(oldRow[6] || '').toUpperCase();
+    const oldNominal = parseInt(String(oldRow[8] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+    // Ambil saldo anggota sebelum reversal
+    const currentMember = await calculateMemberSimpananSaldo(sheets, nik);
+    const saldoSebelumnya = currentMember.saldo;
+    let saldoSesudahnya = saldoSebelumnya;
+    if (oldJenis === 'SETORAN' || oldJenis === 'OPENING_BALANCE' || oldJenis === 'KOREKSI') {
+      saldoSesudahnya = saldoSebelumnya - oldNominal;
+    } else if (oldJenis === 'PENARIKAN') {
+      saldoSesudahnya = saldoSebelumnya + oldNominal;
+    }
+
+    const rowNumber = targetIndex + 2;
+    // Update status baris lama menjadi REVERSED
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'SimpananSukarelaLedger'!O${rowNumber}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['REVERSED']] }
+    });
+
+    const reversalTxId = 'REV-' + Date.now();
+    const ts = getFormattedTimestamp();
+    const jakarta = getJakartaDateTime();
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaLedger'!A:S",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          reversalTxId,
+          ts,
+          jakarta.dateStr,
+          String(nik),
+          nama,
+          unit,
+          'REVERSAL',
+          'MANUAL_REVERSAL',
+          oldNominal,
+          saldoSebelumnya,
+          saldoSesudahnya,
+          'Reversal dari ' + txId + ': ' + reason,
+          txId,
+          '-',
+          'POSTED',
+          String(createdByNik || ''),
+          createdByNama || '',
+          createdByRole || '',
+          txId
+        ]]
+      }
+    });
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: createdByNik, nama: createdByNama, role: createdByRole },
+      'SIMPANAN_SUKARELA',
+      'REVERSAL_TRANSACTION',
+      txId,
+      { oldStatus: 'POSTED', oldNominal },
+      { newStatus: 'REVERSED', reversalTxId, reason },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Transaksi ${txId} berhasil dibatalkan dengan entri koreksi ${reversalTxId}.`,
+      reversalTxId,
+      saldoSesudahnya
+    });
+  } catch (error) {
+    console.error('Error POST /api/simpanan/transactions/reversal:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/simpanan/rules
+ * Mengambil daftar auto-input rules
+ */
+app.get('/api/simpanan/rules', async (req, res) => {
+  try {
+    const { nik, role } = req.query;
+    const sheets = await getSheetsClient();
+    const isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role);
+
+    const rulesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A2:Q"
+    });
+    const rows = rulesRes.data.values || [];
+
+    const rules = [];
+    rows.forEach((r, idx) => {
+      const ruleNik = String(r[2] || '').trim();
+      if (!isOfficer && ruleNik !== String(nik).trim()) return;
+
+      rules.push({
+        rowIndex: idx + 2,
+        ruleId: r[0],
+        timestamp: r[1],
+        nik: ruleNik,
+        namaAnggota: r[3],
+        unitKerja: r[4],
+        nominalRutin: parseInt(r[5], 10) || 0,
+        frekuensi: r[6] || 'BULANAN',
+        tanggalEksekusi: r[7] || '25',
+        tanggalMulai: r[8] || '',
+        tanggalAkhir: r[9] || '',
+        statusRule: r[10] || 'PENDING_APPROVAL',
+        keterangan: r[11] || '',
+        terakhirDijalankan: r[14] || '-'
+      });
+    });
+
+    return res.json({ success: true, rules });
+  } catch (error) {
+    console.error('Error GET /api/simpanan/rules:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/simpanan/rules
+ * Membuat atau memperbarui konfigurasi auto-input rutin
+ */
+app.post('/api/simpanan/rules', async (req, res) => {
+  try {
+    const {
+      nik,
+      namaAnggota,
+      unitKerja,
+      nominalRutin,
+      tanggalEksekusi = '25',
+      keterangan,
+      createdByNik,
+      createdByNama,
+      createdByRole
+    } = req.body;
+
+    if (!isRoleFinancial(createdByRole) && !isRoleAdmin(createdByRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya role Financial atau Administrator yang dapat mengatur auto-input.' });
+    }
+
+    const nom = parseInt(nominalRutin, 10);
+    if (isNaN(nom) || nom <= 0) {
+      return res.status(400).json({ success: false, message: 'Nominal rutin harus angka positif lebih dari 0.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const rulesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A2:Q"
+    });
+    const rows = rulesRes.data.values || [];
+    const existingRule = rows.find(r => String(r[2] || '').trim() === String(nik).trim());
+
+    const ruleId = existingRule ? existingRule[0] : ('RULE-SIMP-' + Date.now());
+    const ts = getFormattedTimestamp();
+    const initialStatus = isRoleAdmin(createdByRole) ? 'ACTIVE' : 'PENDING_APPROVAL';
+
+    if (existingRule) {
+      // Usulan perubahan rule
+      const approvalId = 'APP-RULE-' + Date.now();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'SimpananSukarelaApprovals'!A:O",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            approvalId,
+            ruleId,
+            ts,
+            String(nik).trim(),
+            namaAnggota,
+            'UPDATE_NOMINAL',
+            JSON.stringify({ nominalRutin: existingRule[5], status: existingRule[10] }),
+            JSON.stringify({ nominalRutin: nom, tanggalEksekusi }),
+            String(createdByNik || ''),
+            createdByNama || '',
+            'PENDING',
+            keterangan || '-',
+            '',
+            '',
+            ''
+          ]]
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Usulan perubahan auto-input berhasil diajukan ke antrean persetujuan Ketua Koperasi / Admin.',
+        approvalId
+      });
+    }
+
+    // Buat rule baru
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A:Q",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          ruleId,
+          ts,
+          String(nik).trim(),
+          namaAnggota,
+          unitKerja || '',
+          nom,
+          'BULANAN',
+          tanggalEksekusi,
+          ts.split(' ')[0],
+          '-',
+          initialStatus,
+          keterangan || 'Pemotongan rutin simpanan sukarela',
+          String(createdByNik || ''),
+          createdByNama || '',
+          '-',
+          '-',
+          '1.0'
+        ]]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: initialStatus === 'ACTIVE' ? 'Aturan auto-input simpanan sukarela berhasil diaktifkan.' : 'Aturan auto-input berhasil disimpan dan menunggu approval Ketua Koperasi.',
+      ruleId
+    });
+  } catch (error) {
+    console.error('Error POST /api/simpanan/rules:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/simpanan/approvals
+ * Mengambil antrean approval usulan auto-input
+ */
+app.get('/api/simpanan/approvals', async (req, res) => {
+  try {
+    const sheets = await getSheetsClient();
+    const resApp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaApprovals'!A2:O"
+    });
+    const rows = resApp.data.values || [];
+
+    const approvals = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      approvalId: r[0],
+      ruleId: r[1],
+      timestamp: r[2],
+      nik: r[3],
+      namaAnggota: r[4],
+      tipePerubahan: r[5],
+      lama: r[6],
+      baru: r[7],
+      diajukanOlehNama: r[9],
+      status: r[10] || 'PENDING',
+      catatanReview: r[11] || '-'
+    }));
+
+    return res.json({ success: true, approvals: approvals.reverse() });
+  } catch (error) {
+    console.error('Error GET /api/simpanan/approvals:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/simpanan/approvals/review
+ * Ketua Koperasi / Admin menyetujui atau menolak usulan perubahan auto-input
+ */
+app.post('/api/simpanan/approvals/review', async (req, res) => {
+  try {
+    const { approvalId, action, catatan, reviewerNik, reviewerNama, reviewerRole } = req.body;
+
+    if (!isRoleKetua(reviewerRole) && !isRoleAdmin(reviewerRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Ketua Koperasi atau Administrator yang berwenang meninjau usulan auto-input.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const resApp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaApprovals'!A2:O"
+    });
+    const rows = resApp.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === approvalId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Data approval tidak ditemukan.' });
+    }
+
+    const appRow = rows[targetIdx];
+    const ruleId = appRow[1];
+    const statusResult = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    const rowNum = targetIdx + 2;
+    const ts = getFormattedTimestamp();
+
+    // Update baris approval
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'SimpananSukarelaApprovals'!K${rowNum}:O${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          statusResult,
+          catatan || '-',
+          String(reviewerNik || ''),
+          reviewerNama || '',
+          ts
+        ]]
+      }
+    });
+
+    // Jika APPROVE, update sheet SimpananSukarelaRules
+    if (action === 'APPROVE') {
+      const baruObj = JSON.parse(appRow[7] || '{}');
+      const rulesRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'SimpananSukarelaRules'!A2:Q"
+      });
+      const rulesRows = rulesRes.data.values || [];
+      const ruleIdx = rulesRows.findIndex(r => r[0] === ruleId);
+
+      if (ruleIdx !== -1) {
+        const ruleRowNum = ruleIdx + 2;
+        if (baruObj.nominalRutin) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'SimpananSukarelaRules'!F${ruleRowNum}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [[baruObj.nominalRutin]] }
+          });
+        }
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'SimpananSukarelaRules'!K${ruleRowNum}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [['ACTIVE']] }
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Usulan auto-input ${approvalId} berhasil diproses dengan status: ${statusResult}.`
+    });
+  } catch (error) {
+    console.error('Error POST /api/simpanan/approvals/review:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/simpanan/auto-input/run
+ * Runner Scheduler Server-Side dengan Idempotency Key
+ */
+app.post('/api/simpanan/auto-input/run', async (req, res) => {
+  try {
+    const { triggeredByRole, triggeredByNama } = req.body;
+    const sheets = await getSheetsClient();
+    const jakarta = getJakartaDateTime();
+    const currentYYYYMM = `${jakarta.year}${jakarta.month}`;
+
+    const rulesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A2:Q"
+    });
+    const rulesRows = rulesRes.data.values || [];
+    const activeRules = rulesRows.filter(r => String(r[10] || '').toUpperCase() === 'ACTIVE');
+
+    const jobLogRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaJobLog'!A2:J"
+    });
+    const jobLogRows = jobLogRes.data.values || [];
+    const executedKeys = new Set(jobLogRows.map(r => r[9])); // Kolom J: IdempotencyKey
+
+    let executedCount = 0;
+    let skippedCount = 0;
+
+    for (const rule of activeRules) {
+      const ruleId = rule[0];
+      const nik = rule[2];
+      const nama = rule[3];
+      const unit = rule[4];
+      const nominal = parseInt(rule[5], 10) || 0;
+      const tglEksekusi = parseInt(rule[7], 10) || 25;
+
+      const idempotencyKey = `AUTO-${ruleId}-${currentYYYYMM}`;
+
+      // Periksa apakah hari ini sudah mencapai tanggal eksekusi dan belum pernah dieksekusi
+      const todayDay = parseInt(jakarta.day, 10);
+      if (todayDay < tglEksekusi && !req.body.forceRun) {
+        skippedCount++;
+        continue;
+      }
+
+      if (executedKeys.has(idempotencyKey)) {
+        skippedCount++;
+        continue;
+      }
+
+      // Jalankan transaksi ledger
+      const member = await calculateMemberSimpananSaldo(sheets, nik);
+      const saldoSebelumnya = member.saldo;
+      const saldoSesudahnya = saldoSebelumnya + nominal;
+      const txId = 'TX-AUTO-' + Date.now() + '-' + Math.floor(Math.random() * 100);
+      const ts = getFormattedTimestamp();
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'SimpananSukarelaLedger'!A:S",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            txId,
+            ts,
+            jakarta.dateStr,
+            String(nik),
+            nama,
+            unit || '',
+            'SETORAN',
+            'AUTO_INPUT',
+            nominal,
+            saldoSebelumnya,
+            saldoSesudahnya,
+            `Potongan rutin simpanan sukarela periode ${jakarta.month}/${jakarta.year}`,
+            idempotencyKey,
+            '-',
+            'POSTED',
+            'SYSTEM_SCHEDULER',
+            'Sistem Auto-Input Koperasi',
+            'System',
+            ''
+          ]]
+        }
+      });
+
+      // Catat ke JobLog
+      const jobId = 'JOB-' + Date.now();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'SimpananSukarelaJobLog'!A:J",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            jobId,
+            ts,
+            jakarta.dateStr,
+            ruleId,
+            String(nik),
+            nama,
+            nominal,
+            'SUCCESS',
+            '-',
+            idempotencyKey
+          ]]
+        }
+      });
+
+      executedKeys.add(idempotencyKey);
+      executedCount++;
+    }
+
+    return res.json({
+      success: true,
+      message: `Eksekusi auto-input selesai. Berhasil dieksekusi: ${executedCount}, Dilewati (sudah berjalan / belum jatuh tempo): ${skippedCount}.`,
+      executedCount,
+      skippedCount
+    });
+  } catch (error) {
+    console.error('Error POST /api/simpanan/auto-input/run:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ----------------------------------------------------
+// 6.2 ENDPOINTS: PINJAMAN KOPERASI
+// ----------------------------------------------------
+
+/**
+ * GET /api/loans/rates
+ * Mengambil tabel referensi resmi tarif pinjaman koperasi
+ */
+app.get('/api/loans/rates', async (req, res) => {
+  try {
+    const sheets = await getSheetsClient();
+    const rateRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRateMaster'!A2:F"
+    });
+    const rows = rateRes.data.values || [];
+
+    const rates = rows.map(r => ({
+      rateId: r[0],
+      plafonMin: parseInt(r[1], 10) || 0,
+      plafonMax: parseInt(r[2], 10) || 0,
+      tenorBulan: parseInt(r[3], 10) || 0,
+      persentaseTotal: parseFloat(r[4]) || 0,
+      keterangan: r[5] || ''
+    }));
+
+    return res.json({ success: true, rates });
+  } catch (error) {
+    console.error('Error GET /api/loans/rates:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/simulate
+ * Simulasi cicilan pinjaman real-time berdasarkan Master Tabel Pinjaman SA
+ */
+app.post('/api/loans/simulate', (req, res) => {
+  try {
+    const { plafon, tenor } = req.body;
+    const result = calculateLoanSchedule(plafon, tenor);
+    return res.json({ success: true, simulation: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/apply
+ * Pengajuan Pinjaman Mandiri oleh Anggota / Pengajuan oleh Financial
+ */
+app.post('/api/loans/apply', async (req, res) => {
+  try {
+    const {
+      pemohonNik,
+      pemohonNama,
+      pemohonUnit,
+      kantorCabang = 'Bandara Internasional Halim Perdanakusuma (HLP)',
+      penghasilanBulanan,
+      alamat,
+      noTelepon,
+      keperluan,
+      jumlahPinjaman,
+      tenorBulan,
+      bankNama,
+      bankNoRekening,
+      bankAtasNama,
+      createdByNik,
+      createdByNama,
+      createdByRole
+    } = req.body;
+
+    if (!pemohonNik || !pemohonNama || !jumlahPinjaman || !tenorBulan || !keperluan) {
+      return res.status(400).json({ success: false, message: 'Seluruh data wajib permohonan pinjaman harus diisi.' });
+    }
+
+    if (!bankNama || !bankNoRekening || !bankAtasNama) {
+      return res.status(400).json({ success: false, message: 'Informasi rekening bank pencairan wajib diisi.' });
+    }
+
+    const calc = calculateLoanSchedule(jumlahPinjaman, tenorBulan);
+    const sheets = await getSheetsClient();
+
+    // Verifikasi rekening terdaftar atau otomatis daftarkan jika belum ada
+    const bankRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'MemberBankAccounts'!A2:M"
+    });
+    const bankRows = bankRes.data.values || [];
+    let bankAccount = bankRows.find(b => String(b[1] || '').trim() === String(pemohonNik).trim() && String(b[4] || '').trim() === String(bankNoRekening).trim());
+
+    let statusRekening = 'VERIFIED';
+    if (!bankAccount) {
+      // Daftarkan ke MemberBankAccounts
+      const accId = 'ACC-' + Date.now();
+      const ts = getFormattedTimestamp();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'MemberBankAccounts'!A:M",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            accId,
+            String(pemohonNik).trim(),
+            pemohonNama,
+            bankNama,
+            String(bankNoRekening),
+            bankAtasNama,
+            'VERIFIED', // Otomatis terverifikasi saat diajukan resmi
+            ts,
+            String(createdByNik || ''),
+            createdByNama || '',
+            '-',
+            'ACTIVE',
+            ts
+          ]]
+        }
+      });
+    }
+
+    const nomorSurat = await generateLoanNomorSurat(sheets);
+    const loanId = 'LN-' + Date.now();
+    const ts = getFormattedTimestamp();
+    const jakarta = getJakartaDateTime();
+
+    // TMT Mulai Gaji = Bulan depan (1 bulan setelah approval), Selesai = Mulai + Tenor
+    const startMonth = (parseInt(jakarta.month, 10) % 12) + 1;
+    const startYear = parseInt(jakarta.month, 10) === 12 ? parseInt(jakarta.year, 10) + 1 : parseInt(jakarta.year, 10);
+    const tmtMulaiGaji = `${String(startMonth).padStart(2, '0')}/${startYear}`;
+    const endTotalMonths = (startYear * 12 + startMonth - 1) + calc.tenor - 1;
+    const endYear = Math.floor(endTotalMonths / 12);
+    const endMonth = (endTotalMonths % 12) + 1;
+    const tmtSelesaiGaji = `${String(endMonth).padStart(2, '0')}/${endYear}`;
+
+    // 1. Simpan ke LoanRequests
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A:AD",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          loanId,
+          nomorSurat,
+          ts,
+          jakarta.dateStr,
+          isRoleFinancial(createdByRole) ? 'FINANCIAL' : 'ANGGOTA',
+          String(pemohonNik).trim(),
+          pemohonNama,
+          pemohonUnit || '',
+          kantorCabang,
+          penghasilanBulanan || 0,
+          alamat || '',
+          String(noTelepon || ''),
+          keperluan,
+          calc.plafon,
+          calc.tenor,
+          calc.ratePersen,
+          calc.totalKewajiban,
+          calc.cicilanBulanan,
+          tmtMulaiGaji,
+          tmtSelesaiGaji,
+          bankNama,
+          String(bankNoRekening),
+          bankAtasNama,
+          statusRekening,
+          'PENDING_PIC_SIMPIN',
+          '',
+          '',
+          String(createdByNik || ''),
+          createdByNama || '',
+          createdByRole || ''
+        ]]
+      }
+    });
+
+    // 2. Simpan juga ke Form Responses 1 agar backward-compatible dengan tracking existing
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Form Responses 1'!A:J",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          ts,
+          'Peminjaman Tunai',
+          pemohonNama,
+          pemohonUnit ? `${pemohonNik} - ${pemohonUnit}` : pemohonNik,
+          String(bankNoRekening),
+          bankAtasNama,
+          'Rp' + calc.plafon.toLocaleString('id-ID'),
+          calc.tenor,
+          `${nomorSurat}: ${keperluan} (Cicilan Rp${calc.cicilanBulanan.toLocaleString('id-ID')}/bln)`,
+          'Pending PIC Simpin'
+        ]]
+      }
+    });
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: createdByNik, nama: createdByNama, role: createdByRole },
+      'PINJAMAN_KOPERASI',
+      'APPLY_LOAN',
+      loanId,
+      {},
+      { nomorSurat, plafon: calc.plafon, tenor: calc.tenor, cicilanBulanan: calc.cicilanBulanan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Permohonan pinjaman ${nomorSurat} berhasil diajukan dan sedang menunggu pemeriksaan PIC Simpin.`,
+      loanId,
+      nomorSurat,
+      simulation: calc
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/apply:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/loans/all
+ * Mengambil daftar seluruh pengajuan pinjaman (PIC Simpin, Ketua Koperasi, Financial, Admin)
+ */
+app.get('/api/loans/all', async (req, res) => {
+  try {
+    const { role, status, search } = req.query;
+    const sheets = await getSheetsClient();
+
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AD"
+    });
+    const rows = loansRes.data.values || [];
+
+    let loans = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      loanId: r[0],
+      nomorSurat: r[1],
+      timestamp: r[2],
+      tanggalPermohonan: r[3],
+      asalPengajuan: r[4],
+      pemohonNik: r[5],
+      pemohonNama: r[6],
+      pemohonUnit: r[7],
+      kantorCabang: r[8],
+      penghasilanBulanan: r[9],
+      alamat: r[10],
+      noTelepon: r[11],
+      keperluan: r[12],
+      jumlahPinjaman: parseInt(String(r[13] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+      tenorBulan: parseInt(r[14], 10) || 0,
+      persentaseTenor: r[15],
+      totalKewajiban: parseInt(String(r[16] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+      cicilanBulanan: parseInt(String(r[17] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+      tmtMulaiGaji: r[18],
+      tmtSelesaiGaji: r[19],
+      bankNama: r[20],
+      bankNoRekening: r[21],
+      bankAtasNama: r[22],
+      statusRekening: r[23],
+      statusWorkflow: r[24] || 'PENDING_PIC_SIMPIN',
+      catatan: r[26] || '-'
+    }));
+
+    if (status) {
+      loans = loans.filter(l => l.statusWorkflow.toUpperCase() === status.toUpperCase());
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      loans = loans.filter(l =>
+        l.nomorSurat.toLowerCase().includes(q) ||
+        l.pemohonNama.toLowerCase().includes(q) ||
+        l.pemohonNik.toLowerCase().includes(q) ||
+        l.keperluan.toLowerCase().includes(q)
+      );
+    }
+
+    return res.json({ success: true, loans: loans.reverse() });
+  } catch (error) {
+    console.error('Error GET /api/loans/all:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/loans/my-applications
+ * Mengambil pengajuan pinjaman anggota yang sedang login
+ */
+app.get('/api/loans/my-applications', async (req, res) => {
+  try {
+    const { nik } = req.query;
+    if (!nik) return res.status(400).json({ success: false, message: 'Parameter NIK diperlukan.' });
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AD"
+    });
+    const rows = loansRes.data.values || [];
+
+    const myLoans = [];
+    rows.forEach((r, idx) => {
+      if (String(r[5] || '').trim() === String(nik).trim()) {
+        myLoans.push({
+          rowIndex: idx + 2,
+          loanId: r[0],
+          nomorSurat: r[1],
+          timestamp: r[2],
+          tanggalPermohonan: r[3],
+          pemohonNama: r[6],
+          pemohonUnit: r[7],
+          keperluan: r[12],
+          jumlahPinjaman: parseInt(String(r[13] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+          tenorBulan: parseInt(r[14], 10) || 0,
+          cicilanBulanan: parseInt(String(r[17] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+          statusWorkflow: r[24] || 'PENDING_PIC_SIMPIN',
+          bankNama: r[20],
+          bankNoRekening: r[21],
+          bankAtasNama: r[22]
+        });
+      }
+    });
+
+    return res.json({ success: true, loans: myLoans.reverse() });
+  } catch (error) {
+    console.error('Error GET /api/loans/my-applications:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/loans/:id/document
+ * Data lengkap dokumen permohonan kredit tunai sesuai layout Maulana Hady.xlsx dengan 5 blok tanda tangan
+ */
+app.get('/api/loans/:id/document', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const sheets = await getSheetsClient();
+
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AD"
+    });
+    const rows = loansRes.data.values || [];
+    const loan = rows.find(r => r[0] === loanId || r[1] === loanId);
+
+    if (!loan) {
+      return res.status(404).json({ success: false, message: 'Data pinjaman tidak ditemukan.' });
+    }
+
+    // Ambil approval trail
+    const appRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanApprovals'!A2:I"
+    });
+    const appRows = appRes.data.values || [];
+    const approvals = appRows.filter(a => a[1] === loan[0]);
+
+    const picApp = approvals.find(a => a[3] === 'PIC_SIMPIN');
+    const ketuaApp = approvals.find(a => a[3] === 'KETUA_KOPERASI');
+
+    // Ambil bukti pencairan jika sudah dicairkan
+    const disbRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanDisbursements'!A2:M"
+    });
+    const disbRows = disbRes.data.values || [];
+    const disbursement = disbRows.find(d => d[1] === loan[0]);
+
+    const docPayload = {
+      kop: {
+        namaKoperasi: 'KOPERASI KARYAWAN SATYA ARDHIA',
+        kantor: 'BANDARA INTERNASIONAL HALIM PERDANAKUSUMA - JAKARTA TIMUR',
+        surat: 'FORMULIR PERMOHONAN PINJAMAN KREDIT TUNAI'
+      },
+      surat: {
+        nomorSurat: loan[1],
+        lampiran: '1 (satu) Berkas',
+        perihal: 'Permohonan Pinjaman Kredit Tunai'
+      },
+      pemohon: {
+        nama: loan[6],
+        nik: loan[5],
+        jabatanUnit: loan[7] || '-',
+        kantorCabang: loan[8] || 'Bandara Internasional Halim Perdanakusuma (HLP)',
+        gajiBulanan: parseInt(String(loan[9] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        alamat: loan[10] || '-',
+        noTelepon: loan[11] || '-'
+      },
+      pinjaman: {
+        fasilitasKredit: 'Pinjaman Kredit Tunai Anggota',
+        jumlahPinjaman: parseInt(String(loan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        tenorBulan: parseInt(loan[14], 10) || 0,
+        sukuBungaTotal: loan[15] || '-',
+        totalKewajiban: parseInt(String(loan[16] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        cicilanBulanan: parseInt(String(loan[17] || '0').replace(/[^0-9]/g, ''), 10) || 0,
+        keperluan: loan[12],
+        tmtMulaiGaji: loan[18] || '-',
+        tmtSelesaiGaji: loan[19] || '-',
+        bankTujuan: loan[20],
+        noRekening: loan[21],
+        atasNama: loan[22]
+      },
+      signatures: {
+        pemohon: {
+          title: 'Pemohon',
+          nama: loan[6],
+          keterangan: 'Anggota Koperasi SA'
+        },
+        penjamin: {
+          title: 'Mengetahui / Penjamin',
+          nama: '( ........................................ )',
+          keterangan: 'Suami / Istri / Penjamin'
+        },
+        picSimpin: {
+          title: 'Diperiksa oleh (PIC Simpin)',
+          nama: picApp ? picApp[7] : 'Lukman Harun Lubis',
+          jabatan: 'Divisi Simpin',
+          tanggal: picApp ? picApp[2] : '-',
+          status: picApp ? picApp[4] : 'PENDING'
+        },
+        ketuaKoperasi: {
+          title: 'Menyetujui (Ketua Koperasi)',
+          nama: ketuaApp ? ketuaApp[7] : 'Fathi Mubarak',
+          jabatan: 'Ketua Koperasi Satya Ardhia',
+          tanggal: ketuaApp ? ketuaApp[2] : '-',
+          status: ketuaApp ? ketuaApp[4] : 'PENDING'
+        },
+        financial: {
+          title: 'Dibukukan / Dibayarkan (Financial)',
+          nama: disbursement ? disbursement[13] : 'Sri Wahyuningsih',
+          jabatan: 'Bendahara / Keuangan',
+          tanggal: disbursement ? disbursement[3] : '-',
+          status: disbursement ? 'DISBURSED' : 'PENDING'
+        }
+      },
+      statusWorkflow: loan[24],
+      disbursement: disbursement ? {
+        tanggal: disbursement[3],
+        nominal: disbursement[4],
+        noReferensi: disbursement[5],
+        buktiUrl: disbursement[9]
+      } : null
+    };
+
+    return res.json({ success: true, document: docPayload });
+  } catch (error) {
+    console.error('Error GET /api/loans/:id/document:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/:id/review-pic
+ * PIC Simpin meninjau pengajuan pinjaman (APPROVE, REVISION, REJECT)
+ */
+app.post('/api/loans/:id/review-pic', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const { action, catatan, reviewerNik, reviewerNama, reviewerRole } = req.body;
+
+    if (!isRolePicSimpin(reviewerRole) && !isRoleAdmin(reviewerRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya PIC Simpin atau Administrator yang berwenang melakukan verifikasi ini.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AD"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Pinjaman ' + loanId + ' tidak ditemukan.' });
+    }
+
+    let newStatus = 'PENDING_KETUA';
+    let statusFR = 'Pending Ketua Koperasi';
+    if (action === 'REVISION') {
+      newStatus = 'REVISION_REQUESTED';
+      statusFR = 'Perlu Revisi (PIC Simpin)';
+    } else if (action === 'REJECT') {
+      newStatus = 'REJECTED';
+      statusFR = 'Rejected (PIC Simpin)';
+    }
+
+    const rowNum = targetIdx + 2;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newStatus]] }
+    });
+
+    if (catatan) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'LoanRequests'!AA${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[catatan]] }
+      });
+    }
+
+    // Catat ke LoanApprovals
+    const approvalId = 'LA-PIC-' + Date.now();
+    const ts = getFormattedTimestamp();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanApprovals'!A:I",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          loanId,
+          ts,
+          'PIC_SIMPIN',
+          action === 'APPROVE' ? 'APPROVED' : (action === 'REVISION' ? 'REVISION' : 'REJECTED'),
+          catatan || '-',
+          String(reviewerNik || ''),
+          reviewerNama || 'Lukman Harun Lubis',
+          reviewerRole || 'PIC Simpin'
+        ]]
+      }
+    });
+
+    // Sinkronisasi ke Form Responses 1
+    try {
+      const nomorSurat = rows[targetIdx][1];
+      const frRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'Form Responses 1'!A2:J"
+      });
+      const frRows = frRes.data.values || [];
+      const frIdx = frRows.findIndex(r => String(r[8] || '').includes(nomorSurat));
+      if (frIdx !== -1) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'Form Responses 1'!J${frIdx + 2}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[statusFR]] }
+        });
+      }
+    } catch (e) {
+      console.warn('Sync FR warning:', e.message);
+    }
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: reviewerNik, nama: reviewerNama, role: reviewerRole },
+      'PINJAMAN_KOPERASI',
+      'REVIEW_PIC_SIMPIN',
+      loanId,
+      { statusSebelumnya: 'PENDING_PIC_SIMPIN' },
+      { newStatus, action, catatan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Verifikasi pinjaman berhasil diproses. Status: ${newStatus}.`
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/review-pic:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/:id/review-chairman
+ * Ketua Koperasi meninjau pengajuan pinjaman (APPROVE, REVISION, REJECT)
+ */
+app.post('/api/loans/:id/review-chairman', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const { action, catatan, reviewerNik, reviewerNama, reviewerRole } = req.body;
+
+    if (!isRoleKetua(reviewerRole) && !isRoleAdmin(reviewerRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Ketua Koperasi atau Administrator yang berwenang memberikan persetujuan pinjaman ini.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AD"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Pinjaman ' + loanId + ' tidak ditemukan.' });
+    }
+
+    let newStatus = 'READY_FOR_DISBURSEMENT';
+    let statusFR = 'Approved Ketua (Siap Cair)';
+    if (action === 'REVISION') {
+      newStatus = 'REVISION_REQUESTED';
+      statusFR = 'Perlu Revisi (Ketua Koperasi)';
+    } else if (action === 'REJECT') {
+      newStatus = 'REJECTED';
+      statusFR = 'Rejected (Ketua Koperasi)';
+    }
+
+    const rowNum = targetIdx + 2;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newStatus]] }
+    });
+
+    // Catat ke LoanApprovals
+    const approvalId = 'LA-KETUA-' + Date.now();
+    const ts = getFormattedTimestamp();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanApprovals'!A:I",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          loanId,
+          ts,
+          'KETUA_KOPERASI',
+          action === 'APPROVE' ? 'APPROVED' : (action === 'REVISION' ? 'REVISION' : 'REJECTED'),
+          catatan || '-',
+          String(reviewerNik || ''),
+          reviewerNama || 'Fathi Mubarak',
+          reviewerRole || 'Ketua Koperasi'
+        ]]
+      }
+    });
+
+    // Sinkronisasi ke Form Responses 1
+    try {
+      const nomorSurat = rows[targetIdx][1];
+      const frRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'Form Responses 1'!A2:J"
+      });
+      const frRows = frRes.data.values || [];
+      const frIdx = frRows.findIndex(r => String(r[8] || '').includes(nomorSurat));
+      if (frIdx !== -1) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'Form Responses 1'!J${frIdx + 2}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[statusFR]] }
+        });
+      }
+    } catch (e) {
+      console.warn('Sync FR warning:', e.message);
+    }
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: reviewerNik, nama: reviewerNama, role: reviewerRole },
+      'PINJAMAN_KOPERASI',
+      'REVIEW_CHAIRMAN',
+      loanId,
+      { statusSebelumnya: 'PENDING_KETUA' },
+      { newStatus, action, catatan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Persetujuan Ketua Koperasi berhasil diproses. Status pinjaman: ${newStatus}.`
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/review-chairman:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/:id/disburse
+ * Financial mengeksekusi pencairan pinjaman ke rekening terverifikasi
+ */
+app.post('/api/loans/:id/disburse', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const {
+      tanggalPencairan,
+      nominalPencairan,
+      nomorReferensi,
+      bankTujuan,
+      noRekeningTujuan,
+      atasNamaTujuan,
+      buktiUrl,
+      catatan,
+      disbursedByNik,
+      disbursedByNama,
+      disbursedByRole
+    } = req.body;
+
+    if (!isRoleFinancial(disbursedByRole) && !isRoleAdmin(disbursedByRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya role Financial atau Administrator yang berwenang memproses pencairan pinjaman.' });
+    }
+
+    if (!nomorReferensi) {
+      return res.status(400).json({ success: false, message: 'Nomor referensi bukti transfer bank wajib diisi.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AD"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Pinjaman ' + loanId + ' tidak ditemukan.' });
+    }
+
+    const loan = rows[targetIdx];
+    const currentStatus = loan[24] || '';
+    if (currentStatus !== 'READY_FOR_DISBURSEMENT' && !isRoleAdmin(disbursedByRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pinjaman belum disetujui penuh oleh Ketua Koperasi. Status saat ini: ' + currentStatus
+      });
+    }
+
+    const pemohonNik = loan[5];
+    const targetRekening = noRekeningTujuan || loan[21];
+
+    // Validasi rekening wajib VERIFIED di MemberBankAccounts
+    const bankRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'MemberBankAccounts'!A2:M"
+    });
+    const bankRows = bankRes.data.values || [];
+    const verifiedAccount = bankRows.find(b =>
+      String(b[1] || '').trim() === String(pemohonNik).trim() &&
+      String(b[4] || '').trim() === String(targetRekening).trim() &&
+      String(b[6] || '').toUpperCase() === 'VERIFIED'
+    );
+
+    if (!verifiedAccount && !isRoleAdmin(disbursedByRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pencairan dibatalkan: Nomor rekening tujuan belum berstatus VERIFIED oleh Administrator.'
+      });
+    }
+
+    const rowNum = targetIdx + 2;
+    const ts = getFormattedTimestamp();
+    const jakarta = getJakartaDateTime();
+    const tglCair = tanggalPencairan || jakarta.dateStr;
+    const nominal = nominalPencairan || loan[13];
+
+    // 1. Update status di LoanRequests
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['DISBURSED']] }
+    });
+
+    // 2. Simpan ke LoanDisbursements
+    const disbId = 'DISB-' + Date.now();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanDisbursements'!A:M",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          disbId,
+          loanId,
+          ts,
+          tglCair,
+          nominal,
+          nomorReferensi,
+          bankTujuan || loan[20],
+          String(targetRekening),
+          atasNamaTujuan || loan[22],
+          buktiUrl || '-',
+          catatan || '-',
+          'COMPLETED',
+          String(disbursedByNik || ''),
+          disbursedByNama || 'Sri Wahyuningsih'
+        ]]
+      }
+    });
+
+    // 3. Sinkronisasi status ke Form Responses 1 menjadi 'Done'
+    try {
+      const nomorSurat = loan[1];
+      const frRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'Form Responses 1'!A2:J"
+      });
+      const frRows = frRes.data.values || [];
+      const frIdx = frRows.findIndex(r => String(r[8] || '').includes(nomorSurat));
+      if (frIdx !== -1) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'Form Responses 1'!J${frIdx + 2}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [['Done']] }
+        });
+      }
+    } catch (e) {
+      console.warn('Sync FR warning:', e.message);
+    }
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: disbursedByNik, nama: disbursedByNama, role: disbursedByRole },
+      'PINJAMAN_KOPERASI',
+      'DISBURSE_LOAN',
+      loanId,
+      { statusSebelumnya: currentStatus },
+      { status: 'DISBURSED', disbId, nomorReferensi, nominal },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Pencairan pinjaman ${loan[1]} berhasil dicatat dengan Nomor Referensi: ${nomorReferensi}.`,
+      disbId
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/disburse:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ----------------------------------------------------
+// 6.3 ENDPOINTS: REKENING ANGGOTA & PENGAMANAN PERUBAHAN
+// ----------------------------------------------------
+
+/**
+ * GET /api/bank-accounts/me
+ * Mengambil informasi rekening bank terdaftar anggota
+ */
+app.get('/api/bank-accounts/me', async (req, res) => {
+  try {
+    const { nik } = req.query;
+    if (!nik) return res.status(400).json({ success: false, message: 'Parameter NIK diperlukan.' });
+
+    const sheets = await getSheetsClient();
+    const bankRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'MemberBankAccounts'!A2:M"
+    });
+    const rows = bankRes.data.values || [];
+
+    const accounts = rows
+      .filter(r => String(r[1] || '').trim() === String(nik).trim() && String(r[11] || '').toUpperCase() === 'ACTIVE')
+      .map(r => ({
+        accountId: r[0],
+        nik: r[1],
+        namaAnggota: r[2],
+        namaBank: r[3],
+        nomorRekening: r[4],
+        atasNamaRekening: r[5],
+        statusVerifikasi: r[6] || 'UNVERIFIED',
+        tanggalVerifikasi: r[7] || '-'
+      }));
+
+    return res.json({ success: true, accounts });
+  } catch (error) {
+    console.error('Error GET /api/bank-accounts/me:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/bank-accounts/change-request
+ * Mengajukan permohonan perubahan rekening alternatif (Menunggu persetujuan Admin)
+ */
+app.post('/api/bank-accounts/change-request', async (req, res) => {
+  try {
+    const {
+      nik,
+      namaAnggota,
+      bankLama,
+      rekeningLama,
+      atasNamaLama,
+      bankBaru,
+      rekeningBaru,
+      atasNamaBaru,
+      alasan,
+      buktiUrl
+    } = req.body;
+
+    if (!nik || !namaAnggota || !bankBaru || !rekeningBaru || !atasNamaBaru || !alasan) {
+      return res.status(400).json({ success: false, message: 'Seluruh data permohonan penggantian rekening wajib diisi.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const reqId = 'REQ-BANK-' + Date.now();
+    const ts = getFormattedTimestamp();
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'BankAccountChangeRequests'!A:P",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          reqId,
+          String(nik).trim(),
+          namaAnggota,
+          bankLama || '-',
+          String(rekeningLama || '-'),
+          atasNamaLama || '-',
+          bankBaru,
+          String(rekeningBaru),
+          atasNamaBaru,
+          alasan,
+          buktiUrl || '-',
+          'REQUESTED',
+          '-',
+          '',
+          '',
+          ''
+        ]]
+      }
+    });
+
+    await recordFinancialAudit(
+      sheets,
+      { nik, nama: namaAnggota, role: 'Anggota' },
+      'BANK_ACCOUNTS',
+      'REQUEST_CHANGE',
+      reqId,
+      { bankLama, rekeningLama },
+      { bankBaru, rekeningBaru, atasNamaBaru, alasan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: 'Permohonan perubahan rekening berhasil diajukan dan sedang dalam antrean verifikasi Administrator.',
+      reqId
+    });
+  } catch (error) {
+    console.error('Error POST /api/bank-accounts/change-request:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/bank-accounts/requests
+ * Admin melihat daftar antrean permohonan penggantian rekening
+ */
+app.get('/api/bank-accounts/requests', async (req, res) => {
+  try {
+    const { role } = req.query;
+    if (!isRoleAdmin(role)) {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses ke daftar ini.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const reqRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'BankAccountChangeRequests'!A2:P"
+    });
+    const rows = reqRes.data.values || [];
+
+    const requests = rows.map((r, idx) => ({
+      rowIndex: idx + 2,
+      requestId: r[0],
+      nik: r[1],
+      namaAnggota: r[2],
+      bankLama: r[3],
+      rekeningLama: r[4],
+      atasNamaLama: r[5],
+      bankBaru: r[6],
+      rekeningBaru: r[7],
+      atasNamaBaru: r[8],
+      alasan: r[9],
+      buktiUrl: r[10],
+      status: r[11] || 'REQUESTED',
+      catatanAdmin: r[12] || '-'
+    }));
+
+    return res.json({ success: true, requests: requests.reverse() });
+  } catch (error) {
+    console.error('Error GET /api/bank-accounts/requests:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/bank-accounts/requests/:id/review
+ * Admin menyetujui atau menolak permohonan penggantian rekening
+ */
+app.post('/api/bank-accounts/requests/:id/review', async (req, res) => {
+  try {
+    const reqId = req.params.id;
+    const { action, catatan, adminNik, adminNama, adminRole } = req.body;
+
+    if (!isRoleAdmin(adminRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator yang berhak meninjau permohonan perubahan rekening.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const reqRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'BankAccountChangeRequests'!A2:P"
+    });
+    const rows = reqRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === reqId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Permohonan ' + reqId + ' tidak ditemukan.' });
+    }
+
+    const bReq = rows[targetIdx];
+    const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    const rowNum = targetIdx + 2;
+    const ts = getFormattedTimestamp();
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'BankAccountChangeRequests'!L${rowNum}:P${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          newStatus,
+          catatan || '-',
+          String(adminNik || ''),
+          adminNama || 'Administrator',
+          ts
+        ]]
+      }
+    });
+
+    if (action === 'APPROVE') {
+      const nik = bReq[1];
+      const nama = bReq[2];
+      const bankBaru = bReq[6];
+      const rekeningBaru = bReq[7];
+      const atasNamaBaru = bReq[8];
+
+      // Non-aktifkan rekening lama
+      const bankRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'MemberBankAccounts'!A2:M"
+      });
+      const bankRows = bankRes.data.values || [];
+      for (let i = 0; i < bankRows.length; i++) {
+        if (String(bankRows[i][1] || '').trim() === String(nik).trim()) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'MemberBankAccounts'!L${i + 2}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [['INACTIVE']] }
+          });
+        }
+      }
+
+      // Tambahkan rekening baru berstatus VERIFIED
+      const accId = 'ACC-' + Date.now();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'MemberBankAccounts'!A:M",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            accId,
+            String(nik).trim(),
+            nama,
+            bankBaru,
+            String(rekeningBaru),
+            atasNamaBaru,
+            'VERIFIED',
+            ts,
+            String(adminNik || ''),
+            adminNama || 'Administrator',
+            bReq[10] || '-',
+            'ACTIVE',
+            ts
+          ]]
+        }
+      });
+    }
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: adminNik, nama: adminNama, role: adminRole },
+      'BANK_ACCOUNTS',
+      'REVIEW_CHANGE_REQUEST',
+      reqId,
+      { status: 'REQUESTED' },
+      { status: newStatus, catatan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: `Permohonan ${reqId} berhasil diproses dengan status: ${newStatus}.`
+    });
+  } catch (error) {
+    console.error('Error POST /api/bank-accounts/requests/:id/review:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 
 // Fallback route to serve frontend index.html
 app.get('*', (req, res) => {

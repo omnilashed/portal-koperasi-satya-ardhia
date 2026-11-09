@@ -306,6 +306,20 @@
                   <span class="sm:hidden">Tracking</span>
                 </button>
 
+                <!-- Tab: Saldo / Penyimpanan Sukarela (Semua Anggota) -->
+                <button id="tabSimpananBtn" onclick="switchTab('simpanan')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="landmark" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Saldo / Penyimpanan</span>
+                  <span class="sm:hidden">Saldo</span>
+                </button>
+
+                <!-- Tab: Pinjaman Koperasi (Semua Anggota & Pengurus) -->
+                <button id="tabPinjamanBtn" onclick="switchTab('pinjaman')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                  <i data-lucide="hand-coins" class="w-4 h-4"></i>
+                  <span class="hidden sm:inline">Pinjaman Koperasi</span>
+                  <span class="sm:hidden">Pinjaman SA</span>
+                </button>
+
                 <!-- Tab 2: Absensi Pegawai & Monitoring -->
                 <button id="tabAbsensiBtn" onclick="switchTab('absensi')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
                   <i data-lucide="scan-face" class="w-4 h-4"></i>
@@ -1829,6 +1843,673 @@
 
       </div>
 
+      <!-- VIEW 6: TAB SALDO / PENYIMPANAN SUKARELA -->
+      <div id="viewSimpanan" class="hidden space-y-6">
+
+        <!-- Top Header & Banner -->
+        <div class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+          <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+            <i data-lucide="landmark" class="w-72 h-72"></i>
+          </div>
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="space-y-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-600/50 backdrop-blur-sm text-xs font-semibold text-emerald-100 border border-emerald-500/30">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                Buku Ledger Terverifikasi & Single Source of Truth
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Simpanan Sukarela Anggota</h2>
+              <p class="text-emerald-100 text-xs sm:text-sm max-w-xl">
+                Pantau akumulasi saldo simpanan sukarela, setoran rutin bulanan, dan riwayat mutasi transaksi secara transparan dan akuntabel.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <button onclick="refreshSimpananData()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow-sm">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>Segarkan Data</span>
+              </button>
+              <button onclick="openBankAccountModal()" class="px-4 py-2.5 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2">
+                <i data-lucide="credit-card" class="w-4 h-4 text-emerald-700"></i>
+                <span>Kelola Rekening Bank</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Cards Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Total Saldo -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:border-emerald-500 transition">
+            <div class="space-y-1">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Saldo Sukarela</p>
+              <h3 id="cardTotalSaldoSukarela" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Rp 0</h3>
+              <p class="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                <i data-lucide="check-circle" class="w-3 h-3"></i> Saldo aktif tersedia
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition">
+              <i data-lucide="wallet" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Setoran Bulan Ini -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:border-blue-500 transition">
+            <div class="space-y-1">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Setoran Bulan Berjalan</p>
+              <h3 id="cardSetoranBulanIni" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Rp 0</h3>
+              <p class="text-[11px] text-blue-600 font-medium flex items-center gap-1">
+                <i data-lucide="calendar" class="w-3 h-3"></i> Periode bulan ini
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition">
+              <i data-lucide="arrow-down-left" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Setoran Rutin Bulanan -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:border-purple-500 transition">
+            <div class="space-y-1">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Potongan Rutin Bulanan</p>
+              <h3 id="cardNominalRutin" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Rp 0</h3>
+              <p id="cardStatusAutoInput" class="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                <i data-lucide="clock" class="w-3 h-3"></i> Auto-input tgl 25
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition">
+              <i data-lucide="repeat" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Total Mutasi / Rekap Koperasi -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between relative overflow-hidden group hover:border-amber-500 transition">
+            <div class="space-y-1">
+              <p id="cardLabelFourthStat" class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Transaksi</p>
+              <h3 id="cardFourthStatValue" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">0 Transaksi</h3>
+              <p id="cardFourthStatSub" class="text-[11px] text-amber-600 font-medium flex items-center gap-1">
+                <i data-lucide="history" class="w-3 h-3"></i> Mutasi tercatat
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition">
+              <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner Agregat Khusus Pengurus / Financial / Admin -->
+        <div id="panelAgregatSimpananKoperasi" class="hidden bg-slate-900 rounded-2xl p-5 text-white border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 font-medium">Rekapitulasi Finansial Koperasi Satya Ardhia</p>
+              <p class="text-sm font-semibold">Grand Total Simpanan: <span id="grandTotalSaldoText" class="text-emerald-400 font-bold">Rp 0</span> | Total Anggota Aktif Menabung: <span id="grandTotalAnggotaText" class="text-teal-300 font-bold">0</span> Anggota</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="triggerRunAutoInputScheduler()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              <span>Jalankan Scheduler Bulanan</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Row: Form Input Financial & Antrean Approval Usulan Auto-Input -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Kolom Kiri: Panel Aksi Financial / Admin (Input Mutasi & Atur Auto-Input) -->
+          <div id="panelFinancialSimpananContainer" class="hidden lg:col-span-1 space-y-6">
+            
+            <!-- Form Input Mutasi Manual -->
+            <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex items-center space-x-2 border-b border-slate-100 pb-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm">Input Mutasi Simpanan</h3>
+                  <p class="text-[11px] text-slate-500">Khusus role Financial / Administrator</p>
+                </div>
+              </div>
+
+              <form onsubmit="handleSimpananManualSubmit(event)" class="space-y-3.5">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Anggota <span class="text-red-500">*</span></label>
+                  <select id="simpananTargetNik" onchange="handleSelectMemberForSimpanan(this.value)" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 bg-white font-medium text-slate-800">
+                    <option value="">-- Pilih Anggota Koperasi --</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Transaksi <span class="text-red-500">*</span></label>
+                    <select id="simpananJenisTransaksi" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 bg-white font-semibold text-slate-800">
+                      <option value="SETORAN">SETORAN (+)</option>
+                      <option value="PENARIKAN">PENARIKAN (-)</option>
+                      <option value="KOREKSI">KOREKSI</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mutasi <span class="text-red-500">*</span></label>
+                    <input type="date" id="simpananTanggal" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 font-medium">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Nominal (Rp) <span class="text-red-500">*</span></label>
+                  <input type="text" id="simpananNominal" placeholder="Contoh: 500.000" oninput="formatRupiahInput(this)" required class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">No. Referensi / Bukti Transfer</label>
+                  <input type="text" id="simpananRef" placeholder="Contoh: TRX-BSI-981248" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Keterangan / Keperluan</label>
+                  <textarea id="simpananKeterangan" rows="2" placeholder="Setoran simpanan sukarela tunai/transfer..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500"></textarea>
+                </div>
+
+                <button type="submit" id="btnSubmitSimpananManual" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2">
+                  <i data-lucide="check" class="w-4 h-4"></i>
+                  <span>Bukukan ke Ledger</span>
+                </button>
+              </form>
+            </div>
+
+            <!-- Form Konfigurasi Auto-Input Rutin Bulanan -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3.5">
+              <div class="flex items-center space-x-2 border-b border-slate-100 pb-3">
+                <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <i data-lucide="repeat" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm">Atur Auto-Input Rutin</h3>
+                  <p class="text-[11px] text-slate-500">Potongan otomatis gaji bulanan</p>
+                </div>
+              </div>
+
+              <form onsubmit="handleSimpananRuleSubmit(event)" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Anggota <span class="text-red-500">*</span></label>
+                  <select id="ruleTargetNik" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 bg-white font-medium text-slate-800">
+                    <option value="">-- Pilih Anggota --</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nominal Rutin <span class="text-red-500">*</span></label>
+                    <input type="text" id="ruleNominalRutin" placeholder="Contoh: 100.000" oninput="formatRupiahInput(this)" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold focus:ring-2 focus:ring-purple-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tgl Eksekusi</label>
+                    <select id="ruleTglEksekusi" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 bg-white font-medium">
+                      <option value="25" selected>Tgl 25 (Gajian)</option>
+                      <option value="1">Tgl 1 Awal Bulan</option>
+                      <option value="28">Tgl 28 Akhir Bulan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" id="btnSubmitRule" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-200 transition flex items-center justify-center gap-2">
+                  <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                  <span>Simpan / Ajukan Usulan Rule</span>
+                </button>
+              </form>
+            </div>
+
+          </div>
+
+          <!-- Kolom Kanan: Tabel Mutasi Ledger & Approval Usulan -->
+          <div id="panelSimpananTableContainer" class="lg:col-span-3 space-y-6">
+
+            <!-- Antrean Approval Usulan Perubahan Auto-Input (Khusus Ketua Koperasi & Admin) -->
+            <div id="panelKetuaSimpananApproval" class="hidden bg-amber-50/70 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+                    <i data-lucide="check-square" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-amber-900 text-sm">Antrean Persetujuan Auto-Input Simpanan</h3>
+                    <p class="text-xs text-amber-700">Usulan perubahan nominal potongan rutin yang memerlukan persetujuan Ketua Koperasi / Admin.</p>
+                  </div>
+                </div>
+                <span id="badgePendingSimpananCount" class="px-2.5 py-1 rounded-full bg-amber-200 text-amber-900 text-xs font-bold">0 Pending</span>
+              </div>
+              <div id="containerPendingSimpananApprovals" class="space-y-2.5">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+
+            <!-- Tabel Riwayat Mutasi Simpanan Sukarela -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Riwayat Mutasi Simpanan Sukarela</h3>
+                  <p class="text-xs text-slate-500">Buku kas ledger mutasi append-only simpanan sukarela.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                    <input type="text" id="searchSimpananInput" oninput="handleSearchSimpanan(this.value)" placeholder="Cari TxID, NIK, keterangan..." class="pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 w-48 sm:w-60">
+                  </div>
+                  <select id="filterSimpananJenis" onchange="handleFilterSimpananJenis(this.value)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 bg-white font-medium text-slate-700">
+                    <option value="">Semua Jenis</option>
+                    <option value="SETORAN">Setoran</option>
+                    <option value="PENARIKAN">Penarikan</option>
+                    <option value="KOREKSI">Koreksi</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Table Content -->
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th class="py-3 px-4">Tanggal & Waktu</th>
+                      <th class="py-3 px-4">No. Transaksi (TxID)</th>
+                      <th class="py-3 px-4">Anggota (NIK)</th>
+                      <th class="py-3 px-4">Jenis & Sumber</th>
+                      <th class="py-3 px-4 text-right">Nominal (Rp)</th>
+                      <th class="py-3 px-4 text-right">Saldo Sesudahnya</th>
+                      <th class="py-3 px-4">Keterangan / Ref</th>
+                      <th class="py-3 px-4 text-center">Status</th>
+                      <th id="thActionSimpanan" class="py-3 px-4 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodySimpananLedger" class="divide-y divide-slate-100 font-medium text-slate-700">
+                    <tr>
+                      <td colspan="9" class="py-8 text-center text-slate-400">Memuat data mutasi simpanan...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Pagination -->
+              <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span id="simpananPaginationInfo">Menampilkan 0 data</span>
+                <div class="flex items-center space-x-1" id="simpananPaginationBtns">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- VIEW 7: TAB PINJAMAN KOPERASI -->
+      <div id="viewPinjaman" class="hidden space-y-6">
+
+        <!-- Top Header & Banner -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
+            <i data-lucide="hand-coins" class="w-72 h-72"></i>
+          </div>
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="space-y-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 backdrop-blur-sm text-xs font-semibold text-indigo-300 border border-indigo-500/30">
+                <i data-lucide="badge-percent" class="w-3.5 h-3.5"></i>
+                Tabel Acuan Resmi Suku Bunga Pinjaman Satya Ardhia
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Pinjaman Tunai Anggota</h2>
+              <p class="text-slate-300 text-xs sm:text-sm max-w-xl">
+                Simulasi cicilan real-time, pengajuan kredit mandiri, alur verifikasi PIC Simpin & Ketua Koperasi, hingga pencairan ke rekening terverifikasi.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <button onclick="refreshLoanData()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow-sm">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>Segarkan Data</span>
+              </button>
+              <button onclick="openBankAccountModal()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/30 transition flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-indigo-200"></i>
+                <span>Status Rekening Pencairan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIMULATOR PINJAMAN & FORM PENGAJUAN -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          <!-- SIMULATOR KIRI (7 Kolom) -->
+          <div class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <i data-lucide="calculator" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-slate-900 text-base">Simulator Cicilan Resmi</h3>
+                  <p class="text-xs text-slate-500">Plafon Rp 10jt - Rp 50jt sesuai tabel potongan SA</p>
+                </div>
+              </div>
+              <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
+                Akurat 100%
+              </span>
+            </div>
+
+            <!-- Input Plafon Pinjaman -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Jumlah Pinjaman (Plafon)</label>
+                <span id="displaySimPlafon" class="text-lg font-black text-indigo-600 font-mono">Rp 10.000.000</span>
+              </div>
+              <input type="range" id="rangePlafon" min="10000000" max="50000000" step="1000000" value="10000000" oninput="onSimulatorPlafonChange(this.value)" class="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+              
+              <!-- Quick Select Plafon Pills -->
+              <div class="flex flex-wrap gap-1.5 pt-1">
+                <button type="button" onclick="setSimulatorPlafon(10000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition">10 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(15000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">15 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(20000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">20 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(25000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">25 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(30000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">30 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(40000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">40 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(50000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">50 Jt</button>
+              </div>
+            </div>
+
+            <!-- Pilihan Tenor Pinjaman -->
+            <div class="space-y-2.5">
+              <label class="text-xs font-bold text-slate-700 uppercase tracking-wider block">Jangka Waktu (Tenor)</label>
+              <div id="containerTenorButtons" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <!-- Dynamically generated via JS -->
+              </div>
+              <p id="tenorNotice" class="text-[11px] text-slate-500 italic">*Tenor 48 & 60 bulan hanya tersedia untuk pinjaman Rp 31jt - Rp 50jt.</p>
+            </div>
+
+            <!-- Hasil Perhitungan Simulator Card -->
+            <div class="bg-gradient-to-br from-indigo-50/80 via-slate-50 to-indigo-50/50 rounded-2xl p-5 border border-indigo-100/80 space-y-4">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <p class="text-[11px] text-slate-500 font-medium uppercase">Tarif Jasa Koperasi</p>
+                  <p id="simRateDisplay" class="text-base font-bold text-slate-800">11%</p>
+                </div>
+                <div>
+                  <p class="text-[11px] text-slate-500 font-medium uppercase">Total Biaya Jasa</p>
+                  <p id="simTotalBiayaDisplay" class="text-base font-bold text-slate-800">Rp 1.100.000</p>
+                </div>
+                <div>
+                  <p class="text-[11px] text-slate-500 font-medium uppercase">Total Kewajiban</p>
+                  <p id="simTotalKewajibanDisplay" class="text-base font-extrabold text-slate-900">Rp 11.100.000</p>
+                </div>
+              </div>
+
+              <div class="bg-white p-4 rounded-xl border border-indigo-200/60 shadow-sm flex items-center justify-between">
+                <div>
+                  <p class="text-xs text-indigo-700 font-semibold uppercase tracking-wider">Angsuran / Cicilan Bulanan</p>
+                  <h4 id="simCicilanBulananDisplay" class="text-2xl font-black text-indigo-700 tracking-tight">Rp 1.110.000</h4>
+                  <p id="simCicilanAkhirNotice" class="text-[10px] text-slate-400 mt-0.5"></p>
+                </div>
+                <button type="button" onclick="toggleJadwalAngsuranModal()" class="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center gap-1.5 border border-indigo-200/60">
+                  <i data-lucide="table" class="w-4 h-4"></i>
+                  <span>Rincian Jadwal</span>
+                </button>
+              </div>
+
+              <!-- Rincian Tabel Jadwal (Collapse) -->
+              <div id="simJadwalCollapse" class="hidden overflow-hidden border border-slate-200 rounded-xl bg-white max-h-60 overflow-y-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold uppercase sticky top-0 border-b border-slate-200">
+                    <tr>
+                      <th class="py-2 px-3">Bulan Ke</th>
+                      <th class="py-2 px-3 text-right">Cicilan (Rp)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodySimJadwal" class="divide-y divide-slate-100 font-medium text-slate-700">
+                  </tbody>
+                </table>
+              </div>
+
+              <button type="button" onclick="applySimulatedValuesToForm()" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
+                <i data-lucide="arrow-down-right" class="w-4 h-4"></i>
+                <span>Gunakan Hasil Simulasi Ini untuk Formulir Pengajuan</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- FORM PENGAJUAN KANAN (5 Kolom) -->
+          <div class="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
+            <div class="flex items-center space-x-3 border-b border-slate-100 pb-4">
+              <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="file-signature" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-extrabold text-slate-900 text-base">Formulir Permohonan Kredit</h3>
+                <p class="text-xs text-slate-500">Pengajuan pinjaman anggota sesuai format resmi</p>
+              </div>
+            </div>
+
+            <form onsubmit="handleApplyLoanSubmit(event)" class="space-y-4">
+              <!-- Info Pemohon (Auto Filled) -->
+              <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 space-y-1.5 text-xs text-slate-700">
+                <div class="flex justify-between"><span class="text-slate-500">Pemohon:</span><span id="formLoanNamaPemohon" class="font-bold text-slate-900">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">NIK & Unit:</span><span id="formLoanNikPemohon" class="font-bold text-slate-800">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Kantor Cabang:</span><span class="font-medium text-slate-800">Bandara HLP</span></div>
+              </div>
+
+              <!-- Penghasilan Bulanan -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Gaji / Penghasilan Bulanan (Rp) <span class="text-red-500">*</span></label>
+                <input type="text" id="loanPenghasilan" oninput="formatRupiahInput(this)" placeholder="Misal: 6.500.000" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              <!-- Alamat & Telepon -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">No. WhatsApp / HP <span class="text-red-500">*</span></label>
+                  <input type="text" id="loanTelepon" placeholder="08xxxxxxxxxx" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Keperluan Pinjaman <span class="text-red-500">*</span></label>
+                  <input type="text" id="loanKeperluan" placeholder="Renovasi / Pendidikan / dll" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Alamat Lengkap</label>
+                <textarea id="loanAlamat" rows="2" placeholder="Alamat domisili saat ini..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
+              </div>
+
+              <!-- Nilai Pinjaman & Tenor Form -->
+              <div class="grid grid-cols-2 gap-3 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-500 mb-1">Plafon Pinjaman</label>
+                  <input type="text" id="formLoanPlafon" readonly class="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-indigo-700">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-500 mb-1">Tenor (Bulan)</label>
+                  <input type="text" id="formLoanTenor" readonly class="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-indigo-700">
+                </div>
+              </div>
+
+              <!-- Rekening Bank Pencairan -->
+              <div class="space-y-2 border-t border-slate-100 pt-3">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-semibold text-slate-700">Rekening Pencairan Bank <span class="text-red-500">*</span></label>
+                  <span id="loanBankStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">TERVERIFIKASI</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <input type="text" id="loanBankNama" placeholder="Nama Bank (BSI/BCA)" required class="col-span-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+                  <input type="text" id="loanBankRekening" placeholder="Nomor Rekening" required class="col-span-2 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold">
+                </div>
+                <input type="text" id="loanBankAtasNama" placeholder="Atas Nama Rekening (Harus Sesuai Pemohon)" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
+              </div>
+
+              <!-- Checkbox Persetujuan -->
+              <div class="flex items-start space-x-2 pt-1">
+                <input type="checkbox" id="checkAgreeLoan" required class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+                <label for="checkAgreeLoan" class="text-[11px] text-slate-600 leading-tight">
+                  Saya menyetujui pemotongan gaji rutin bulanan sesuai tabel potongan resmi Koperasi SA dan bersedia menandatangani formulir resmi.
+                </label>
+              </div>
+
+              <button type="submit" id="btnSubmitLoanApply" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span>Ajukan Permohonan Pinjaman</span>
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- ANTREAN WORKFLOW PERSUTUJUAN & PENCAIRAN BERJENJANG -->
+        <div class="space-y-6">
+
+          <!-- 1. Antrean Review PIC Simpin (Khusus PIC Simpin & Admin) -->
+          <div id="panelPicSimpinReview" class="hidden bg-emerald-50/70 border border-emerald-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-emerald-200/60 pb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+                  <i data-lucide="user-check" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-emerald-950 text-base">Antrean Verifikasi PIC Simpin</h3>
+                  <p class="text-xs text-emerald-700">Verifikasi kelayakan berkas permohonan pinjaman sebelum diajukan ke Ketua Koperasi.</p>
+                </div>
+              </div>
+              <span id="badgePicSimpinPendingCount" class="px-3 py-1 rounded-full bg-emerald-200 text-emerald-900 text-xs font-bold">0 Pending</span>
+            </div>
+            <div id="containerPicSimpinQueue" class="space-y-3">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+
+          <!-- 2. Antrean Approval Ketua Koperasi (Khusus Ketua Koperasi & Admin) -->
+          <div id="panelChairmanReview" class="hidden bg-rose-50/70 border border-rose-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-rose-200/60 pb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-sm">
+                  <i data-lucide="award" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-rose-950 text-base">Antrean Persetujuan Ketua Koperasi</h3>
+                  <p class="text-xs text-rose-700">Persetujuan final permohonan pinjaman yang telah diverifikasi oleh PIC Simpin.</p>
+                </div>
+              </div>
+              <span id="badgeChairmanPendingCount" class="px-3 py-1 rounded-full bg-rose-200 text-rose-900 text-xs font-bold">0 Pending</span>
+            </div>
+            <div id="containerChairmanQueue" class="space-y-3">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+
+          <!-- 3. Panel Pencairan Dana Financial (Khusus Financial & Admin) -->
+          <div id="panelFinancialDisbursement" class="hidden bg-blue-50/70 border border-blue-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-blue-200/60 pb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
+                  <i data-lucide="banknote" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-blue-950 text-base">Proses Pencairan Pinjaman (Financial)</h3>
+                  <p class="text-xs text-blue-700">Eksekusi pencairan pinjaman yang telah disetujui penuh ke rekening terverifikasi.</p>
+                </div>
+              </div>
+              <span id="badgeDisbursementPendingCount" class="px-3 py-1 rounded-full bg-blue-200 text-blue-900 text-xs font-bold">0 Siap Cair</span>
+            </div>
+            <div id="containerDisbursementQueue" class="space-y-3">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- TABEL RIWAYAT PENGAJUAN PINJAMAN SAYA (Anggota) -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">Riwayat Permohonan Pinjaman Saya</h3>
+              <p class="text-xs text-slate-500">Status persetujuan berjenjang dan cetak formulir kredit resmi Maulana Hady.xlsx</p>
+            </div>
+            <button onclick="refreshLoanData()" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition flex items-center gap-1.5 self-start sm:self-auto">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-4">Tanggal</th>
+                  <th class="py-3 px-4">No. Surat Permohonan</th>
+                  <th class="py-3 px-4">Plafon Pinjaman</th>
+                  <th class="py-3 px-4">Tenor</th>
+                  <th class="py-3 px-4">Cicilan / Bln</th>
+                  <th class="py-3 px-4">Rekening Tujuan</th>
+                  <th class="py-3 px-4 text-center">Status Workflow</th>
+                  <th class="py-3 px-4 text-center">Dokumen Resmi</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyMyLoans" class="divide-y divide-slate-100 font-medium text-slate-700">
+                <tr>
+                  <td colspan="8" class="py-8 text-center text-slate-400">Memuat riwayat pinjaman Anda...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TABEL SELURUH PINJAMAN (Khusus PIC Simpin, Ketua Koperasi, Financial, Admin) -->
+        <div id="panelAllLoansTableContainer" class="hidden bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">Daftar Seluruh Permohonan Pinjaman Koperasi</h3>
+              <p class="text-xs text-slate-500">Monitoring pengajuan seluruh anggota untuk PIC Simpin, Pengurus & Financial.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                <input type="text" id="searchAllLoansInput" oninput="handleSearchAllLoans(this.value)" placeholder="Cari No. Surat, NIK, nama..." class="pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 w-48 sm:w-60">
+              </div>
+              <select id="filterAllLoansStatus" onchange="handleFilterAllLoansStatus(this.value)" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 bg-white font-medium text-slate-700">
+                <option value="">Semua Status</option>
+                <option value="PENDING_PIC_SIMPIN">Pending PIC Simpin</option>
+                <option value="PENDING_KETUA">Pending Ketua Koperasi</option>
+                <option value="READY_FOR_DISBURSEMENT">Siap Dicairkan</option>
+                <option value="DISBURSED">Sudah Dicairkan</option>
+                <option value="REVISION_REQUESTED">Perlu Revisi</option>
+                <option value="REJECTED">Ditolak</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-4">Tanggal</th>
+                  <th class="py-3 px-4">No. Surat</th>
+                  <th class="py-3 px-4">Nama Pemohon (NIK)</th>
+                  <th class="py-3 px-4">Plafon</th>
+                  <th class="py-3 px-4">Tenor</th>
+                  <th class="py-3 px-4">Cicilan / Bln</th>
+                  <th class="py-3 px-4">Keperluan</th>
+                  <th class="py-3 px-4 text-center">Status</th>
+                  <th class="py-3 px-4 text-center">Aksi & Dokumen</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAllLoans" class="divide-y divide-slate-100 font-medium text-slate-700">
+                <tr>
+                  <td colspan="9" class="py-8 text-center text-slate-400">Memuat data seluruh pinjaman...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+
     </main>
 
   <!-- Modal Edit Operasional Executive Car -->
@@ -2065,6 +2746,351 @@
     </div>
   </div>
 
+  <!-- MODAL DOKUMEN PERMOHONAN PINJAMAN KREDIT TUNAI (Layout Resmi Maulana Hady.xlsx) -->
+  <div id="modalLoanDocument" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 print:p-0 print:bg-white">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-10 shadow-2xl border border-slate-100 my-6 print:shadow-none print:border-none print:m-0 print:p-4 print:max-w-none">
+      
+      <!-- Modal Top Controls (Hidden saat print) -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6 print:hidden">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-sm sm:text-base">Dokumen Permohonan Pinjaman Kredit Tunai</h3>
+            <p class="text-[11px] text-slate-500">Format resmi permohonan pinjaman Koperasi Satya Ardhia - HLP</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="printLoanDocument()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-200">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Cetak / Simpan PDF</span>
+          </button>
+          <button type="button" onclick="closeLoanDocumentModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- PRINTABLE DOCUMENT BODY (Format Maulana Hady.xlsx) -->
+      <div id="printableLoanDoc" class="text-slate-900 font-sans text-xs sm:text-sm leading-relaxed space-y-5">
+        
+        <!-- KOP SURAT RESMI -->
+        <div class="border-b-2 border-slate-900 pb-3 text-center space-y-1">
+          <h2 class="text-base sm:text-xl font-black uppercase tracking-wide">KOPERASI KARYAWAN SATYA ARDHIA</h2>
+          <p class="text-[10px] sm:text-xs font-semibold text-slate-600 uppercase">
+            BANDARA INTERNASIONAL HALIM PERDANAKUSUMA - JAKARTA TIMUR
+          </p>
+          <div class="pt-2">
+            <h3 class="text-xs sm:text-sm font-extrabold uppercase inline-block border-b-2 border-slate-800 pb-0.5 tracking-wider">
+              FORMULIR PERMOHONAN PINJAMAN KREDIT TUNAI
+            </h3>
+          </div>
+        </div>
+
+        <!-- NOMOR SURAT & PERIHAL -->
+        <div class="flex justify-between items-start text-xs pt-1">
+          <div class="space-y-0.5">
+            <p><span class="inline-block w-20 text-slate-500">Nomor</span>: <span id="docNomorSurat" class="font-bold font-mono">081/SK.SIMPIN/XI/2026</span></p>
+            <p><span class="inline-block w-20 text-slate-500">Lampiran</span>: <span>1 (satu) Berkas</span></p>
+            <p><span class="inline-block w-20 text-slate-500">Perihal</span>: <span class="font-bold underline">Permohonan Pinjaman Kredit Tunai</span></p>
+          </div>
+          <div class="text-right text-xs">
+            <p>Jakarta, <span id="docTanggalSurat" class="font-medium">-</span></p>
+            <p class="text-slate-500">Kepada Yth. Pengurus Koperasi SA</p>
+          </div>
+        </div>
+
+        <!-- BAGIAN 1: DATA PEMOHON -->
+        <div class="space-y-2">
+          <p class="font-bold text-xs uppercase bg-slate-100 px-3 py-1 rounded">I. Data Pribadi Pemohon</p>
+          <table class="w-full text-xs">
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="py-1.5 text-slate-500 w-36 sm:w-48">1. Nama Lengkap</td>
+                <td class="py-1.5 font-bold" id="docPemohonNama">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">2. NIK / No. Karyawan</td>
+                <td class="py-1.5 font-semibold" id="docPemohonNik">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">3. Jabatan / Unit Kerja</td>
+                <td class="py-1.5 font-medium" id="docPemohonUnit">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">4. Kantor Cabang / Lokasi</td>
+                <td class="py-1.5 font-medium" id="docPemohonCabang">Bandara Internasional Halim Perdanakusuma (HLP)</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">5. Penghasilan Gaji Bulanan</td>
+                <td class="py-1.5 font-bold" id="docPemohonGaji">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">6. Alamat Tempat Tinggal</td>
+                <td class="py-1.5 text-slate-800" id="docPemohonAlamat">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">7. Nomor Telepon / HP</td>
+                <td class="py-1.5 font-medium" id="docPemohonTelepon">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BAGIAN 2: RINCIAN FASILITAS PINJAMAN -->
+        <div class="space-y-2">
+          <p class="font-bold text-xs uppercase bg-slate-100 px-3 py-1 rounded">II. Rincian Fasilitas Kredit Tunai Yang Diajukan</p>
+          <table class="w-full text-xs">
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="py-1.5 text-slate-500 w-36 sm:w-48">1. Jumlah Plafon Pinjaman</td>
+                <td class="py-1.5 font-black text-indigo-700" id="docJumlahPinjaman">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">2. Jangka Waktu (Tenor)</td>
+                <td class="py-1.5 font-bold" id="docTenorPinjaman">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">3. Tarif Jasa / Suku Bunga Flat</td>
+                <td class="py-1.5 font-bold" id="docBungaPinjaman">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">4. Total Kewajiban Pelunasan</td>
+                <td class="py-1.5 font-extrabold" id="docTotalKewajiban">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">5. Angsuran Cicilan per Bulan</td>
+                <td class="py-1.5 font-black text-emerald-700" id="docCicilanBulanan">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">6. Jadwal Pemotongan Gaji (TMT)</td>
+                <td class="py-1.5 font-semibold" id="docJadwalTmt">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">7. Rekening Pencairan Bank</td>
+                <td class="py-1.5 font-semibold text-slate-900" id="docRekeningTujuan">-</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-slate-500">8. Keperluan Pengajuan</td>
+                <td class="py-1.5 italic text-slate-800" id="docKeperluanPinjaman">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PERNYATAAN PEMOHON -->
+        <div class="text-[11px] text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200/80 leading-relaxed">
+          <p>Dengan ini saya menyatakan bahwa data yang diisi di atas adalah benar dan dapat dipertanggungjawabkan. Saya memberi kuasa kepada bendahara / juru bayar gaji untuk melakukan pemotongan gaji rutin bulanan saya setiap tanggal pembayaran gaji sampai kewajiban pinjaman ini lunas.</p>
+        </div>
+
+        <!-- 5 BLOK TANDA TANGAN RESMI (PERSIS FORMULIR MAULANA HADY.XLSX) -->
+        <div class="pt-4 border-t border-slate-200">
+          <p class="text-center font-bold text-xs uppercase mb-3">Tanda Tangan Pengesahan Formulir</p>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center text-xs">
+            
+            <!-- 1. Pemohon -->
+            <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-12 flex flex-col justify-between">
+              <p class="font-semibold text-slate-600">Pemohon,</p>
+              <div>
+                <p id="signNamaPemohon" class="font-bold underline text-slate-900">-</p>
+                <p class="text-[10px] text-slate-500">Anggota Koperasi SA</p>
+              </div>
+            </div>
+
+            <!-- 2. Mengetahui / Penjamin -->
+            <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-12 flex flex-col justify-between">
+              <p class="font-semibold text-slate-600">Mengetahui / Penjamin,</p>
+              <div>
+                <p class="font-bold underline text-slate-900">( ........................................ )</p>
+                <p class="text-[10px] text-slate-500">Suami / Istri / Penjamin</p>
+              </div>
+            </div>
+
+            <!-- 3. Diperiksa PIC Simpin -->
+            <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-12 flex flex-col justify-between">
+              <div class="space-y-0.5">
+                <p class="font-semibold text-slate-600">Diperiksa oleh,</p>
+                <span id="badgeSignPic" class="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">VERIFIED</span>
+              </div>
+              <div>
+                <p id="signNamaPic" class="font-bold underline text-slate-900">Lukman Harun Lubis</p>
+                <p class="text-[10px] text-slate-500">PIC Simpin Satya Ardhia</p>
+              </div>
+            </div>
+
+            <!-- 4. Menyetujui Ketua Koperasi -->
+            <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-12 flex flex-col justify-between">
+              <div class="space-y-0.5">
+                <p class="font-semibold text-slate-600">Menyetujui,</p>
+                <span id="badgeSignKetua" class="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">APPROVED</span>
+              </div>
+              <div>
+                <p id="signNamaKetua" class="font-bold underline text-slate-900">Fathi Mubarak</p>
+                <p class="text-[10px] text-slate-500">Ketua Koperasi Satya Ardhia</p>
+              </div>
+            </div>
+
+            <!-- 5. Dibukukan Financial -->
+            <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-12 flex flex-col justify-between col-span-2 sm:col-span-1">
+              <div class="space-y-0.5">
+                <p class="font-semibold text-slate-600">Dibukukan / Dibayarkan,</p>
+                <span id="badgeSignFinancial" class="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">PAID / DISBURSED</span>
+              </div>
+              <div>
+                <p id="signNamaFinancial" class="font-bold underline text-slate-900">Sri Wahyuningsih</p>
+                <p class="text-[10px] text-slate-500">Financial / Keuangan SA</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- FOOTER CATATAN PENCAIRAN -->
+        <div id="docDisbursementInfo" class="hidden text-[11px] text-slate-600 border-t border-slate-200 pt-3 flex justify-between">
+          <span>No. Referensi Pencairan: <strong id="docDisbRef">-</strong></span>
+          <span>Tanggal Pencairan: <strong id="docDisbDate">-</strong></span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL KELOLA REKENING BANK & PENGAJUAN GANTI REKENING -->
+  <div id="modalMemberBankAccount" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-8 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base">Rekening Bank Anggota</h3>
+            <p class="text-xs text-slate-500">Pengamanan data rekening untuk pencairan pinjaman & simpanan</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeBankAccountModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Rekening Aktif Saat Ini Card -->
+      <div class="bg-gradient-to-br from-indigo-900 to-slate-900 p-5 rounded-2xl text-white space-y-3 relative overflow-hidden shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Rekening Utama Terdaftar</span>
+          <span id="modalAccVerifiedBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30">
+            VERIFIED
+          </span>
+        </div>
+        <div>
+          <p id="modalAccBankName" class="text-sm font-bold text-slate-300">Bank BSI / Mandiri</p>
+          <p id="modalAccNumber" class="text-xl sm:text-2xl font-mono font-black tracking-wider text-white">---- ---- ---- ----</p>
+        </div>
+        <div class="flex justify-between items-center text-xs text-indigo-200 pt-1">
+          <span id="modalAccHolderName" class="font-bold text-white uppercase">-</span>
+          <span id="modalAccVerifiedDate" class="text-[10px] text-slate-400">-</span>
+        </div>
+      </div>
+
+      <!-- Form Pengajuan Penggantian Rekening -->
+      <div class="space-y-4 pt-1">
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-slate-900 text-sm">Ajukan Perubahan Rekening Alternatif</h4>
+          <span class="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">Verifikasi Admin Wajib</span>
+        </div>
+
+        <form onsubmit="handleRequestBankChangeSubmit(event)" class="space-y-3">
+          <div class="grid grid-cols-3 gap-2.5">
+            <input type="text" id="reqBankBaru" placeholder="Bank Baru (BCA/BSI)" required class="col-span-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-indigo-500">
+            <input type="text" id="reqRekeningBaru" placeholder="Nomor Rekening Baru" required class="col-span-2 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          <input type="text" id="reqAtasNamaBaru" placeholder="Atas Nama Pemilik Rekening Baru" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-indigo-500">
+
+          <div>
+            <textarea id="reqAlasanBank" rows="2" placeholder="Alasan penggantian rekening (misal: Rekening lama tidak aktif / ganti bank payroll)..." required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
+          </div>
+
+          <button type="submit" id="btnSubmitBankChange" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Kirim Permohonan Penggantian Rekening</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Antrean Review Admin (Khusus Admin) -->
+      <div id="panelAdminBankChangeQueue" class="hidden border-t border-slate-200 pt-4 space-y-3">
+        <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-purple-600"></i>
+          <span>Antrean Permohonan Ganti Rekening (Admin Only)</span>
+        </h4>
+        <div id="containerAdminBankChangeList" class="space-y-2.5 max-h-48 overflow-y-auto">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL INPUT PENCAIRAN PINJAMAN (Khusus Financial / Admin) -->
+  <div id="modalDisburseLoan" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 my-8 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i data-lucide="banknote" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base">Proses Pencairan Pinjaman</h3>
+            <p class="text-xs text-slate-500">Konfirmasi transfer bank ke rekening anggota</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeDisburseModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs space-y-1">
+        <p><span class="text-slate-500">No. Surat:</span> <strong id="disbDocNo">-</strong></p>
+        <p><span class="text-slate-500">Penerima:</span> <strong id="disbPenerimaNama">-</strong> (<span id="disbPenerimaNik">-</span>)</p>
+        <p><span class="text-slate-500">Nominal:</span> <strong id="disbNominalDisplay" class="text-emerald-700 font-bold">-</strong></p>
+        <p><span class="text-slate-500">Rekening Tujuan:</span> <strong id="disbRekeningDisplay">-</strong></p>
+      </div>
+
+      <form onsubmit="handleConfirmDisbursement(event)" class="space-y-3.5">
+        <input type="hidden" id="disbTargetLoanId">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Pencairan <span class="text-red-500">*</span></label>
+          <input type="date" id="disbTanggal" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Referensi Bank / Bukti Transfer <span class="text-red-500">*</span></label>
+          <input type="text" id="disbNoRef" placeholder="Contoh: REF-BSI-20261109-0012" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Link Bukti Transfer (Opsional)</label>
+          <input type="url" id="disbBuktiUrl" placeholder="https://..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Catatan Tambahan</label>
+          <textarea id="disbCatatan" rows="2" placeholder="Catatan pencairan dana tunai..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+
+        <button type="submit" id="btnConfirmDisb" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-200 transition flex items-center justify-center gap-2">
+          <i data-lucide="check-check" class="w-4 h-4"></i>
+          <span>Konfirmasi Dana Telah Dicairkan</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
   <script>
     const API_BASE = '';
     let currentUser = null;
@@ -2181,6 +3207,70 @@
         if (urlStr.includes('/api/operasional/status-today')) {
           const u = new URL(urlStr, window.location.href);
           return callGas('getOperasionalStatusToday', u.searchParams.get('role'), u.searchParams.get('nik'));
+        }
+
+        // Bridge Simpanan Sukarela
+        if (urlStr.includes('/api/simpanan/summary')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getSimpananSummary', u.searchParams.get('nik'), u.searchParams.get('role'), u.searchParams.get('targetNik'));
+        }
+        if (urlStr.includes('/api/simpanan/transactions/reversal')) return callGas('submitSimpananReversal', body);
+        if (urlStr.includes('/api/simpanan/transactions') && method === 'POST') return callGas('submitSimpananTransaction', body);
+        if (urlStr.includes('/api/simpanan/transactions')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getSimpananTransactions', u.searchParams.get('nik'), u.searchParams.get('role'), u.searchParams.get('targetNik'), u.searchParams.get('page'), u.searchParams.get('limit'), u.searchParams.get('search'));
+        }
+        if (urlStr.includes('/api/simpanan/rules') && method === 'POST') return callGas('saveSimpananRule', body);
+        if (urlStr.includes('/api/simpanan/rules')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getSimpananRules', u.searchParams.get('nik'), u.searchParams.get('role'));
+        }
+        if (urlStr.includes('/api/simpanan/approvals/review')) return callGas('reviewSimpananApproval', body);
+        if (urlStr.includes('/api/simpanan/approvals')) return callGas('getSimpananApprovals');
+        if (urlStr.includes('/api/simpanan/auto-input/run')) return callGas('runSimpananAutoInputScheduler', body.forceRun);
+
+        // Bridge Pinjaman Koperasi
+        if (urlStr.includes('/api/loans/rates')) return callGas('getLoanRates');
+        if (urlStr.includes('/api/loans/simulate')) return callGas('simulateLoanCalculation', body.plafon, body.tenor);
+        if (urlStr.includes('/api/loans/apply')) return callGas('applyLoanRequest', body);
+        if (urlStr.includes('/api/loans/my-applications')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getMyLoanApplications', u.searchParams.get('nik'));
+        }
+        if (urlStr.includes('/api/loans/all')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getAllLoanRequests', u.searchParams.get('role'), u.searchParams.get('status'), u.searchParams.get('search'));
+        }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/document/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/document/);
+          return callGas('getLoanDocumentData', m ? m[1] : '');
+        }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/review-pic/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/review-pic/);
+          return callGas('reviewLoanPic', { loanId: m ? m[1] : '', ...body });
+        }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/review-chairman/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/review-chairman/);
+          return callGas('reviewLoanChairman', { loanId: m ? m[1] : '', ...body });
+        }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/disburse/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/disburse/);
+          return callGas('disburseLoan', { loanId: m ? m[1] : '', ...body });
+        }
+
+        // Bridge Bank Accounts
+        if (urlStr.includes('/api/bank-accounts/me')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getMyBankAccounts', u.searchParams.get('nik'));
+        }
+        if (urlStr.includes('/api/bank-accounts/change-request')) return callGas('requestBankAccountChange', body);
+        if (urlStr.match(/\/api\/bank-accounts\/requests\/[^\/]+\/review/)) {
+          const m = urlStr.match(/\/api\/bank-accounts\/requests\/([^\/]+)\/review/);
+          return callGas('reviewBankAccountRequest', { reqId: m ? m[1] : '', ...body });
+        }
+        if (urlStr.includes('/api/bank-accounts/requests')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getBankAccountRequests', u.searchParams.get('role'));
         }
 
         return originalFetch(url, options);
@@ -2538,6 +3628,7 @@
       if (s.includes('ketua')) return 'ketua koperasi';
       if (s.includes('admin')) return 'admin';
       if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+      if (s.includes('pic simpin') || s.includes('pic-simpin') || s.includes('simpin')) return 'pic simpin';
       if (s.includes('pengurus')) return 'pengurus';
       if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
       if (s.includes('air-minum') || s.includes('air minum') || s.includes('air_minum') || s.includes('airminum') || s.includes('kurir air')) return 'air-minum-sender';
@@ -2548,6 +3639,7 @@
     function isRoleKetua(r) { return normalizeRole(r) === 'ketua koperasi'; }
     function isRolePengurus(r) { return normalizeRole(r) === 'pengurus'; }
     function isRoleFinancial(r) { return normalizeRole(r) === 'financial'; }
+    function isRolePicSimpin(r) { return normalizeRole(r) === 'pic simpin'; }
     function isRolePegawai(r) { return normalizeRole(r) === 'pegawai'; }
     function isRoleExecutiveCar(r) { return normalizeRole(r) === 'executive car'; }
     function isRoleAirMinumSender(r) { return normalizeRole(r) === 'air-minum-sender'; }
@@ -2588,6 +3680,8 @@
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-700 uppercase";
       } else if (role === 'executive car') {
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase";
+      } else if (role === 'pic simpin') {
+        roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase";
       } else if (role === 'air-minum-sender') {
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 uppercase";
       } else {
@@ -2648,6 +3742,41 @@
         }
       }
 
+      // Tab Saldo & Pinjaman Aktif Untuk Seluruh Anggota & Pengurus
+      const tabSimpananBtn = document.getElementById('tabSimpananBtn');
+      const tabPinjamanBtn = document.getElementById('tabPinjamanBtn');
+      if (tabSimpananBtn) {
+        tabSimpananBtn.style.display = 'inline-flex';
+        tabSimpananBtn.disabled = false;
+      }
+      if (tabPinjamanBtn) {
+        tabPinjamanBtn.style.display = 'inline-flex';
+        tabPinjamanBtn.disabled = false;
+      }
+
+      // Panel Financial di Tab Simpanan
+      const panelFinSimpanan = document.getElementById('panelFinancialSimpananContainer');
+      const panelSimpTable = document.getElementById('panelSimpananTableContainer');
+      if (panelFinSimpanan && panelSimpTable) {
+        if (role === 'financial' || role === 'admin') {
+          panelFinSimpanan.classList.remove('hidden');
+          panelSimpTable.className = "lg:col-span-2 space-y-6";
+        } else {
+          panelFinSimpanan.classList.add('hidden');
+          panelSimpTable.className = "lg:col-span-3 space-y-6";
+        }
+      }
+
+      // Panel Seluruh Pinjaman di Tab Pinjaman
+      const panelAllLoans = document.getElementById('panelAllLoansTableContainer');
+      if (panelAllLoans) {
+        if (role === 'pic simpin' || role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
+          panelAllLoans.classList.remove('hidden');
+        } else {
+          panelAllLoans.classList.add('hidden');
+        }
+      }
+
       lucide.createIcons();
       switchTab('tracking');
     }
@@ -2679,8 +3808,14 @@
       document.getElementById('viewAbsensi').classList.toggle('hidden', tab !== 'absensi');
       const viewOps = document.getElementById('viewOperasional');
       if (viewOps) viewOps.classList.toggle('hidden', tab !== 'operasional');
+      const viewSimp = document.getElementById('viewSimpanan');
+      if (viewSimp) viewSimp.classList.toggle('hidden', tab !== 'simpanan');
+      const viewPinj = document.getElementById('viewPinjaman');
+      if (viewPinj) viewPinj.classList.toggle('hidden', tab !== 'pinjaman');
 
       const trackBtn = document.getElementById('tabTrackBtn');
+      const simpananBtn = document.getElementById('tabSimpananBtn');
+      const pinjamanBtn = document.getElementById('tabPinjamanBtn');
       const formBtn = document.getElementById('tabFormBtn');
       const usersBtn = document.getElementById('tabUsersBtn');
       const absensiBtn = document.getElementById('tabAbsensiBtn');
@@ -2690,12 +3825,16 @@
       const inactiveClass = "items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap transition-all";
 
       trackBtn.className = (tab === 'tracking' ? activeClass : inactiveClass) + " flex";
+      if (simpananBtn) simpananBtn.className = (tab === 'simpanan' ? activeClass : inactiveClass) + " flex";
+      if (pinjamanBtn) pinjamanBtn.className = (tab === 'pinjaman' ? activeClass : inactiveClass) + " flex";
       if (absensiBtn) absensiBtn.className = (tab === 'absensi' ? activeClass : inactiveClass) + " flex";
       if (operasionalBtn) operasionalBtn.className = (tab === 'operasional' ? activeClass : inactiveClass) + " flex";
       if (formBtn) formBtn.className = (tab === 'form' ? activeClass : inactiveClass) + " flex";
       if (usersBtn) usersBtn.className = (tab === 'users' ? activeClass : inactiveClass) + " flex";
 
       if (tab === 'tracking') fetchData();
+      if (tab === 'simpanan') loadSimpananData();
+      if (tab === 'pinjaman') loadPinjamanData();
       if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi')) fetchUsersList();
       if (tab === 'absensi') onEnterAbsensiTab();
       else onLeaveAbsensiTab();
@@ -6153,6 +7292,1342 @@ _Dicatat otomatis melalui Portal Koperasi Satya Ardhia_`;
         showToast('Koneksi server gagal: ' + err.message, true);
       }
     }
+
+// ==========================================
+// MODUL SIMPANAN SUKARELA & PINJAMAN KOPERASI (CLIENT LOGIC)
+// ==========================================
+
+let simpananSummaryData = null;
+let simpananTransactionsList = [];
+let simpananTotalCount = 0;
+let currentSimpananPage = 1;
+let simpananSearchQuery = '';
+let simpananFilterJenis = '';
+
+let loanRatesData = [];
+let currentSimPlafon = 10000000;
+let currentSimTenor = 10;
+let currentSimulationResult = null;
+let myLoansList = [];
+let allLoansList = [];
+let currentMyBankAccounts = [];
+
+// Helper Format Rupiah
+function formatRupiahNumber(num) {
+  const val = parseInt(String(num || '0').replace(/[^0-9-]/g, ''), 10) || 0;
+  return 'Rp ' + val.toLocaleString('id-ID');
+}
+
+function formatRupiahInput(input) {
+  const clean = input.value.replace(/[^0-9]/g, '');
+  if (!clean) {
+    input.value = '';
+    return;
+  }
+  const val = parseInt(clean, 10);
+  input.value = val.toLocaleString('id-ID');
+}
+
+function parseRupiahInput(val) {
+  return parseInt(String(val || '0').replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+// ----------------------------------------------------
+// 1. LOGIK TAB SALDO / PENYIMPANAN SUKARELA
+// ----------------------------------------------------
+
+async function loadSimpananData() {
+  if (!currentUser) return;
+  await Promise.all([
+    fetchSimpananSummary(),
+    fetchSimpananTransactions(1),
+    fetchUsersForSimpananDropdown()
+  ]);
+
+  const role = normalizeRole(currentUser.role);
+  if (role === 'ketua koperasi' || role === 'admin') {
+    fetchSimpananApprovals();
+  }
+}
+
+function refreshSimpananData() {
+  showToast('Memperbarui data simpanan sukarela...');
+  loadSimpananData();
+}
+
+async function fetchSimpananSummary() {
+  try {
+    const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+    const nik = currentUser.nik || currentUser.username;
+    const res = await fetch(`${API_BASE}/api/simpanan/summary?nik=${encodeURIComponent(nik)}&role=${encodeURIComponent(role)}`);
+    const data = await res.json();
+
+    if (data.success && data.member) {
+      simpananSummaryData = data;
+      renderSimpananSummary(data);
+    }
+  } catch (err) {
+    console.warn('Gagal memuat ringkasan simpanan:', err.message);
+  }
+}
+
+function renderSimpananSummary(data) {
+  const mem = data.member || {};
+  document.getElementById('cardTotalSaldoSukarela').innerText = formatRupiahNumber(mem.saldo || 0);
+  document.getElementById('cardSetoranBulanIni').innerText = formatRupiahNumber(mem.totalSetoranBulanIni || 0);
+
+  // Auto-Input Rule
+  const rule = data.rule;
+  if (rule && rule.nominalRutin > 0) {
+    document.getElementById('cardNominalRutin').innerText = formatRupiahNumber(rule.nominalRutin);
+    document.getElementById('cardStatusAutoInput').innerHTML = `<i data-lucide="check-circle" class="w-3 h-3 text-emerald-600"></i> Aktif (Setiap tgl ${rule.tanggalEksekusi || '25'})`;
+  } else {
+    document.getElementById('cardNominalRutin').innerText = 'Rp 0';
+    document.getElementById('cardStatusAutoInput').innerHTML = `<i data-lucide="info" class="w-3 h-3 text-slate-400"></i> Belum ada jadwal auto-input`;
+  }
+
+  // Role Officer: Agregat Koperasi
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const isOfficer = role === 'financial' || role === 'admin' || role === 'ketua koperasi';
+
+  const panelAgregat = document.getElementById('panelAgregatSimpananKoperasi');
+  if (isOfficer && data.overall) {
+    panelAgregat.classList.remove('hidden');
+    document.getElementById('grandTotalSaldoText').innerText = formatRupiahNumber(data.overall.grandTotalSaldo || 0);
+    document.getElementById('grandTotalAnggotaText').innerText = data.overall.totalAnggotaMenabung || 0;
+
+    document.getElementById('cardLabelFourthStat').innerText = 'Saldo Koperasi SA';
+    document.getElementById('cardFourthStatValue').innerText = formatRupiahNumber(data.overall.grandTotalSaldo || 0);
+    document.getElementById('cardFourthStatSub').innerHTML = `<i data-lucide="users" class="w-3 h-3"></i> ${data.overall.totalAnggotaMenabung} Anggota menabung`;
+  } else {
+    panelAgregat.classList.add('hidden');
+    document.getElementById('cardLabelFourthStat').innerText = 'Total Mutasi';
+    document.getElementById('cardFourthStatValue').innerText = `${mem.mutasiCount || 0} Transaksi`;
+    document.getElementById('cardFourthStatSub').innerHTML = `<i data-lucide="history" class="w-3 h-3"></i> Mutasi pribadi`;
+  }
+
+  lucide.createIcons();
+}
+
+async function fetchSimpananTransactions(page = 1) {
+  try {
+    const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+    const nik = currentUser.nik || currentUser.username;
+    currentSimpananPage = page;
+
+    let url = `${API_BASE}/api/simpanan/transactions?nik=${encodeURIComponent(nik)}&role=${encodeURIComponent(role)}&page=${page}&limit=20`;
+    if (simpananSearchQuery) url += `&search=${encodeURIComponent(simpananSearchQuery)}`;
+
+    const res = await fetch(url);
+    const result = await res.json();
+
+    if (result.success) {
+      simpananTransactionsList = result.data || [];
+      simpananTotalCount = result.totalCount || 0;
+      renderSimpananLedgerTable(simpananTransactionsList, result.page, result.totalPages);
+    }
+  } catch (err) {
+    console.warn('Gagal memuat daftar mutasi simpanan:', err.message);
+  }
+}
+
+function renderSimpananLedgerTable(items, page, totalPages) {
+  const tbody = document.getElementById('tbodySimpananLedger');
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const canReverse = role === 'financial' || role === 'admin';
+
+  const thAction = document.getElementById('thActionSimpanan');
+  if (thAction) thAction.style.display = canReverse ? 'table-cell' : 'none';
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${canReverse ? 9 : 8}" class="py-8 text-center text-slate-400">Tidak ada riwayat mutasi simpanan sukarela.</td></tr>`;
+    document.getElementById('simpananPaginationInfo').innerText = 'Menampilkan 0 data';
+    document.getElementById('simpananPaginationBtns').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = items.map(item => {
+    const isCredit = item.jenis === 'SETORAN' || item.jenis === 'OPENING_BALANCE';
+    const isDebit = item.jenis === 'PENARIKAN';
+    const isReversed = item.status === 'REVERSED';
+
+    const jenisBadge = isCredit ?
+      '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">SETORAN</span>' :
+      (isDebit ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800">PENARIKAN</span>' :
+      '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">KOREKSI</span>');
+
+    const statusBadge = isReversed ?
+      '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 line-through">REVERSED</span>' :
+      '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">POSTED</span>';
+
+    const nominalColor = isReversed ? 'text-slate-400 line-through' : (isCredit ? 'text-emerald-700 font-bold' : (isDebit ? 'text-red-600 font-bold' : 'text-blue-700 font-bold'));
+    const nominalSign = isCredit ? '+' : (isDebit ? '-' : '');
+
+    const reverseBtn = (canReverse && !isReversed && item.sumber !== 'SYSTEM_SCHEDULER') ?
+      `<button onclick="handleReverseTransaction('${item.txId}')" class="px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-semibold text-[11px] transition" title="Batalkan / Koreksi Transaksi">Reversal</button>` :
+      '-';
+
+    return `
+      <tr class="hover:bg-slate-50/70 transition">
+        <td class="py-3 px-4 text-slate-600 whitespace-nowrap">${item.timestamp || item.tanggal}</td>
+        <td class="py-3 px-4 font-mono font-semibold text-slate-800">${item.txId}</td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900">${item.nama}</p>
+          <p class="text-[10px] text-slate-400">${item.nik} ${item.unit ? '· ' + item.unit : ''}</p>
+        </td>
+        <td class="py-3 px-4">
+          ${jenisBadge}
+          <p class="text-[10px] text-slate-400 mt-0.5">${item.sumber}</p>
+        </td>
+        <td class="py-3 px-4 text-right ${nominalColor}">
+          ${nominalSign}${formatRupiahNumber(item.nominal)}
+        </td>
+        <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">
+          ${formatRupiahNumber(item.saldoSesudahnya)}
+        </td>
+        <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${item.keterangan}">
+          <p class="truncate">${item.keterangan || '-'}</p>
+          ${item.refPembayaran && item.refPembayaran !== '-' ? `<p class="text-[10px] text-slate-400">Ref: ${item.refPembayaran}</p>` : ''}
+        </td>
+        <td class="py-3 px-4 text-center">${statusBadge}</td>
+        ${canReverse ? `<td class="py-3 px-4 text-center">${reverseBtn}</td>` : ''}
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('simpananPaginationInfo').innerText = `Menampilkan ${items.length} dari ${simpananTotalCount} mutasi`;
+
+  // Render pagination buttons
+  let pBtns = '';
+  if (page > 1) {
+    pBtns += `<button onclick="fetchSimpananTransactions(${page - 1})" class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs">Prev</button>`;
+  }
+  pBtns += `<span class="px-3 py-1 font-semibold text-xs text-slate-700">Hal ${page} dari ${totalPages || 1}</span>`;
+  if (page < totalPages) {
+    pBtns += `<button onclick="fetchSimpananTransactions(${page + 1})" class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs">Next</button>`;
+  }
+  document.getElementById('simpananPaginationBtns').innerHTML = pBtns;
+}
+
+function handleSearchSimpanan(q) {
+  simpananSearchQuery = q;
+  fetchSimpananTransactions(1);
+}
+
+function handleFilterSimpananJenis(val) {
+  simpananFilterJenis = val;
+  if (!val) {
+    renderSimpananLedgerTable(simpananTransactionsList, currentSimpananPage, Math.ceil(simpananTotalCount / 20));
+  } else {
+    const filtered = simpananTransactionsList.filter(x => x.jenis === val);
+    renderSimpananLedgerTable(filtered, 1, 1);
+  }
+}
+
+async function fetchUsersForSimpananDropdown() {
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  if (role !== 'financial' && role !== 'admin' && role !== 'ketua koperasi') return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/users?role=${encodeURIComponent(currentUser.role)}`);
+    const users = await res.json();
+
+    if (Array.isArray(users)) {
+      const targetSel = document.getElementById('simpananTargetNik');
+      const ruleSel = document.getElementById('ruleTargetNik');
+
+      const options = users.map(u => `<option value="${u.nik || u.username}" data-nama="${u.namaLengkap || u.username}" data-unit="${u.unitKerja || ''}">${u.namaLengkap || u.username} (${u.nik || u.username})</option>`).join('');
+
+      if (targetSel) targetSel.innerHTML = '<option value="">-- Pilih Anggota Koperasi --</option>' + options;
+      if (ruleSel) ruleSel.innerHTML = '<option value="">-- Pilih Anggota --</option>' + options;
+    }
+  } catch (e) {
+    console.warn('Gagal memuat list users untuk simpanan dropdown:', e.message);
+  }
+}
+
+function handleSelectMemberForSimpanan(nik) {
+  // Can be used for instant balance preview
+}
+
+async function handleSimpananManualSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const targetSel = document.getElementById('simpananTargetNik');
+  const selectedOpt = targetSel.options[targetSel.selectedIndex];
+  const nik = targetSel.value;
+  const nama = selectedOpt.getAttribute('data-nama') || selectedOpt.text;
+  const unitKerja = selectedOpt.getAttribute('data-unit') || '';
+
+  const jenisTransaksi = document.getElementById('simpananJenisTransaksi').value;
+  const tanggal = document.getElementById('simpananTanggal').value;
+  const nominal = parseRupiahInput(document.getElementById('simpananNominal').value);
+  const refPembayaran = document.getElementById('simpananRef').value;
+  const keterangan = document.getElementById('simpananKeterangan').value;
+
+  if (!nominal || nominal <= 0) {
+    showToast('Nominal harus lebih dari 0.', true);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitSimpananManual');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="inline-block animate-spin mr-1"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Membukukan...`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nik,
+        nama,
+        unitKerja,
+        jenisTransaksi,
+        nominal,
+        tanggal,
+        refPembayaran,
+        keterangan,
+        createdByNik: currentUser.nik || currentUser.username,
+        createdByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        createdByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Transaksi simpanan berhasil dicatat!');
+      e.target.reset();
+      refreshSimpananData();
+    } else {
+      showToast(data.message || 'Gagal membukukan transaksi.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>Bukukan ke Ledger</span>`;
+    lucide.createIcons();
+  }
+}
+
+async function handleReverseTransaction(txId) {
+  if (!currentUser) return;
+  const reason = window.prompt(`Masukkan alasan pembatalan / koreksi transaksi ${txId}:`);
+  if (!reason || !reason.trim()) return;
+
+  showToast('Memproses pembatalan transaksi...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/transactions/reversal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        txId,
+        reason: reason.trim(),
+        createdByNik: currentUser.nik || currentUser.username,
+        createdByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        createdByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Transaksi berhasil dibatalkan!');
+      refreshSimpananData();
+    } else {
+      showToast(data.message || 'Gagal membatalkan transaksi.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+async function handleSimpananRuleSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const ruleSel = document.getElementById('ruleTargetNik');
+  const selectedOpt = ruleSel.options[ruleSel.selectedIndex];
+  const nik = ruleSel.value;
+  const namaAnggota = selectedOpt.getAttribute('data-nama') || selectedOpt.text;
+  const unitKerja = selectedOpt.getAttribute('data-unit') || '';
+  const nominalRutin = parseRupiahInput(document.getElementById('ruleNominalRutin').value);
+  const tanggalEksekusi = document.getElementById('ruleTglEksekusi').value;
+
+  if (!nominalRutin || nominalRutin <= 0) {
+    showToast('Nominal rutin harus lebih dari 0.', true);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitRule');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nik,
+        namaAnggota,
+        unitKerja,
+        nominalRutin,
+        tanggalEksekusi,
+        keterangan: 'Pemotongan rutin simpanan sukarela',
+        createdByNik: currentUser.nik || currentUser.username,
+        createdByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        createdByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Aturan auto-input berhasil disimpan!');
+      e.target.reset();
+      refreshSimpananData();
+    } else {
+      showToast(data.message || 'Gagal menyimpan aturan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function fetchSimpananApprovals() {
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/approvals?role=${encodeURIComponent(currentUser.role)}`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.approvals)) {
+      const pendingList = data.approvals.filter(a => a.status === 'PENDING');
+      const container = document.getElementById('containerPendingSimpananApprovals');
+      const badge = document.getElementById('badgePendingSimpananCount');
+      const panel = document.getElementById('panelKetuaSimpananApproval');
+
+      badge.innerText = `${pendingList.length} Pending`;
+      if (pendingList.length > 0) {
+        panel.classList.remove('hidden');
+        container.innerHTML = pendingList.map(a => {
+          let nominalBaru = '-';
+          try {
+            const b = JSON.parse(a.baru || '{}');
+            nominalBaru = formatRupiahNumber(b.nominalRutin);
+          } catch (e) {}
+
+          return `
+            <div class="bg-white p-3.5 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div>
+                <p class="font-bold text-slate-900 text-xs">${a.namaAnggota} (${a.nik})</p>
+                <p class="text-[11px] text-slate-500">Usulan Nominal Baru: <strong class="text-emerald-700">${nominalBaru}</strong> · Diajukan oleh: ${a.diajukanOlehNama}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="handleReviewSimpananApproval('${a.approvalId}', 'APPROVE')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition">Setujui</button>
+                <button onclick="handleReviewSimpananApproval('${a.approvalId}', 'REJECT')" class="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition">Tolak</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal memuat antrean approval simpanan:', err.message);
+  }
+}
+
+async function handleReviewSimpananApproval(approvalId, action) {
+  if (!currentUser) return;
+  const catatan = window.prompt(`Catatan review untuk ${action} usulan ${approvalId}:`) || '-';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/approvals/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approvalId,
+        action,
+        catatan,
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Persetujuan auto-input berhasil diproses!');
+      refreshSimpananData();
+    } else {
+      showToast(data.message || 'Gagal memproses persetujuan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+async function triggerRunAutoInputScheduler() {
+  if (!currentUser) return;
+  if (!window.confirm('Apakah Anda yakin ingin menjalankan scheduler pemotongan auto-input simpanan sukarela untuk seluruh anggota aktif sekarang?')) return;
+
+  showToast('Menjalankan scheduler auto-input...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/auto-input/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        forceRun: true,
+        triggeredByRole: currentUser.role,
+        triggeredByNama: currentUser.nama || currentUser.username
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Eksekusi auto-input berhasil diselesaikan!');
+      refreshSimpananData();
+    } else {
+      showToast(data.message || 'Gagal mengeksekusi scheduler.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+// ----------------------------------------------------
+// 2. LOGIK TAB PINJAMAN KOPERASI & SIMULATOR
+// ----------------------------------------------------
+
+async function loadPinjamanData() {
+  if (!currentUser) return;
+
+  // Auto-fill form data pemohon
+  document.getElementById('formLoanNamaPemohon').innerText = currentUser.nama || currentUser.namaLengkap || currentUser.username;
+  document.getElementById('formLoanNikPemohon').innerText = `${currentUser.nik || currentUser.username} ${currentUser.unitKerja ? '· ' + currentUser.unitKerja : ''}`;
+
+  await Promise.all([
+    fetchLoanRates(),
+    fetchMyLoans(),
+    fetchMyBankAccount()
+  ]);
+
+  const role = normalizeRole(currentUser.role);
+  if (role === 'pic simpin' || role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
+    fetchAllLoans();
+  }
+
+  // Initialize Simulator with defaults
+  setSimulatorPlafon(10000000);
+}
+
+function refreshLoanData() {
+  showToast('Memperbarui data pinjaman...');
+  loadPinjamanData();
+}
+
+async function fetchLoanRates() {
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/rates`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.rates)) {
+      loanRatesData = data.rates;
+    }
+  } catch (err) {
+    console.warn('Gagal memuat master tarif pinjaman:', err.message);
+  }
+}
+
+function setSimulatorPlafon(amount) {
+  currentSimPlafon = parseInt(amount, 10);
+  document.getElementById('rangePlafon').value = currentSimPlafon;
+  document.getElementById('displaySimPlafon').innerText = formatRupiahNumber(currentSimPlafon);
+
+  // Update quick select buttons state
+  document.querySelectorAll('.btn-plafon-pill').forEach(btn => {
+    const bAmt = parseInt(btn.innerText.replace(/[^0-9]/g, ''), 10) * 1000000;
+    if (bAmt === currentSimPlafon) {
+      btn.className = 'btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 transition';
+    } else {
+      btn.className = 'btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition';
+    }
+  });
+
+  renderTenorButtons(currentSimPlafon);
+  recalculateSimulator();
+}
+
+function onSimulatorPlafonChange(amount) {
+  setSimulatorPlafon(amount);
+}
+
+function renderTenorButtons(plafon) {
+  const container = document.getElementById('containerTenorButtons');
+  const validTenors = plafon <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
+
+  if (!validTenors.includes(currentSimTenor)) {
+    currentSimTenor = validTenors[0];
+  }
+
+  const rateLabels = {
+    10: '11%', 12: '14%', 20: '22%', 24: '28%', 36: '42%', 48: '56%', 60: '70%'
+  };
+
+  container.innerHTML = validTenors.map(t => {
+    const isActive = t === currentSimTenor;
+    const activeClass = "bg-indigo-600 text-white shadow-md shadow-indigo-200 border-indigo-600";
+    const inactiveClass = "bg-white text-slate-700 border-slate-200 hover:border-indigo-400";
+
+    return `
+      <button type="button" onclick="setSimulatorTenor(${t})" class="p-2.5 rounded-xl border text-center transition ${isActive ? activeClass : inactiveClass}">
+        <p class="font-extrabold text-sm">${t} Bulan</p>
+        <p class="text-[10px] ${isActive ? 'text-indigo-100' : 'text-slate-400'} font-medium">Bunga ${rateLabels[t] || ''}</p>
+      </button>
+    `;
+  }).join('');
+}
+
+function setSimulatorTenor(tenor) {
+  currentSimTenor = parseInt(tenor, 10);
+  renderTenorButtons(currentSimPlafon);
+  recalculateSimulator();
+}
+
+function recalculateSimulator() {
+  const p = currentSimPlafon;
+  const t = currentSimTenor;
+  const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+  const rate = rateMap[t] || 0.11;
+
+  const totalBiaya = Math.round(p * rate);
+  const totalKewajiban = p + totalBiaya;
+  const cicilanNormal = Math.round(totalKewajiban / t);
+
+  // Jadwal amortisasi
+  const jadwal = [];
+  let akumulasi = 0;
+  for (let i = 1; i <= t; i++) {
+    if (i === t) {
+      const akhir = totalKewajiban - akumulasi;
+      jadwal.push({ bulanKe: i, angsuran: akhir });
+      akumulasi += akhir;
+    } else {
+      jadwal.push({ bulanKe: i, angsuran: cicilanNormal });
+      akumulasi += cicilanNormal;
+    }
+  }
+
+  currentSimulationResult = {
+    plafon: p,
+    tenor: t,
+    rate,
+    ratePersen: Math.round(rate * 100) + '%',
+    totalBiaya,
+    totalKewajiban,
+    cicilanBulanan: cicilanNormal,
+    cicilanAkhir: jadwal[jadwal.length - 1].angsuran,
+    jadwal
+  };
+
+  document.getElementById('simRateDisplay').innerText = currentSimulationResult.ratePersen;
+  document.getElementById('simTotalBiayaDisplay').innerText = formatRupiahNumber(totalBiaya);
+  document.getElementById('simTotalKewajibanDisplay').innerText = formatRupiahNumber(totalKewajiban);
+  document.getElementById('simCicilanBulananDisplay').innerText = formatRupiahNumber(cicilanNormal);
+
+  if (currentSimulationResult.cicilanAkhir !== cicilanNormal) {
+    document.getElementById('simCicilanAkhirNotice').innerText = `*Bulan ke-${t} disesuaikan menjadi ${formatRupiahNumber(currentSimulationResult.cicilanAkhir)}`;
+  } else {
+    document.getElementById('simCicilanAkhirNotice').innerText = '';
+  }
+
+  // Populate collapse table
+  document.getElementById('tbodySimJadwal').innerHTML = jadwal.map(j => `
+    <tr class="hover:bg-slate-50">
+      <td class="py-1.5 px-3 font-medium">Bulan ke-${j.bulanKe}</td>
+      <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-800">${formatRupiahNumber(j.angsuran)}</td>
+    </tr>
+  `).join('');
+
+  // Sinkronkan ke form pinjaman
+  document.getElementById('formLoanPlafon').value = formatRupiahNumber(p);
+  document.getElementById('formLoanTenor').value = `${t} Bulan (${currentSimulationResult.ratePersen})`;
+}
+
+function toggleJadwalAngsuranModal() {
+  const col = document.getElementById('simJadwalCollapse');
+  col.classList.toggle('hidden');
+}
+
+function applySimulatedValuesToForm() {
+  document.getElementById('formLoanPlafon').value = formatRupiahNumber(currentSimPlafon);
+  document.getElementById('formLoanTenor').value = `${currentSimTenor} Bulan (${currentSimulationResult.ratePersen})`;
+  showToast(`Rincian pinjaman ${formatRupiahNumber(currentSimPlafon)} (${currentSimTenor} Bln) siap diajukan.`);
+  document.getElementById('loanPenghasilan').focus();
+}
+
+async function handleApplyLoanSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const penghasilanBulanan = parseRupiahInput(document.getElementById('loanPenghasilan').value);
+  const noTelepon = document.getElementById('loanTelepon').value;
+  const keperluan = document.getElementById('loanKeperluan').value;
+  const alamat = document.getElementById('loanAlamat').value;
+  const bankNama = document.getElementById('loanBankNama').value;
+  const bankNoRekening = document.getElementById('loanBankRekening').value;
+  const bankAtasNama = document.getElementById('loanBankAtasNama').value;
+
+  if (!penghasilanBulanan || !keperluan || !bankNama || !bankNoRekening || !bankAtasNama) {
+    showToast('Mohon lengkapi seluruh data wajib permohonan pinjaman.', true);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitLoanApply');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="inline-block animate-spin mr-1"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Mengajukan...`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pemohonNik: currentUser.nik || currentUser.username,
+        pemohonNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        pemohonUnit: currentUser.unitKerja || '',
+        penghasilanBulanan,
+        alamat,
+        noTelepon,
+        keperluan,
+        jumlahPinjaman: currentSimPlafon,
+        tenorBulan: currentSimTenor,
+        bankNama,
+        bankNoRekening,
+        bankAtasNama,
+        createdByNik: currentUser.nik || currentUser.username,
+        createdByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        createdByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Permohonan pinjaman berhasil dikirim!');
+      e.target.reset();
+      refreshLoanData();
+      if (data.loanId) {
+        openLoanDocumentModal(data.loanId);
+      }
+    } else {
+      showToast(data.message || 'Gagal mengajukan pinjaman.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="send" class="w-4 h-4"></i><span>Ajukan Permohonan Pinjaman</span>`;
+    lucide.createIcons();
+  }
+}
+
+async function fetchMyLoans() {
+  try {
+    const nik = currentUser.nik || currentUser.username;
+    const res = await fetch(`${API_BASE}/api/loans/my-applications?nik=${encodeURIComponent(nik)}`);
+    const data = await res.json();
+    if (data.success) {
+      myLoansList = data.loans || [];
+      renderMyLoansTable(myLoansList);
+    }
+  } catch (err) {
+    console.warn('Gagal memuat pinjaman saya:', err.message);
+  }
+}
+
+function getWorkflowBadge(status) {
+  const s = String(status || '').toUpperCase();
+  if (s === 'PENDING_PIC_SIMPIN') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Menunggu PIC Simpin</span>';
+  if (s === 'PENDING_KETUA') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">Menunggu Ketua Koperasi</span>';
+  if (s === 'READY_FOR_DISBURSEMENT') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 animate-pulse">Disetujui (Siap Cair)</span>';
+  if (s === 'DISBURSED') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Dana Dicairkan</span>';
+  if (s === 'REVISION_REQUESTED') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800">Perlu Revisi</span>';
+  if (s === 'REJECTED') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-800">Ditolak</span>';
+  return `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${status}</span>`;
+}
+
+function renderMyLoansTable(loans) {
+  const tbody = document.getElementById('tbodyMyLoans');
+  if (!loans || loans.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400">Anda belum memiliki riwayat pengajuan pinjaman.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = loans.map(l => `
+    <tr class="hover:bg-slate-50/70 transition">
+      <td class="py-3 px-4 text-slate-600 whitespace-nowrap">${l.timestamp || l.tanggalPermohonan}</td>
+      <td class="py-3 px-4 font-mono font-bold text-slate-900">${l.nomorSurat}</td>
+      <td class="py-3 px-4 font-bold text-indigo-700">${formatRupiahNumber(l.jumlahPinjaman)}</td>
+      <td class="py-3 px-4 font-medium">${l.tenorBulan} Bln</td>
+      <td class="py-3 px-4 font-bold text-emerald-700">${formatRupiahNumber(l.cicilanBulanan)}</td>
+      <td class="py-3 px-4 text-slate-600">
+        <p class="font-medium">${l.bankNama} · ${l.bankNoRekening}</p>
+        <p class="text-[10px] text-slate-400 font-semibold">${l.bankAtasNama}</p>
+      </td>
+      <td class="py-3 px-4 text-center">${getWorkflowBadge(l.statusWorkflow)}</td>
+      <td class="py-3 px-4 text-center">
+        <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Lihat / Cetak</span>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+  lucide.createIcons();
+}
+
+async function fetchAllLoans() {
+  try {
+    const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+    const res = await fetch(`${API_BASE}/api/loans/all?role=${encodeURIComponent(role)}`);
+    const data = await res.json();
+    if (data.success) {
+      allLoansList = data.loans || [];
+      renderAllLoansTable(allLoansList);
+      renderWorkflowQueues(allLoansList);
+    }
+  } catch (err) {
+    console.warn('Gagal memuat seluruh pinjaman:', err.message);
+  }
+}
+
+function renderAllLoansTable(loans) {
+  const tbody = document.getElementById('tbodyAllLoans');
+  if (!tbody) return;
+
+  if (!loans || loans.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">Tidak ada permohonan pinjaman tercatat.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = loans.map(l => `
+    <tr class="hover:bg-slate-50/70 transition">
+      <td class="py-3 px-4 text-slate-600 whitespace-nowrap">${l.timestamp || l.tanggalPermohonan}</td>
+      <td class="py-3 px-4 font-mono font-bold text-slate-900">${l.nomorSurat}</td>
+      <td class="py-3 px-4">
+        <p class="font-bold text-slate-900">${l.pemohonNama}</p>
+        <p class="text-[10px] text-slate-400">${l.pemohonNik} ${l.pemohonUnit ? '· ' + l.pemohonUnit : ''}</p>
+      </td>
+      <td class="py-3 px-4 font-bold text-indigo-700">${formatRupiahNumber(l.jumlahPinjaman)}</td>
+      <td class="py-3 px-4 font-medium">${l.tenorBulan} Bln</td>
+      <td class="py-3 px-4 font-bold text-emerald-700">${formatRupiahNumber(l.cicilanBulanan)}</td>
+      <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${l.keperluan}">${l.keperluan}</td>
+      <td class="py-3 px-4 text-center">${getWorkflowBadge(l.statusWorkflow)}</td>
+      <td class="py-3 px-4 text-center">
+        <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
+          <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+          <span>Berkas</span>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+  lucide.createIcons();
+}
+
+function handleSearchAllLoans(q) {
+  if (!q) {
+    renderAllLoansTable(allLoansList);
+    return;
+  }
+  const low = q.toLowerCase();
+  const filtered = allLoansList.filter(l =>
+    l.nomorSurat.toLowerCase().includes(low) ||
+    l.pemohonNama.toLowerCase().includes(low) ||
+    l.pemohonNik.toLowerCase().includes(low) ||
+    l.keperluan.toLowerCase().includes(low)
+  );
+  renderAllLoansTable(filtered);
+}
+
+function handleFilterAllLoansStatus(st) {
+  if (!st) {
+    renderAllLoansTable(allLoansList);
+    return;
+  }
+  const filtered = allLoansList.filter(l => l.statusWorkflow.toUpperCase() === st.toUpperCase());
+  renderAllLoansTable(filtered);
+}
+
+function renderWorkflowQueues(loans) {
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+
+  // 1. PIC Simpin Queue
+  const picPending = loans.filter(l => l.statusWorkflow === 'PENDING_PIC_SIMPIN');
+  const panelPic = document.getElementById('panelPicSimpinReview');
+  const badgePic = document.getElementById('badgePicSimpinPendingCount');
+  const containerPic = document.getElementById('containerPicSimpinQueue');
+
+  if (panelPic && (role === 'pic simpin' || role === 'admin')) {
+    badgePic.innerText = `${picPending.length} Pending`;
+    if (picPending.length > 0) {
+      panelPic.classList.remove('hidden');
+      containerPic.innerHTML = picPending.map(l => `
+        <div class="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-mono font-bold text-xs text-emerald-800">${l.nomorSurat}</span>
+              <span class="text-[10px] text-slate-400">· Diajukan: ${l.timestamp}</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-sm">${l.pemohonNama} (${l.pemohonNik})</h4>
+            <p class="text-xs text-slate-600">Plafon: <strong class="text-indigo-700">${formatRupiahNumber(l.jumlahPinjaman)}</strong> · Tenor: <strong>${l.tenorBulan} Bln</strong> · Cicilan: <strong class="text-emerald-700">${formatRupiahNumber(l.cicilanBulanan)}/bln</strong></p>
+            <p class="text-[11px] text-slate-500 italic mt-0.5">Keperluan: "${l.keperluan}"</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition">Lihat Berkas</button>
+            <button onclick="handleReviewLoanPic('${l.loanId}', 'APPROVE')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-200 transition">Verifikasi & Lanjutkan ke Ketua</button>
+            <button onclick="handleReviewLoanPic('${l.loanId}', 'REVISION')" class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition">Minta Revisi</button>
+            <button onclick="handleReviewLoanPic('${l.loanId}', 'REJECT')" class="px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold transition">Tolak</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      panelPic.classList.add('hidden');
+    }
+  }
+
+  // 2. Chairman Queue
+  const ketuaPending = loans.filter(l => l.statusWorkflow === 'PENDING_KETUA');
+  const panelKetua = document.getElementById('panelChairmanReview');
+  const badgeKetua = document.getElementById('badgeChairmanPendingCount');
+  const containerKetua = document.getElementById('containerChairmanQueue');
+
+  if (panelKetua && (role === 'ketua koperasi' || role === 'admin')) {
+    badgeKetua.innerText = `${ketuaPending.length} Pending`;
+    if (ketuaPending.length > 0) {
+      panelKetua.classList.remove('hidden');
+      containerKetua.innerHTML = ketuaPending.map(l => `
+        <div class="bg-white p-4 rounded-2xl border border-rose-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-mono font-bold text-xs text-rose-800">${l.nomorSurat}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">Lolos Verifikasi PIC Simpin</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-sm">${l.pemohonNama} (${l.pemohonNik})</h4>
+            <p class="text-xs text-slate-600">Plafon: <strong class="text-indigo-700">${formatRupiahNumber(l.jumlahPinjaman)}</strong> · Tenor: <strong>${l.tenorBulan} Bln</strong> · Cicilan: <strong class="text-emerald-700">${formatRupiahNumber(l.cicilanBulanan)}/bln</strong></p>
+            <p class="text-[11px] text-slate-500 italic mt-0.5">Keperluan: "${l.keperluan}"</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition">Lihat Berkas</button>
+            <button onclick="handleReviewLoanChairman('${l.loanId}', 'APPROVE')" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-200 transition">Setujui (Siap Dicairkan)</button>
+            <button onclick="handleReviewLoanChairman('${l.loanId}', 'REVISION')" class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition">Minta Revisi</button>
+            <button onclick="handleReviewLoanChairman('${l.loanId}', 'REJECT')" class="px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold transition">Tolak</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      panelKetua.classList.add('hidden');
+    }
+  }
+
+  // 3. Financial Disbursement Queue
+  const disbPending = loans.filter(l => l.statusWorkflow === 'READY_FOR_DISBURSEMENT');
+  const panelDisb = document.getElementById('panelFinancialDisbursement');
+  const badgeDisb = document.getElementById('badgeDisbursementPendingCount');
+  const containerDisb = document.getElementById('containerDisbursementQueue');
+
+  if (panelDisb && (role === 'financial' || role === 'admin')) {
+    badgeDisb.innerText = `${disbPending.length} Siap Cair`;
+    if (disbPending.length > 0) {
+      panelDisb.classList.remove('hidden');
+      containerDisb.innerHTML = disbPending.map(l => `
+        <div class="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-mono font-bold text-xs text-blue-800">${l.nomorSurat}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">Disetujui Ketua Koperasi</span>
+            </div>
+            <h4 class="font-bold text-slate-900 text-sm">${l.pemohonNama} (${l.pemohonNik})</h4>
+            <p class="text-xs text-slate-600">Nominal Pencairan: <strong class="text-emerald-700 text-sm">${formatRupiahNumber(l.jumlahPinjaman)}</strong></p>
+            <p class="text-xs text-slate-700 font-medium">Rekening Tujuan: <strong>${l.bankNama}</strong> · <strong>${l.bankNoRekening}</strong> a.n. <strong>${l.bankAtasNama}</strong></p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition">Lihat Berkas</button>
+            <button onclick="openDisburseModal('${l.loanId}')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-200 transition flex items-center gap-1.5">
+              <i data-lucide="banknote" class="w-4 h-4"></i>
+              <span>Proses Transfer & Pencairan</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      panelDisb.classList.add('hidden');
+    }
+  }
+
+  lucide.createIcons();
+}
+
+async function handleReviewLoanPic(loanId, action) {
+  if (!currentUser) return;
+  const catatan = (action !== 'APPROVE') ? window.prompt(`Masukkan catatan atau alasan ${action}:`) : 'Disetujui oleh PIC Simpin';
+  if (action !== 'APPROVE' && !catatan) return;
+
+  showToast('Memproses verifikasi PIC Simpin...');
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${loanId}/review-pic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        catatan,
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || 'Lukman Harun Lubis',
+        reviewerRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Verifikasi berhasil!');
+      refreshLoanData();
+    } else {
+      showToast(data.message || 'Gagal memproses verifikasi.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+async function handleReviewLoanChairman(loanId, action) {
+  if (!currentUser) return;
+  const catatan = (action !== 'APPROVE') ? window.prompt(`Masukkan catatan atau alasan ${action}:`) : 'Disetujui oleh Ketua Koperasi';
+  if (action !== 'APPROVE' && !catatan) return;
+
+  showToast('Memproses persetujuan Ketua Koperasi...');
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${loanId}/review-chairman`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        catatan,
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || 'Fathi Mubarak',
+        reviewerRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Persetujuan Ketua Koperasi berhasil!');
+      refreshLoanData();
+    } else {
+      showToast(data.message || 'Gagal memproses persetujuan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+function openDisburseModal(loanId) {
+  const loan = allLoansList.find(l => l.loanId === loanId);
+  if (!loan) return;
+
+  document.getElementById('disbTargetLoanId').value = loan.loanId;
+  document.getElementById('disbDocNo').innerText = loan.nomorSurat;
+  document.getElementById('disbPenerimaNama').innerText = loan.pemohonNama;
+  document.getElementById('disbPenerimaNik').innerText = loan.pemohonNik;
+  document.getElementById('disbNominalDisplay').innerText = formatRupiahNumber(loan.jumlahPinjaman);
+  document.getElementById('disbRekeningDisplay').innerText = `${loan.bankNama} - ${loan.bankNoRekening} a.n. ${loan.bankAtasNama}`;
+
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('disbTanggal').value = today;
+
+  document.getElementById('modalDisburseLoan').classList.remove('hidden');
+}
+
+function closeDisburseModal() {
+  document.getElementById('modalDisburseLoan').classList.add('hidden');
+}
+
+async function handleConfirmDisbursement(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const loanId = document.getElementById('disbTargetLoanId').value;
+  const tanggalPencairan = document.getElementById('disbTanggal').value;
+  const nomorReferensi = document.getElementById('disbNoRef').value;
+  const buktiUrl = document.getElementById('disbBuktiUrl').value;
+  const catatan = document.getElementById('disbCatatan').value;
+
+  const btn = document.getElementById('btnConfirmDisb');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="inline-block animate-spin mr-1"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Mencairkan...`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${loanId}/disburse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tanggalPencairan,
+        nomorReferensi,
+        buktiUrl,
+        catatan,
+        disbursedByNik: currentUser.nik || currentUser.username,
+        disbursedByNama: currentUser.nama || currentUser.namaLengkap || 'Sri Wahyuningsih',
+        disbursedByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Pencairan pinjaman berhasil dibukukan!');
+      closeDisburseModal();
+      refreshLoanData();
+    } else {
+      showToast(data.message || 'Gagal memproses pencairan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check-check" class="w-4 h-4"></i><span>Konfirmasi Dana Telah Dicairkan</span>`;
+    lucide.createIcons();
+  }
+}
+
+// ----------------------------------------------------
+// 3. DOKUMEN RESMI PINJAMAN (Maulana Hady.xlsx Modal)
+// ----------------------------------------------------
+
+async function openLoanDocumentModal(loanId) {
+  showToast('Memuat berkas permohonan kredit resmi...');
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${loanId}/document`);
+    const data = await res.json();
+
+    if (data.success && data.document) {
+      const doc = data.document;
+      document.getElementById('docNomorSurat').innerText = doc.surat.nomorSurat || '-';
+      document.getElementById('docTanggalSurat').innerText = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      // Pemohon
+      document.getElementById('docPemohonNama').innerText = doc.pemohon.nama;
+      document.getElementById('docPemohonNik').innerText = doc.pemohon.nik;
+      document.getElementById('docPemohonUnit').innerText = doc.pemohon.jabatanUnit;
+      document.getElementById('docPemohonCabang').innerText = doc.pemohon.kantorCabang;
+      document.getElementById('docPemohonGaji').innerText = formatRupiahNumber(doc.pemohon.gajiBulanan);
+      document.getElementById('docPemohonAlamat').innerText = doc.pemohon.alamat;
+      document.getElementById('docPemohonTelepon').innerText = doc.pemohon.noTelepon;
+
+      // Pinjaman
+      document.getElementById('docJumlahPinjaman').innerText = formatRupiahNumber(doc.pinjaman.jumlahPinjaman);
+      document.getElementById('docTenorPinjaman').innerText = `${doc.pinjaman.tenorBulan} Bulan`;
+      document.getElementById('docBungaPinjaman').innerText = doc.pinjaman.sukuBungaTotal;
+      document.getElementById('docTotalKewajiban').innerText = formatRupiahNumber(doc.pinjaman.totalKewajiban);
+      document.getElementById('docCicilanBulanan').innerText = `${formatRupiahNumber(doc.pinjaman.cicilanBulanan)} / Bulan`;
+      document.getElementById('docJadwalTmt').innerText = `${doc.pinjaman.tmtMulaiGaji} s/d ${doc.pinjaman.tmtSelesaiGaji}`;
+      document.getElementById('docRekeningTujuan').innerText = `${doc.pinjaman.bankTujuan} · ${doc.pinjaman.noRekening} (a.n. ${doc.pinjaman.atasNama})`;
+      document.getElementById('docKeperluanPinjaman').innerText = `"${doc.pinjaman.keperluan}"`;
+
+      // 5 Blok Signatures
+      document.getElementById('signNamaPemohon').innerText = doc.signatures.pemohon.nama;
+      document.getElementById('signNamaPic').innerText = doc.signatures.picSimpin.nama || 'Lukman Harun Lubis';
+      document.getElementById('signNamaKetua').innerText = doc.signatures.ketuaKoperasi.nama || 'Fathi Mubarak';
+      document.getElementById('signNamaFinancial').innerText = doc.signatures.financial.nama || 'Sri Wahyuningsih';
+
+      // Status badges in signatures
+      const picSt = doc.signatures.picSimpin.status;
+      const bPic = document.getElementById('badgeSignPic');
+      bPic.innerText = picSt === 'APPROVED' ? 'VERIFIED' : (picSt === 'REJECTED' ? 'REJECTED' : 'PENDING');
+      bPic.className = `text-[9px] font-bold px-2 py-0.5 rounded ${picSt === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`;
+
+      const ketuaSt = doc.signatures.ketuaKoperasi.status;
+      const bKetua = document.getElementById('badgeSignKetua');
+      bKetua.innerText = ketuaSt === 'APPROVED' ? 'APPROVED' : (ketuaSt === 'REJECTED' ? 'REJECTED' : 'PENDING');
+      bKetua.className = `text-[9px] font-bold px-2 py-0.5 rounded ${ketuaSt === 'APPROVED' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500'}`;
+
+      const finSt = doc.signatures.financial.status;
+      const bFin = document.getElementById('badgeSignFinancial');
+      bFin.innerText = finSt === 'DISBURSED' ? 'PAID / DISBURSED' : 'PENDING';
+      bFin.className = `text-[9px] font-bold px-2 py-0.5 rounded ${finSt === 'DISBURSED' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500'}`;
+
+      // Footer disbursement info
+      const disbInfo = document.getElementById('docDisbursementInfo');
+      if (doc.disbursement) {
+        disbInfo.classList.remove('hidden');
+        document.getElementById('docDisbRef').innerText = doc.disbursement.noReferensi;
+        document.getElementById('docDisbDate').innerText = doc.disbursement.tanggal;
+      } else {
+        disbInfo.classList.add('hidden');
+      }
+
+      document.getElementById('modalLoanDocument').classList.remove('hidden');
+      lucide.createIcons();
+    } else {
+      showToast(data.message || 'Gagal memuat dokumen pinjaman.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+function closeLoanDocumentModal() {
+  document.getElementById('modalLoanDocument').classList.add('hidden');
+}
+
+function printLoanDocument() {
+  window.print();
+}
+
+// ----------------------------------------------------
+// 4. REKENING BANK & VERIFIKASI PENGGANTIAN
+// ----------------------------------------------------
+
+async function fetchMyBankAccount() {
+  try {
+    const nik = currentUser.nik || currentUser.username;
+    const res = await fetch(`${API_BASE}/api/bank-accounts/me?nik=${encodeURIComponent(nik)}`);
+    const data = await res.json();
+
+    if (data.success && Array.isArray(data.accounts) && data.accounts.length > 0) {
+      currentMyBankAccounts = data.accounts;
+      const acc = data.accounts[0];
+
+      // Sinkronkan ke modal rekening
+      document.getElementById('modalAccBankName').innerText = acc.namaBank;
+      document.getElementById('modalAccNumber').innerText = acc.nomorRekening;
+      document.getElementById('modalAccHolderName').innerText = acc.atasNamaRekening;
+      document.getElementById('modalAccVerifiedDate').innerText = `Terverifikasi: ${acc.tanggalVerifikasi || '-'}`;
+      document.getElementById('modalAccVerifiedBadge').innerText = acc.statusVerifikasi;
+
+      // Sinkronkan ke form pinjaman
+      document.getElementById('loanBankNama').value = acc.namaBank;
+      document.getElementById('loanBankRekening').value = acc.nomorRekening;
+      document.getElementById('loanBankAtasNama').value = acc.atasNamaRekening;
+    } else {
+      // Default jika belum ada rekening
+      document.getElementById('loanBankAtasNama').value = currentUser.nama || currentUser.namaLengkap || '';
+    }
+  } catch (e) {
+    console.warn('Gagal memuat rekening anggota:', e.message);
+  }
+}
+
+function openBankAccountModal() {
+  fetchMyBankAccount();
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  if (role === 'admin') {
+    fetchAdminBankChangeRequests();
+  }
+  document.getElementById('modalMemberBankAccount').classList.remove('hidden');
+}
+
+function closeBankAccountModal() {
+  document.getElementById('modalMemberBankAccount').classList.add('hidden');
+}
+
+async function handleRequestBankChangeSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const bankLama = document.getElementById('modalAccBankName').innerText;
+  const rekeningLama = document.getElementById('modalAccNumber').innerText;
+  const atasNamaLama = document.getElementById('modalAccHolderName').innerText;
+
+  const bankBaru = document.getElementById('reqBankBaru').value;
+  const rekeningBaru = document.getElementById('reqRekeningBaru').value;
+  const atasNamaBaru = document.getElementById('reqAtasNamaBaru').value;
+  const alasan = document.getElementById('reqAlasanBank').value;
+
+  const btn = document.getElementById('btnSubmitBankChange');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/bank-accounts/change-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nik: currentUser.nik || currentUser.username,
+        namaAnggota: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        bankLama,
+        rekeningLama,
+        atasNamaLama,
+        bankBaru,
+        rekeningBaru,
+        atasNamaBaru,
+        alasan
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Permohonan berhasil dikirim ke Administrator!');
+      e.target.reset();
+      closeBankAccountModal();
+    } else {
+      showToast(data.message || 'Gagal mengajukan perubahan rekening.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function fetchAdminBankChangeRequests() {
+  try {
+    const res = await fetch(`${API_BASE}/api/bank-accounts/requests?role=${encodeURIComponent(currentUser.role)}`);
+    const data = await res.json();
+
+    const panel = document.getElementById('panelAdminBankChangeQueue');
+    const container = document.getElementById('containerAdminBankChangeList');
+
+    if (data.success && Array.isArray(data.requests)) {
+      const pendingReqs = data.requests.filter(r => r.status === 'REQUESTED');
+      if (pendingReqs.length > 0) {
+        panel.classList.remove('hidden');
+        container.innerHTML = pendingReqs.map(r => `
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <p class="font-bold text-slate-900">${r.namaAnggota} (${r.nik})</p>
+              <p class="text-slate-600">Rekening Baru: <strong>${r.bankBaru}</strong> · <strong>${r.rekeningBaru}</strong> a.n. <strong>${r.atasNamaBaru}</strong></p>
+              <p class="text-[11px] text-slate-500 italic">Alasan: "${r.alasan}"</p>
+            </div>
+            <div class="flex items-center gap-1.5 self-end sm:self-auto">
+              <button onclick="handleReviewBankChangeRequest('${r.requestId}', 'APPROVE')" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition">Setujui</button>
+              <button onclick="handleReviewBankChangeRequest('${r.requestId}', 'REJECT')" class="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 transition">Tolak</button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+  } catch (e) {
+    console.warn('Gagal memuat permohonan rekening admin:', e.message);
+  }
+}
+
+async function handleReviewBankChangeRequest(requestId, action) {
+  if (!currentUser) return;
+  const catatan = window.prompt(`Catatan review untuk ${action} permohonan ${requestId}:`) || '-';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/bank-accounts/requests/${requestId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        catatan,
+        adminNik: currentUser.nik || currentUser.username,
+        adminNama: currentUser.nama || currentUser.namaLengkap || 'Administrator',
+        adminRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Permohonan perubahan rekening berhasil diproses!');
+      fetchAdminBankChangeRequests();
+      fetchMyBankAccount();
+    } else {
+      showToast(data.message || 'Gagal memproses permohonan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
 
     window.onload = function() {
       lucide.createIcons();
