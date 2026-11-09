@@ -8723,10 +8723,10 @@ function renderMyLoansTable(loans) {
               <span>Lihat Drive</span>
             </a>
           ` : ''}
-          <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
-            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <a href="loan-document-preview.html?id=${encodeURIComponent(l.loanId)}" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200" title="Buka Formulir Dokumen di Tab Baru untuk Preview & Download PDF">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
             <span>Dokumen</span>
-          </button>
+          </a>
         </div>
       </td>
     </tr>
@@ -8772,10 +8772,10 @@ function renderAllLoansTable(loans) {
       <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${l.keperluan}">${l.keperluan}</td>
       <td class="py-3 px-4 text-center">${getWorkflowBadge(l.statusWorkflow)}</td>
       <td class="py-3 px-4 text-center">
-        <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
-          <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+        <a href="loan-document-preview.html?id=${encodeURIComponent(l.loanId)}" target="_blank" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-xs transition inline-flex items-center gap-1 border border-indigo-200" title="Buka Formulir Berkas di Tab Baru untuk Preview & Download PDF">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
           <span>Berkas</span>
-        </button>
+        </a>
       </td>
     </tr>
   `).join('');
@@ -9043,10 +9043,22 @@ async function handleConfirmDisbursement(e) {
 }
 
 // ----------------------------------------------------
-// 3. DOKUMEN RESMI PINJAMAN (Maulana Hady.xlsx Modal)
+// 3. DOKUMEN RESMI PINJAMAN (Tab Baru Preview & Download PDF)
 // ----------------------------------------------------
 
+function openLoanDocument(loanId, autoPrint = false) {
+  if (!loanId) {
+    if (typeof showToast === 'function') showToast('ID pinjaman tidak valid.', true);
+    return;
+  }
+  const url = `loan-document-preview.html?id=${encodeURIComponent(loanId)}${autoPrint ? '&download=1' : ''}`;
+  window.open(url, '_blank');
+}
+
 async function openLoanDocumentModal(loanId) {
+  // Langsung buka di New Tab sesuai permintaan pengguna
+  openLoanDocument(loanId);
+  return;
   showToast('Memuat berkas permohonan kredit resmi...');
   try {
     const res = await fetch(`${API_BASE}/api/loans/${loanId}/document`);
@@ -10089,10 +10101,10 @@ function renderLoansApprovalTable(loans) {
               <span>Lihat Drive</span>
             </a>
           ` : ''}
-          <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
-            <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-            <span>Detail</span>
-          </button>
+          <a href="loan-document-preview.html?id=${encodeURIComponent(l.loanId)}" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200" title="Buka Formulir di Tab Baru untuk Preview & Download PDF">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span>Berkas</span>
+          </a>
         </div>
       </td>
     </tr>

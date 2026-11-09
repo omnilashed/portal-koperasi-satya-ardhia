@@ -4235,6 +4235,9 @@ app.get('/api/loans/:id/document', async (req, res) => {
         }
       },
       statusWorkflow: loan[24],
+      dokumenMateraiUrl: loan[30] || null,
+      statusMaterai: loan[31] || null,
+      waktuVerifikasiMaterai: loan[32] || null,
       disbursement: disbursement ? {
         tanggal: disbursement[3],
         nominal: disbursement[4],
@@ -5193,6 +5196,14 @@ app.post('/api/bank-accounts/requests/:id/review', async (req, res) => {
   }
 });
 
+
+// Route untuk preview & download dokumen permohonan pinjaman di New Tab
+app.get('/loan-document-preview.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'loan-document-preview.html'));
+});
+app.get('/loans/:id/preview', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'loan-document-preview.html'));
+});
 
 // Fallback route to serve frontend index.html
 app.get('*', (req, res) => {

@@ -2449,6 +2449,9 @@ function getLoanDocumentData(loanId) {
         }
       },
       statusWorkflow: loan[24],
+      dokumenMateraiUrl: loan[30] || null,
+      statusMaterai: loan[31] || null,
+      waktuVerifikasiMaterai: loan[32] || null,
       disbursement: disb ? {
         tanggal: disb[3],
         nominal: disb[4],
