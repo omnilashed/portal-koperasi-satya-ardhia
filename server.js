@@ -496,7 +496,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     const { role } = req.query;
-    if (role && !isRoleAdmin(role) && !isRoleKetua(role)) {
+    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRolePengurus(role)) {
       return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengakses data pengguna.' });
     }
 
@@ -535,7 +535,7 @@ app.put('/api/users/status', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username dan status baru wajib disediakan.' });
     }
 
-    if (requestingRole && !isRoleAdmin(requestingRole) && !isRoleKetua(requestingRole)) {
+    if (requestingRole && !isRoleAdmin(requestingRole) && !isRoleKetua(requestingRole) && !isRolePengurus(requestingRole)) {
       return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengubah status akun.' });
     }
 
@@ -597,7 +597,7 @@ app.put('/api/users/role', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username dan Role baru wajib disediakan.' });
     }
 
-    if (requestingRole && !isRoleAdmin(requestingRole) && !isRoleKetua(requestingRole)) {
+    if (requestingRole && !isRoleAdmin(requestingRole) && !isRoleKetua(requestingRole) && !isRolePengurus(requestingRole)) {
       return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengubah role akun.' });
     }
 

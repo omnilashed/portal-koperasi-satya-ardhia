@@ -150,8 +150,8 @@ function registerUser(userData) {
 
 // 3. Khusus Admin: Ambil Seluruh Data User
 function getAllUsersList(requestingUserRole) {
-  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole)) {
-    return []; // Khusus Admin & Ketua Koperasi
+  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole) && !isRolePengurus(requestingUserRole)) {
+    return []; // Khusus Admin, Ketua Koperasi, & Pengurus
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -176,8 +176,8 @@ function getAllUsersList(requestingUserRole) {
 
 // 4. Update Status Akun User oleh Admin
 function updateUserAccountStatus(requestingUserRole, rowIndex, newStatus) {
-  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole)) {
-    return { status: 'error', message: 'Akses ditolak! Hanya Admin dan Ketua Koperasi yang memiliki hak ini.' };
+  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole) && !isRolePengurus(requestingUserRole)) {
+    return { status: 'error', message: 'Akses ditolak! Hanya Admin, Ketua Koperasi, dan Pengurus yang memiliki hak ini.' };
   }
 
   try {

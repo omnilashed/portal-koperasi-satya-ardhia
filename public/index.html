@@ -270,92 +270,93 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
       <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
-        <div class="py-2.5 sm:py-3 lg:py-0 lg:h-16 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 lg:gap-4">
-          
-          <!-- Baris 1: Logo & Nama & Role & Logout (Mobile & Tablet) -->
-          <div class="flex items-center justify-between min-w-0">
-            <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-              <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                <i data-lucide="wallet-cards" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-              </div>
-              <div class="min-w-0">
-                <h1 class="font-bold text-slate-900 leading-tight text-xs sm:text-base truncate">
-                  Koperasi Satya Ardhia<span class="hidden sm:inline"> - HLP</span>
-                </h1>
-                <p class="text-[11px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                  <span id="userBadgeRole" class="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-slate-100 text-slate-700 uppercase flex-shrink-0">User</span>
-                  <span id="userGreeting" class="truncate max-w-[120px] sm:max-w-xs font-medium">Nama Anggota</span>
-                </p>
-              </div>
+        <!-- Baris 1: Logo, Nama Koperasi, Badge Role, User Greeting & Tombol Logout -->
+        <div class="h-14 sm:h-16 flex items-center justify-between border-b border-slate-100/80">
+          <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <i data-lucide="wallet-cards" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </div>
-
-            <!-- Logout Button Mobile & Tablet -->
-            <button onclick="handleLogout()" class="lg:hidden p-2 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition flex-shrink-0" title="Keluar / Logout">
-              <i data-lucide="log-out" class="w-4 h-4"></i>
-            </button>
+            <div class="min-w-0">
+              <h1 class="font-bold text-slate-900 leading-tight text-xs sm:text-base truncate">
+                Koperasi Satya Ardhia<span class="hidden sm:inline"> - HLP</span>
+              </h1>
+              <p class="text-[11px] sm:text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <span id="userBadgeRole" class="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-slate-100 text-slate-700 uppercase flex-shrink-0">User</span>
+                <span id="userGreeting" class="truncate max-w-[140px] sm:max-w-xs font-medium text-slate-700">Nama Anggota</span>
+              </p>
+            </div>
           </div>
 
-          <!-- Baris 2: Nav Tabs (Di HP/Tablet/Flip otomatis horizontal scroll halus tanpa scrollbar, di Desktop sejajar di kanan) -->
-          <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 w-full lg:w-auto">
-            <div class="w-full lg:w-auto overflow-x-auto no-scrollbar scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
-              <div class="flex bg-slate-100 p-1 rounded-xl text-xs sm:text-sm font-medium w-max lg:w-auto space-x-1" id="navTabsContainer">
-                <!-- Tab 1: Tracking (Semua Role) -->
-                <button id="tabTrackBtn" onclick="switchTab('tracking')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="list-checks" class="w-4 h-4"></i>
-                  <span class="hidden sm:inline">Tracking & Progress</span>
-                  <span class="sm:hidden">Tracking</span>
-                </button>
-
-                <!-- Tab: Saldo / Penyimpanan Sukarela (Semua Anggota) -->
-                <button id="tabSimpananBtn" onclick="switchTab('simpanan')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="landmark" class="w-4 h-4"></i>
-                  <span class="hidden sm:inline">Saldo / Penyimpanan</span>
-                  <span class="sm:hidden">Saldo</span>
-                </button>
-
-                <!-- Tab: Pinjaman Koperasi (Semua Anggota & Pengurus) -->
-                <button id="tabPinjamanBtn" onclick="switchTab('pinjaman')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="hand-coins" class="w-4 h-4"></i>
-                  <span class="hidden sm:inline">Pinjaman Koperasi</span>
-                  <span class="sm:hidden">Pinjaman SA</span>
-                </button>
-
-                <!-- Tab 2: Absensi Pegawai & Monitoring -->
-                <button id="tabAbsensiBtn" onclick="switchTab('absensi')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="scan-face" class="w-4 h-4"></i>
-                  <span id="tabAbsensiLabel" class="hidden sm:inline">Absensi Pegawai (HLP)</span>
-                  <span id="tabAbsensiLabelSm" class="sm:hidden">Absen</span>
-                </button>
-
-                <!-- Tab 3: Data Operasional & Dashboard -->
-                <button id="tabOperasionalBtn" onclick="switchTab('operasional')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
-                  <span id="tabOperasionalLabel" class="hidden sm:inline">Data Operasional</span>
-                  <span id="tabOperasionalLabelSm" class="sm:hidden">Operasional</span>
-                </button>
-
-                <!-- Tab 4: Form Input Baru -->
-                <button id="tabFormBtn" onclick="switchTab('form')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                  <span class="hidden sm:inline">Form Input Pinjaman</span>
-                  <span class="sm:hidden">Pinjaman</span>
-                </button>
-                
-                <!-- Tab 5: Validasi Akun -->
-                <button id="tabUsersBtn" onclick="switchTab('users')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
-                  <i data-lucide="users" class="w-4 h-4"></i>
-                  <span class="hidden sm:inline">Validasi Akun</span>
-                  <span class="sm:hidden">Users</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Logout Button Desktop (Hanya muncul di layar besar lg ke atas) -->
-            <button onclick="handleLogout()" class="hidden lg:flex p-2 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition flex-shrink-0" title="Keluar / Logout">
-              <i data-lucide="log-out" class="w-4 h-4"></i>
+          <div class="flex items-center space-x-2 flex-shrink-0">
+            <button onclick="handleLogout()" class="px-2.5 sm:px-3 py-1.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition text-xs font-semibold flex items-center gap-1.5 shadow-2xs" title="Keluar / Logout">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Keluar</span>
             </button>
           </div>
+        </div>
 
+        <!-- Baris 2: Nav Tabs (Full-width dengan scroll horizontal halus, tombol panah & mouse-wheel support) -->
+        <div class="py-2 flex items-center relative min-w-0">
+          <button id="btnNavScrollLeft" onclick="scrollNavTabs('left')" class="hidden md:flex items-center justify-center w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-slate-600 hover:text-emerald-700 hover:border-emerald-300 shadow-2xs mr-1 z-10 flex-shrink-0 transition" title="Geser Tab Kiri">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+
+          <div id="navTabsScrollWrapper" class="w-full overflow-x-auto no-scrollbar scroll-smooth -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div class="flex bg-slate-100 p-1 rounded-xl text-xs sm:text-sm font-medium w-max space-x-1" id="navTabsContainer">
+              <!-- Tab 1: Tracking (Semua Role) -->
+              <button id="tabTrackBtn" onclick="switchTab('tracking')" class="flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="list-checks" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Tracking & Progress</span>
+                <span class="sm:hidden">Tracking</span>
+              </button>
+
+              <!-- Tab: Saldo / Penyimpanan Sukarela (Semua Anggota) -->
+              <button id="tabSimpananBtn" onclick="switchTab('simpanan')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="landmark" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Saldo / Simpanan</span>
+                <span class="sm:hidden">Simpanan</span>
+              </button>
+
+              <!-- Tab: Pinjaman Koperasi (Semua Anggota & Pengurus) -->
+              <button id="tabPinjamanBtn" onclick="switchTab('pinjaman')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="hand-coins" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Pinjaman Koperasi</span>
+                <span class="sm:hidden">Pinjaman</span>
+              </button>
+
+              <!-- Tab: Verifikasi Akun (Admin, Ketua Koperasi, Pengurus) -->
+              <button id="tabUsersBtn" onclick="switchTab('users')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="user-check" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Verifikasi Akun</span>
+                <span class="sm:hidden">Verifikasi</span>
+              </button>
+
+              <!-- Tab: Absensi Pegawai & Monitoring -->
+              <button id="tabAbsensiBtn" onclick="switchTab('absensi')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="scan-face" class="w-4 h-4"></i>
+                <span id="tabAbsensiLabel" class="hidden sm:inline">Absensi Pegawai (HLP)</span>
+                <span id="tabAbsensiLabelSm" class="sm:hidden">Absen</span>
+              </button>
+
+              <!-- Tab: Data Operasional & Dashboard -->
+              <button id="tabOperasionalBtn" onclick="switchTab('operasional')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="clipboard-pen-line" class="w-4 h-4"></i>
+                <span id="tabOperasionalLabel" class="hidden sm:inline">Data Operasional</span>
+                <span id="tabOperasionalLabelSm" class="sm:hidden">Operasional</span>
+              </button>
+
+              <!-- Tab: Form Input Baru (Financial / Admin / Ketua / Pengurus) -->
+              <button id="tabFormBtn" onclick="switchTab('form')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Input Pengajuan</span>
+                <span class="sm:hidden">Input Baru</span>
+              </button>
+            </div>
+          </div>
+
+          <button id="btnNavScrollRight" onclick="scrollNavTabs('right')" class="hidden md:flex items-center justify-center w-7 h-7 rounded-lg bg-white/95 border border-slate-200 text-slate-600 hover:text-emerald-700 hover:border-emerald-300 shadow-2xs ml-1 z-10 flex-shrink-0 transition" title="Geser Tab Kanan">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
         </div>
 
       </div>
@@ -556,7 +557,7 @@
       <div id="viewUsers" class="hidden space-y-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h2 class="text-lg font-bold text-slate-900">Validasi & Kelola Akun Anggota</h2>
+            <h2 class="text-lg font-bold text-slate-900">Verifikasi & Validasi Akun Anggota</h2>
             <p class="text-xs text-slate-500 mt-0.5">Kelola izin dan status akses akun karyawan koperasi.</p>
           </div>
           <button onclick="fetchUsersList()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center space-x-2 transition">
@@ -3835,7 +3836,7 @@
       if (tab === 'tracking') fetchData();
       if (tab === 'simpanan') loadSimpananData();
       if (tab === 'pinjaman') loadPinjamanData();
-      if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi')) fetchUsersList();
+      if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus')) fetchUsersList();
       if (tab === 'absensi') onEnterAbsensiTab();
       else onLeaveAbsensiTab();
       if (tab === 'operasional') onEnterOperasionalTab();
@@ -3845,7 +3846,7 @@
 
     // ================= ADMIN & KETUA KOPERASI: USER APPROVAL MANAGEMENT =================
     async function fetchUsersList() {
-      if (!currentUser || (!isRoleAdmin(currentUser.role) && !isRoleKetua(currentUser.role))) return;
+      if (!currentUser || (!isRoleAdmin(currentUser.role) && !isRoleKetua(currentUser.role) && !isRolePengurus(currentUser.role))) return;
 
       const tbody = document.getElementById('userTableBody');
       tbody.innerHTML = getSkeletonShimmerRows(7, 4);
