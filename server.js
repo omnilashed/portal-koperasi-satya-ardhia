@@ -19,10 +19,34 @@ const DEFAULT_SPREADSHEET_ID = '1mFlMWzoKkEeBxidakZSZz_yMZgK3qzk8nbPMSGIujJ0';
 const SPREADSHEET_ID = (process.env.SPREADSHEET_ID && process.env.SPREADSHEET_ID.trim()) ? process.env.SPREADSHEET_ID.trim() : DEFAULT_SPREADSHEET_ID;
 const CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, 'credentials.json');
 
-// Middleware
+// Middleware (Dukungan payload besar untuk upload dokumen e-Materai maks 25MB)
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
+
+// Error handler middleware khusus parsing JSON & Entity Too Large (selalu kembalikan JSON terstruktur, bukan HTML)
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      message: 'Ukuran file dokumen PDF terlalu besar (Maksimal 20 MB). Silakan kompresi berkas sebelum diunggah.'
+    });
+  }
+  if (err && err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      message: 'Format request body JSON tidak valid.'
+    });
+  }
+  if (err) {
+    console.error('[Middleware Error]:', err.message);
+    return res.status(err.status || 500).json({
+      success: false,
+      message: err.message || 'Terjadi kesalahan pada pemrosesan server.'
+    });
+  }
+  next();
+});
 
 // Serve static frontend files from /public or root
 app.use(express.static(path.join(__dirname, 'public')));
@@ -3812,41 +3836,65 @@ function validatePdfSecurityAndEmaterai(buffer, originalFileName) {
 }
 
 async function saveLoanPdfToGoogleDrive(sheets, fileName, buffer) {
-  const uploadDir = path.join(__dirname, 'public', 'uploads', 'loans');
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
   const safeFileName = fileName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-  const filePath = path.join(uploadDir, safeFileName);
-  fs.writeFileSync(filePath, buffer);
+
+  // 1. Penyimpanan lokal aman (gunakan /tmp di Vercel Serverless agar tidak EROFS read-only)
+  try {
+    const uploadDir = process.env.VERCEL === '1'
+      ? path.join('/tmp', 'loans')
+      : path.join(__dirname, 'public', 'uploads', 'loans');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const filePath = path.join(uploadDir, safeFileName);
+    fs.writeFileSync(filePath, buffer);
+  } catch (fsErr) {
+    console.warn('[Local Storage Notice]:', fsErr.message);
+  }
 
   let driveUrl = '';
   try {
-    const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
-    const auth = new google.auth.GoogleAuth({
-      credentials: creds,
-      scopes: ['https://www.googleapis.com/auth/drive']
-    });
-    const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
-    const { Readable } = require('stream');
-    const stream = new Readable();
-    stream.push(buffer);
-    stream.push(null);
+    let creds = null;
+    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+      try {
+        creds = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON.trim());
+      } catch (ce) {
+        console.warn('[Google Creds Parse Error]:', ce.message);
+      }
+    } else if (fs.existsSync(CREDENTIALS_PATH)) {
+      try {
+        creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+      } catch (fe) {
+        console.warn('[Credentials File Read Error]:', fe.message);
+      }
+    }
 
-    const driveRes = await drive.files.create({
-      requestBody: {
-        name: safeFileName,
-        mimeType: 'application/pdf'
-      },
-      media: {
-        mimeType: 'application/pdf',
-        body: stream
-      },
-      fields: 'id, webViewLink, webContentLink'
-    });
+    if (creds) {
+      const auth = new google.auth.GoogleAuth({
+        credentials: creds,
+        scopes: ['https://www.googleapis.com/auth/drive']
+      });
+      const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+      const { Readable } = require('stream');
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
 
-    if (driveRes.data && (driveRes.data.webViewLink || driveRes.data.id)) {
-      driveUrl = driveRes.data.webViewLink || `https://drive.google.com/file/d/${driveRes.data.id}/view?usp=sharing`;
+      const driveRes = await drive.files.create({
+        requestBody: {
+          name: safeFileName,
+          mimeType: 'application/pdf'
+        },
+        media: {
+          mimeType: 'application/pdf',
+          body: stream
+        },
+        fields: 'id, webViewLink, webContentLink'
+      });
+
+      if (driveRes.data && (driveRes.data.webViewLink || driveRes.data.id)) {
+        driveUrl = driveRes.data.webViewLink || `https://drive.google.com/file/d/${driveRes.data.id}/view?usp=sharing`;
+      }
     }
   } catch (driveErr) {
     console.warn('[Drive API Notice]:', driveErr.message);
