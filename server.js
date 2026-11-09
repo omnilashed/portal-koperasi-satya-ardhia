@@ -52,6 +52,39 @@ app.use((err, req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
 
+// Memastikan jumlah kolom & baris sheet mencukupi sebelum penulisan range
+async function ensureSheetGridCapacity(sheets, sheetTitle, requiredCols = 35) {
+  if (!SPREADSHEET_ID) return;
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const target = (meta.data.sheets || []).find(s => s.properties.title === sheetTitle);
+    if (target) {
+      const currentCols = target.properties.gridProperties ? target.properties.gridProperties.columnCount : 30;
+      if (currentCols < requiredCols) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          requestBody: {
+            requests: [{
+              updateSheetProperties: {
+                properties: {
+                  sheetId: target.properties.sheetId,
+                  gridProperties: {
+                    columnCount: requiredCols
+                  }
+                },
+                fields: 'gridProperties.columnCount'
+              }
+            }]
+          }
+        });
+        console.log(`[Google Sheets] Sheet '${sheetTitle}' grid columnCount expanded from ${currentCols} to ${requiredCols}.`);
+      }
+    }
+  } catch (e) {
+    console.warn(`[ensureSheetGridCapacity Notice]:`, e.message);
+  }
+}
+
 // Google Sheets Auth Setup
 let sheetsInstance = null;
 
@@ -1192,7 +1225,7 @@ async function ensureAllSheetsExist() {
       },
       {
         title: 'LoanRequests',
-        headers: ['LoanID', 'NomorSurat', 'Timestamp', 'TanggalPermohonan', 'AsalPengajuan', 'PemohonNIK', 'PemohonNama', 'PemohonUnit', 'KantorCabang', 'PenghasilanBulanan', 'Alamat', 'NoTelepon', 'Keperluan', 'JumlahPinjaman', 'TenorBulan', 'PersentaseTenor', 'TotalKewajiban', 'CicilanBulanan', 'TmtMulaiGaji', 'TmtSelesaiGaji', 'BankNama', 'BankNoRekening', 'BankAtasNama', 'StatusRekening', 'StatusWorkflow', 'FormResponsesRowIndex', 'Catatan', 'CreatedByNIK', 'CreatedByNama', 'CreatedByRole']
+        headers: ['LoanID', 'NomorSurat', 'Timestamp', 'TanggalPermohonan', 'AsalPengajuan', 'PemohonNIK', 'PemohonNama', 'PemohonUnit', 'KantorCabang', 'PenghasilanBulanan', 'Alamat', 'NoTelepon', 'Keperluan', 'JumlahPinjaman', 'TenorBulan', 'PersentaseTenor', 'TotalKewajiban', 'CicilanBulanan', 'TmtMulaiGaji', 'TmtSelesaiGaji', 'BankNama', 'BankNoRekening', 'BankAtasNama', 'StatusRekening', 'StatusWorkflow', 'FormResponsesRowIndex', 'Catatan', 'CreatedByNIK', 'CreatedByNama', 'CreatedByRole', 'DokumenMateraiURL', 'StatusMaterai', 'WaktuVerifikasiMaterai']
       },
       {
         title: 'LoanApprovals',
@@ -3812,14 +3845,26 @@ function validatePdfSecurityAndEmaterai(buffer, originalFileName) {
   const hasDjpKeyword = lowerContent.includes('djp') || lowerContent.includes('direktorat jenderal pajak');
   const hasCertKeyword = lowerContent.includes('digital security') || lowerContent.includes('electronic stamp');
 
-  const hasDigitalSignature = hasSigType && hasByteRange;
-  const hasEmateraiProof = hasPeruriKeyword || hasPajakindKeyword || (hasMateraiKeyword && (hasPkcs7 || hasCertKeyword || hasBsreKeyword || hasDjpKeyword));
+  // 1. Digital Signature Cryptographic wajib ada (wajib memuat dictionary /Type /Sig dan /ByteRange)
+  const hasDigitalSignature = (hasSigType || lowerContent.includes('/sig')) && hasByteRange;
 
-  if (!hasDigitalSignature && !hasEmateraiProof) {
+  // Jika dokumen tidak memiliki tanda tangan digital (hanya file PDF biasa hasil cetak browser), tolak!
+  if (!hasDigitalSignature) {
     return {
       isValid: true,
       isEmateraiValid: false,
-      reason: 'Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000) dari PajakInd/Peruri. File tidak memuat tanda tangan digital e-Materai sah.'
+      reason: 'Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000). Berkas ini belum memiliki tanda tangan digital & sertifikat elektronik dari PajakInd/Peruri. Silakan bubuhkan e-Materai terlebih dahulu di https://web.pajakind.com/.'
+    };
+  }
+
+  // 2. Periksa bukti stempel & sertifikat resmi e-Materai (Peruri / PajakInd / BSrE / DJP / PKCS#7)
+  const hasEmateraiProof = hasPeruriKeyword || hasPajakindKeyword || (hasMateraiKeyword && (hasPkcs7 || hasCertKeyword || hasBsreKeyword || hasDjpKeyword)) || hasPkcs7;
+
+  if (!hasEmateraiProof) {
+    return {
+      isValid: true,
+      isEmateraiValid: false,
+      reason: 'Tanda tangan digital pada dokumen bukan merupakan sertifikat resmi e-Materai PajakInd / Peruri.'
     };
   }
 
@@ -4691,19 +4736,35 @@ app.post('/api/loans/:id/upload-ematerai', async (req, res) => {
       requestBody: { values: [['VERIFIED_MATERAI']] }
     });
 
+    // Pastikan kapasitas grid mencukupi kolom AE:AG (min 35 kolom)
+    await ensureSheetGridCapacity(sheets, 'LoanRequests', 35);
+
     // Simpan DokumenMateraiURL (Col AE), StatusMaterai (Col AF), WaktuVerifikasi (Col AG)
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `'LoanRequests'!AE${rowNum}:AG${rowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [[
-          driveResult.driveUrl,
-          'VERIFIED',
-          ts
-        ]]
-      }
-    });
+    try {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'LoanRequests'!AE${rowNum}:AG${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[
+            driveResult.driveUrl,
+            'VERIFIED',
+            ts
+          ]]
+        }
+      });
+    } catch (colErr) {
+      console.warn('[Col AE:AG Write Notice]:', colErr.message);
+      // Fallback: catat URL Drive dan status verifikasi di Kolom AA (Catatan)
+      try {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'LoanRequests'!AA${rowNum}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[`e-Materai Verified: ${driveResult.driveUrl}`]] }
+        });
+      } catch (fallbackErr) {}
+    }
 
     // 4. SEKARANG MASUK KE BAGIAN TRACKING & PROGRESS ('Form Responses 1')!
     const plafonNum = parseInt(String(bLoan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;

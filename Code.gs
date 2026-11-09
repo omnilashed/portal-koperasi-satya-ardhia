@@ -3048,13 +3048,23 @@ function validateGasPdfSecurityAndEmaterai(base64Data, originalFileName) {
     var hasPajakind = lowerText.indexOf('pajakind') !== -1;
     var hasMaterai = lowerText.indexOf('meterai') !== -1 || lowerText.indexOf('materai') !== -1 || lowerText.indexOf('e-meterai') !== -1;
 
-    var isEmateraiValid = (hasSig && hasRange) || hasPeruri || hasPajakind || (hasMaterai && hasSig);
+    var hasDigitalSignature = (hasSig || lowerText.indexOf('/sig') !== -1) && hasRange;
+
+    if (!hasDigitalSignature) {
+      return {
+        isValid: true,
+        isEmateraiValid: false,
+        reason: 'Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000). Berkas ini belum memiliki tanda tangan digital & sertifikat elektronik dari PajakInd/Peruri. Silakan bubuhkan e-Materai terlebih dahulu di https://web.pajakind.com/.'
+      };
+    }
+
+    var isEmateraiValid = hasPeruri || hasPajakind || (hasMaterai && hasSig);
 
     if (!isEmateraiValid) {
       return {
         isValid: true,
         isEmateraiValid: false,
-        reason: 'Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000) dari PajakInd/Peruri.'
+        reason: 'Tanda tangan digital pada dokumen bukan merupakan sertifikat resmi e-Materai PajakInd / Peruri.'
       };
     }
 
@@ -3189,6 +3199,9 @@ function uploadEmateraiLoan(payload) {
     var jkt = getGasJakartaDateTime();
 
     sheet.getRange(targetIdx, 25).setValue('VERIFIED_MATERAI');
+    if (sheet.getMaxColumns() < 35) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 35 - sheet.getMaxColumns());
+    }
     sheet.getRange(targetIdx, 31, 1, 3).setValues([[driveUrl, 'VERIFIED', jkt.timestampStr]]);
 
     // MASUK KE TRACKING & PROGRESS ('Form Responses 1')
