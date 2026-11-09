@@ -156,8 +156,16 @@ function getJakartaDateTime(d = new Date()) {
 }
 
 // Helper: Format tanggal dd/MM/yyyy HH:mm (WIB / UTC+7)
-function getCurrentTimestamp() {
-  return getJakartaDateTime().timestampStr;
+function getFormattedTimestamp(d = new Date()) {
+  return getJakartaDateTime(d).timestampStr;
+}
+
+function getFormattedTimeStamp(d = new Date()) {
+  return getJakartaDateTime(d).timestampStr;
+}
+
+function getCurrentTimestamp(d = new Date()) {
+  return getJakartaDateTime(d).timestampStr;
 }
 
 // Helper: Normalisasi & Pengecekan Hierarki Role

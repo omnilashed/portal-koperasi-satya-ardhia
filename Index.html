@@ -4410,6 +4410,24 @@
       }
     }
 
+    function getFormattedTimestamp(d = new Date()) {
+      const pad = (n) => String(n).padStart(2, '0');
+      const day = pad(d.getDate());
+      const month = pad(d.getMonth() + 1);
+      const year = d.getFullYear();
+      const hours = pad(d.getHours());
+      const mins = pad(d.getMinutes());
+      return `${day}/${month}/${year} ${hours}:${mins}`;
+    }
+
+    function getFormattedTimeStamp(d = new Date()) {
+      return getFormattedTimestamp(d);
+    }
+
+    function getCurrentTimestamp(d = new Date()) {
+      return getFormattedTimestamp(d);
+    }
+
     function formatRupiah(rawVal) {
       if (rawVal === undefined || rawVal === null || rawVal === '') return 'Rp 0';
       let str = String(rawVal).trim();

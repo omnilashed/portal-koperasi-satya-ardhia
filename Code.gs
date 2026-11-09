@@ -1589,6 +1589,18 @@ function getGasJakartaDateTime(d) {
   return { timestampStr: ts, dateStr: dateStr, timeStr: timeStr, year: year, month: month, day: day };
 }
 
+function getFormattedTimestamp(d) {
+  return getGasJakartaDateTime(d).timestampStr;
+}
+
+function getFormattedTimeStamp(d) {
+  return getGasJakartaDateTime(d).timestampStr;
+}
+
+function getCurrentTimestamp(d) {
+  return getGasJakartaDateTime(d).timestampStr;
+}
+
 function getGasRomanMonth(monthZeroIndexed) {
   var roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
   return roman[monthZeroIndexed] || 'I';
