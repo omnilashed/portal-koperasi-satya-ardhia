@@ -2423,7 +2423,7 @@ function getLoanDocumentData(loanId) {
         },
         penjamin: {
           title: 'Mengetahui / Penjamin',
-          nama: '( ........................................ )',
+          nama: '( .................... )',
           keterangan: 'Suami / Istri / Penjamin'
         },
         picSimpin: {

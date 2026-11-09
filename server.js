@@ -4209,7 +4209,7 @@ app.get('/api/loans/:id/document', async (req, res) => {
         },
         penjamin: {
           title: 'Mengetahui / Penjamin',
-          nama: '( ........................................ )',
+          nama: '( .................... )',
           keterangan: 'Suami / Istri / Penjamin'
         },
         picSimpin: {

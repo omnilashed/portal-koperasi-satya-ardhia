@@ -3322,7 +3322,7 @@
             <div class="border border-slate-200 p-3 rounded-xl bg-white space-y-12 flex flex-col justify-between">
               <p class="font-semibold text-slate-600">Mengetahui / Penjamin,</p>
               <div>
-                <p class="font-bold underline text-slate-900">( ........................................ )</p>
+                <p id="signNamaPenjamin" class="font-bold text-slate-900 whitespace-nowrap tracking-wider">( .................... )</p>
                 <p class="text-[10px] text-slate-500">Suami / Istri / Penjamin</p>
               </div>
             </div>
@@ -9108,6 +9108,8 @@ async function openLoanDocumentModal(loanId) {
 
       // 5 Blok Signatures
       document.getElementById('signNamaPemohon').innerText = doc.signatures.pemohon.nama;
+      const signPenjaminModal = document.getElementById('signNamaPenjamin');
+      if (signPenjaminModal) signPenjaminModal.innerText = (doc.signatures && doc.signatures.penjamin && doc.signatures.penjamin.nama) ? doc.signatures.penjamin.nama : '( .................... )';
       document.getElementById('signNamaPic').innerText = doc.signatures.picSimpin.nama || 'Lukman Harun Lubis';
       document.getElementById('signNamaKetua').innerText = doc.signatures.ketuaKoperasi.nama || 'Fathi Mubarak';
       document.getElementById('signNamaFinancial').innerText = doc.signatures.financial.nama || 'Sri Wahyuningsih';
