@@ -2706,7 +2706,7 @@ function disburseLoan(payload) {
   }
 }
 
-function getMyBankAccounts(nik) {
+function getMyBankAccounts(nik, username) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('MemberBankAccounts');
@@ -2715,17 +2715,46 @@ function getMyBankAccounts(nik) {
     var data = sheet.getDataRange().getValues();
     var accounts = [];
 
+    var qNik = String(nik || '').trim().toLowerCase();
+    var qUser = String(username || '').trim().toLowerCase();
+
+    var extractBase = function(val) {
+      if (!val) return '';
+      var s = String(val).trim().toLowerCase();
+      var m = s.match(/^([a-z0-9]+)/i);
+      return m ? m[1] : s;
+    };
+    var qBase = extractBase(qNik);
+
     for (var i = 1; i < data.length; i++) {
-      if (String(data[i][1]).trim() === String(nik).trim() && String(data[i][11]).toUpperCase() === 'ACTIVE') {
+      var row = data[i];
+      var rowStatus = String(row[11] || '').toUpperCase().trim();
+      if (rowStatus !== 'ACTIVE') continue;
+
+      var rowNik = String(row[1] || '').trim().toLowerCase();
+      var isMatch = false;
+
+      if (qNik && rowNik === qNik) {
+        isMatch = true;
+      } else {
+        var rowBase = extractBase(rowNik);
+        if (qBase && rowBase && qBase === rowBase && qBase.length >= 4) {
+          isMatch = true;
+        } else if (qUser && rowNik === qUser) {
+          isMatch = true;
+        }
+      }
+
+      if (isMatch) {
         accounts.push({
-          accountId: data[i][0],
-          nik: data[i][1],
-          namaAnggota: data[i][2],
-          namaBank: data[i][3],
-          nomorRekening: data[i][4],
-          atasNamaRekening: data[i][5],
-          statusVerifikasi: data[i][6] || 'UNVERIFIED',
-          tanggalVerifikasi: data[i][7] || '-'
+          accountId: row[0],
+          nik: row[1],
+          namaAnggota: row[2],
+          namaBank: row[3],
+          nomorRekening: row[4],
+          atasNamaRekening: row[5],
+          statusVerifikasi: row[6] || 'UNVERIFIED',
+          tanggalVerifikasi: row[7] || '-'
         });
       }
     }

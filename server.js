@@ -4512,8 +4512,8 @@ app.post('/api/loans/:id/disburse', async (req, res) => {
  */
 app.get('/api/bank-accounts/me', async (req, res) => {
   try {
-    const { nik } = req.query;
-    if (!nik) return res.status(400).json({ success: false, message: 'Parameter NIK diperlukan.' });
+    const { nik, username, nama } = req.query;
+    if (!nik && !username) return res.status(400).json({ success: false, message: 'Parameter NIK atau Username diperlukan.' });
 
     const sheets = await getSheetsClient();
     const bankRes = await sheets.spreadsheets.values.get({
@@ -4522,8 +4522,35 @@ app.get('/api/bank-accounts/me', async (req, res) => {
     });
     const rows = bankRes.data.values || [];
 
+    const qNik = String(nik || '').trim().toLowerCase();
+    const qUser = String(username || '').trim().toLowerCase();
+
+    const extractBase = (val) => {
+      if (!val) return '';
+      const s = String(val).trim().toLowerCase();
+      const m = s.match(/^([a-z0-9]+)/i);
+      return m ? m[1] : s;
+    };
+    const qBase = extractBase(qNik);
+
     const accounts = rows
-      .filter(r => String(r[1] || '').trim() === String(nik).trim() && String(r[11] || '').toUpperCase() === 'ACTIVE')
+      .filter(r => {
+        const rowStatus = String(r[11] || '').toUpperCase().trim();
+        if (rowStatus !== 'ACTIVE') return false;
+
+        const rowNik = String(r[1] || '').trim().toLowerCase();
+        // 1. Exact NIK match
+        if (qNik && rowNik === qNik) return true;
+
+        // 2. Base NIK match (e.g. 20246808 vs 20246808 - Unit...)
+        const rowBase = extractBase(rowNik);
+        if (qBase && rowBase && qBase === rowBase && qBase.length >= 4) return true;
+
+        // 3. Username match with NIK column
+        if (qUser && rowNik === qUser) return true;
+
+        return false;
+      })
       .map(r => ({
         accountId: r[0],
         nik: r[1],

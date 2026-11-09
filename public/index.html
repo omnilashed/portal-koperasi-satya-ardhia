@@ -2377,8 +2377,18 @@
               <div class="space-y-2 border-t border-slate-100 pt-3">
                 <div class="flex items-center justify-between">
                   <label class="text-xs font-semibold text-slate-700">Rekening Pencairan Bank <span class="text-red-500">*</span></label>
-                  <span id="loanBankStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">TERVERIFIKASI</span>
+                  <span id="loanBankStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">BELUM TERVERIFIKASI</span>
                 </div>
+
+                <!-- Warning jika rekening kosong -->
+                <div id="loanBankWarningBox" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                  <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                  <div>
+                    <p class="font-bold text-amber-800">Rekening Bank Belum Terdaftar</p>
+                    <p class="text-amber-700 text-[11px] leading-relaxed">Anda belum memiliki rekening bank terverifikasi untuk pencairan dana pinjaman. <button type="button" onclick="openBankAccountModal()" class="underline font-bold text-indigo-700 hover:text-indigo-900">Daftarkan Rekening Valid Sekarang →</button></p>
+                  </div>
+                </div>
+
                 <div class="grid grid-cols-3 gap-2">
                   <input type="text" id="loanBankNama" placeholder="Nama Bank (BSI/BCA)" required class="col-span-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold">
                   <input type="text" id="loanBankRekening" placeholder="Nomor Rekening" required class="col-span-2 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold">
@@ -3183,27 +3193,36 @@
       </div>
 
       <!-- Rekening Aktif Saat Ini Card -->
-      <div class="bg-gradient-to-br from-indigo-900 to-slate-900 p-5 rounded-2xl text-white space-y-3 relative overflow-hidden shadow-md">
+      <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-5 rounded-2xl text-white space-y-3 relative overflow-hidden shadow-md border border-slate-700/50">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Rekening Utama Terdaftar</span>
-          <span id="modalAccVerifiedBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30">
-            VERIFIED
+          <span id="modalAccVerifiedBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+            BELUM TERDAFTAR
           </span>
         </div>
         <div>
-          <p id="modalAccBankName" class="text-sm font-bold text-slate-300">Bank BSI / Mandiri</p>
-          <p id="modalAccNumber" class="text-xl sm:text-2xl font-mono font-black tracking-wider text-white">---- ---- ---- ----</p>
+          <p id="modalAccBankName" class="text-sm font-bold text-slate-300">Belum Ada Rekening Bank</p>
+          <p id="modalAccNumber" class="text-xl sm:text-2xl font-mono font-black tracking-wider text-white">(Belum Terdaftar / Kosong)</p>
         </div>
         <div class="flex justify-between items-center text-xs text-indigo-200 pt-1">
           <span id="modalAccHolderName" class="font-bold text-white uppercase">-</span>
-          <span id="modalAccVerifiedDate" class="text-[10px] text-slate-400">-</span>
+          <span id="modalAccVerifiedDate" class="text-[10px] text-slate-400">Belum Terverifikasi</span>
+        </div>
+      </div>
+
+      <!-- Alert Jika Belum Memiliki Rekening Terverifikasi -->
+      <div id="modalAccUnverifiedNotice" class="hidden p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <p class="font-bold text-amber-800">Akun Anda Belum Memiliki Rekening Terverifikasi</p>
+          <p class="text-amber-700 text-[11px] leading-relaxed mt-0.5">Silakan isi formulir di bawah ini dengan nomor rekening bank Anda yang valid (BCA, Mandiri, BSI, BRI, BNI, dll) untuk keperluan pencairan fasilitas pinjaman & simpanan koperasi.</p>
         </div>
       </div>
 
       <!-- Form Pengajuan Penggantian Rekening -->
       <div class="space-y-4 pt-1">
         <div class="flex items-center justify-between">
-          <h4 class="font-bold text-slate-900 text-sm">Ajukan Perubahan Rekening Alternatif</h4>
+          <h4 id="modalAccFormTitle" class="font-bold text-slate-900 text-sm">Ajukan Perubahan Rekening Alternatif</h4>
           <span class="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">Verifikasi Admin Wajib</span>
         </div>
 
@@ -3221,7 +3240,7 @@
 
           <button type="submit" id="btnSubmitBankChange" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
             <i data-lucide="send" class="w-4 h-4"></i>
-            <span>Kirim Permohonan Penggantian Rekening</span>
+            <span id="btnSubmitBankChangeText">Kirim Permohonan Penggantian Rekening</span>
           </button>
         </form>
       </div>
@@ -3467,7 +3486,7 @@
         // Bridge Bank Accounts
         if (urlStr.includes('/api/bank-accounts/me')) {
           const u = new URL(urlStr, window.location.href);
-          return callGas('getMyBankAccounts', u.searchParams.get('nik'));
+          return callGas('getMyBankAccounts', u.searchParams.get('nik'), u.searchParams.get('username'));
         }
         if (urlStr.includes('/api/bank-accounts/change-request')) return callGas('requestBankAccountChange', body);
         if (urlStr.match(/\/api\/bank-accounts\/requests\/[^\/]+\/review/)) {
@@ -3820,7 +3839,37 @@
 
     function handleLogout() {
       currentUser = null;
+      currentMyBankAccounts = [];
       localStorage.removeItem('koperasi_user');
+
+      // Bersihkan dan kosongkan elemen modal rekening bank
+      const cardBadge = document.getElementById('modalAccVerifiedBadge');
+      if (cardBadge) {
+        cardBadge.innerText = 'BELUM TERDAFTAR';
+        cardBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30';
+      }
+      const cardBankName = document.getElementById('modalAccBankName');
+      if (cardBankName) cardBankName.innerText = 'Belum Ada Rekening Bank';
+      const cardNumber = document.getElementById('modalAccNumber');
+      if (cardNumber) cardNumber.innerText = '(Kosong / Belum Terdaftar)';
+      const cardHolder = document.getElementById('modalAccHolderName');
+      if (cardHolder) cardHolder.innerText = '-';
+      const cardDate = document.getElementById('modalAccVerifiedDate');
+      if (cardDate) cardDate.innerText = 'Belum Terverifikasi';
+
+      // Bersihkan input rekening pinjaman
+      const loanNama = document.getElementById('loanBankNama');
+      if (loanNama) { loanNama.value = ''; loanNama.readOnly = false; }
+      const loanRek = document.getElementById('loanBankRekening');
+      if (loanRek) { loanRek.value = ''; loanRek.readOnly = false; }
+      const loanAtas = document.getElementById('loanBankAtasNama');
+      if (loanAtas) { loanAtas.value = ''; loanAtas.readOnly = false; }
+      const loanStatusBadge = document.getElementById('loanBankStatusBadge');
+      if (loanStatusBadge) {
+        loanStatusBadge.innerText = 'BELUM TERVERIFIKASI';
+        loanStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800';
+      }
+
       document.getElementById('appContainer').classList.add('hidden');
       document.getElementById('authContainer').classList.remove('hidden');
       showAuthView('login');
@@ -8357,9 +8406,16 @@ async function handleApplyLoanSubmit(e) {
   const noTelepon = document.getElementById('loanTelepon').value;
   const keperluan = document.getElementById('loanKeperluan').value;
   const alamat = document.getElementById('loanAlamat').value;
-  const bankNama = document.getElementById('loanBankNama').value;
-  const bankNoRekening = document.getElementById('loanBankRekening').value;
-  const bankAtasNama = document.getElementById('loanBankAtasNama').value;
+  const bankNama = (document.getElementById('loanBankNama').value || '').trim();
+  const bankNoRekening = (document.getElementById('loanBankRekening').value || '').trim();
+  const bankAtasNama = (document.getElementById('loanBankAtasNama').value || '').trim();
+
+  // Validasi Kepemilikan Rekening Bank Terverifikasi
+  if (!currentMyBankAccounts || currentMyBankAccounts.length === 0 || !bankNoRekening || bankNoRekening.includes('---') || bankNoRekening.toLowerCase().includes('belum')) {
+    showToast('Anda belum memiliki rekening bank terverifikasi. Silakan daftarkan rekening bank yang valid terlebih dahulu.', true);
+    openBankAccountModal();
+    return;
+  }
 
   if (!penghasilanBulanan || !keperluan || !bankNama || !bankNoRekening || !bankAtasNama) {
     showToast('Mohon lengkapi seluruh data wajib permohonan pinjaman.', true);
@@ -8866,29 +8922,90 @@ function printLoanDocument() {
 
 async function fetchMyBankAccount() {
   try {
-    const nik = currentUser.nik || currentUser.username;
-    const res = await fetch(`${API_BASE}/api/bank-accounts/me?nik=${encodeURIComponent(nik)}`);
+    if (!currentUser) return;
+    const nik = currentUser.nik || currentUser.username || '';
+    const username = currentUser.username || '';
+    const nama = currentUser.nama || currentUser.namaLengkap || '';
+
+    // Selalu reset state awal agar tidak membawa data akun lain
+    currentMyBankAccounts = [];
+
+    const res = await fetch(`${API_BASE}/api/bank-accounts/me?nik=${encodeURIComponent(nik)}&username=${encodeURIComponent(username)}&nama=${encodeURIComponent(nama)}`);
     const data = await res.json();
+
+    const cardBadge = document.getElementById('modalAccVerifiedBadge');
+    const cardBankName = document.getElementById('modalAccBankName');
+    const cardNumber = document.getElementById('modalAccNumber');
+    const cardHolder = document.getElementById('modalAccHolderName');
+    const cardDate = document.getElementById('modalAccVerifiedDate');
+    const unverifiedNotice = document.getElementById('modalAccUnverifiedNotice');
+    const formTitle = document.getElementById('modalAccFormTitle');
+    const btnSubmitText = document.getElementById('btnSubmitBankChangeText');
+    const loanWarning = document.getElementById('loanBankWarningBox');
+    const loanStatusBadge = document.getElementById('loanBankStatusBadge');
+    const loanBankNama = document.getElementById('loanBankNama');
+    const loanBankRekening = document.getElementById('loanBankRekening');
+    const loanBankAtasNama = document.getElementById('loanBankAtasNama');
 
     if (data.success && Array.isArray(data.accounts) && data.accounts.length > 0) {
       currentMyBankAccounts = data.accounts;
       const acc = data.accounts[0];
 
-      // Sinkronkan ke modal rekening
-      document.getElementById('modalAccBankName').innerText = acc.namaBank;
-      document.getElementById('modalAccNumber').innerText = acc.nomorRekening;
-      document.getElementById('modalAccHolderName').innerText = acc.atasNamaRekening;
-      document.getElementById('modalAccVerifiedDate').innerText = `Terverifikasi: ${acc.tanggalVerifikasi || '-'}`;
-      document.getElementById('modalAccVerifiedBadge').innerText = acc.statusVerifikasi;
+      // Sinkronkan ke modal rekening (TERVERIFIKASI)
+      if (cardBankName) cardBankName.innerText = acc.namaBank || '-';
+      if (cardNumber) cardNumber.innerText = acc.nomorRekening || '-';
+      if (cardHolder) cardHolder.innerText = acc.atasNamaRekening || (currentUser.nama || currentUser.namaLengkap || '-');
+      if (cardDate) cardDate.innerText = `Terverifikasi: ${acc.tanggalVerifikasi || '-'}`;
+      if (cardBadge) {
+        cardBadge.innerText = 'VERIFIED';
+        cardBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30';
+      }
+      if (unverifiedNotice) unverifiedNotice.classList.add('hidden');
+      if (formTitle) formTitle.innerText = 'Ajukan Perubahan Rekening Alternatif';
+      if (btnSubmitText) btnSubmitText.innerText = 'Kirim Permohonan Penggantian Rekening';
 
       // Sinkronkan ke form pinjaman
-      document.getElementById('loanBankNama').value = acc.namaBank;
-      document.getElementById('loanBankRekening').value = acc.nomorRekening;
-      document.getElementById('loanBankAtasNama').value = acc.atasNamaRekening;
+      if (loanBankNama) { loanBankNama.value = acc.namaBank || ''; loanBankNama.readOnly = true; }
+      if (loanBankRekening) { loanBankRekening.value = acc.nomorRekening || ''; loanBankRekening.readOnly = true; }
+      if (loanBankAtasNama) { loanBankAtasNama.value = acc.atasNamaRekening || (currentUser.nama || currentUser.namaLengkap || ''); loanBankAtasNama.readOnly = true; }
+      if (loanWarning) loanWarning.classList.add('hidden');
+      if (loanStatusBadge) {
+        loanStatusBadge.innerText = 'TERVERIFIKASI';
+        loanStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800';
+      }
     } else {
-      // Default jika belum ada rekening
-      document.getElementById('loanBankAtasNama').value = currentUser.nama || currentUser.namaLengkap || '';
+      // BELUM MEMILIKI REKENING TERDAFTAR (KOSONGKAN & PERINTAHKAN INPUT)
+      currentMyBankAccounts = [];
+
+      if (cardBankName) cardBankName.innerText = 'Belum Ada Rekening Bank';
+      if (cardNumber) cardNumber.innerText = '(Kosong / Belum Terdaftar)';
+      if (cardHolder) cardHolder.innerText = currentUser.nama || currentUser.namaLengkap || '-';
+      if (cardDate) cardDate.innerText = 'Belum Terverifikasi';
+      if (cardBadge) {
+        cardBadge.innerText = 'BELUM TERDAFTAR';
+        cardBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30';
+      }
+      if (unverifiedNotice) unverifiedNotice.classList.remove('hidden');
+      if (formTitle) formTitle.innerText = 'Daftarkan Rekening Bank Utama (Wajib Verifikasi)';
+      if (btnSubmitText) btnSubmitText.innerText = 'Daftarkan Rekening Bank Saya';
+
+      // Prefill nama anggota di input rekening baru
+      const reqAtasNama = document.getElementById('reqAtasNamaBaru');
+      if (reqAtasNama && !reqAtasNama.value) {
+        reqAtasNama.value = currentUser.nama || currentUser.namaLengkap || '';
+      }
+
+      // Kosongkan form pinjaman
+      if (loanBankNama) { loanBankNama.value = ''; loanBankNama.readOnly = false; }
+      if (loanBankRekening) { loanBankRekening.value = ''; loanBankRekening.readOnly = false; }
+      if (loanBankAtasNama) { loanBankAtasNama.value = currentUser.nama || currentUser.namaLengkap || ''; loanBankAtasNama.readOnly = false; }
+      if (loanWarning) loanWarning.classList.remove('hidden');
+      if (loanStatusBadge) {
+        loanStatusBadge.innerText = 'BELUM TERVERIFIKASI';
+        loanStatusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800';
+      }
     }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (e) {
     console.warn('Gagal memuat rekening anggota:', e.message);
   }
@@ -8897,7 +9014,7 @@ async function fetchMyBankAccount() {
 function openBankAccountModal() {
   fetchMyBankAccount();
   const role = currentUser ? normalizeRole(currentUser.role) : 'user';
-  if (role === 'admin') {
+  if (role === 'admin' && typeof fetchAdminBankChangeRequests === 'function') {
     fetchAdminBankChangeRequests();
   }
   document.getElementById('modalMemberBankAccount').classList.remove('hidden');
@@ -8911,14 +9028,20 @@ async function handleRequestBankChangeSubmit(e) {
   e.preventDefault();
   if (!currentUser) return;
 
-  const bankLama = document.getElementById('modalAccBankName').innerText;
-  const rekeningLama = document.getElementById('modalAccNumber').innerText;
-  const atasNamaLama = document.getElementById('modalAccHolderName').innerText;
+  const hasExisting = currentMyBankAccounts && currentMyBankAccounts.length > 0;
+  const bankLama = hasExisting ? document.getElementById('modalAccBankName').innerText : '-';
+  const rekeningLama = hasExisting ? document.getElementById('modalAccNumber').innerText : '-';
+  const atasNamaLama = hasExisting ? document.getElementById('modalAccHolderName').innerText : '-';
 
-  const bankBaru = document.getElementById('reqBankBaru').value;
-  const rekeningBaru = document.getElementById('reqRekeningBaru').value;
-  const atasNamaBaru = document.getElementById('reqAtasNamaBaru').value;
-  const alasan = document.getElementById('reqAlasanBank').value;
+  const bankBaru = (document.getElementById('reqBankBaru').value || '').trim();
+  const rekeningBaru = (document.getElementById('reqRekeningBaru').value || '').trim();
+  const atasNamaBaru = (document.getElementById('reqAtasNamaBaru').value || '').trim();
+  const alasan = (document.getElementById('reqAlasanBank').value || '').trim() || 'Pendaftaran rekening bank utama anggota koperasi';
+
+  if (!bankBaru || !rekeningBaru || !atasNamaBaru) {
+    showToast('Mohon lengkapi Nama Bank, Nomor Rekening, dan Atas Nama.', true);
+    return;
+  }
 
   const btn = document.getElementById('btnSubmitBankChange');
   btn.disabled = true;
