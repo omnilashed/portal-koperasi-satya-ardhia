@@ -18,10 +18,13 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
+    /* ====================================================
+       ATURAN PRINTING PRESISI & ANTI-TERPOTONG
+       ==================================================== */
     @media print {
       @page {
         size: A4 portrait;
-        margin: 10mm 14mm 10mm 14mm;
+        margin: 10mm 12mm 10mm 12mm;
       }
       body {
         background-color: #ffffff !important;
@@ -40,6 +43,61 @@
         width: 100% !important;
         max-width: 100% !important;
       }
+
+      /* ATURAN UTAMA: Mencegah pemotongan elemen tanda tangan */
+      .signature-section {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-before: auto;
+        break-before: auto;
+        margin-top: 1rem !important;
+      }
+
+      /* Setiap kotak tanda tangan wajib utuh */
+      .signature-box {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        break-inside: avoid-page !important;
+      }
+
+      /* Blok data dan tabel tidak boleh terbelah di tengah baris */
+      .avoid-break, .section-block, tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
+      /* MODE: Paksa tanda tangan ke Halaman 2 */
+      body.force-page-2 .signature-section {
+        page-break-before: always !important;
+        break-before: page !important;
+        padding-top: 12mm !important;
+      }
+
+      /* MODE: Pas 1 Halaman A4 (Compact) */
+      body.fit-1-page {
+        font-size: 11px !important;
+      }
+      body.fit-1-page .print-page {
+        padding: 0 !important;
+      }
+      body.fit-1-page .doc-header {
+        padding-bottom: 6px !important;
+      }
+      body.fit-1-page .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0.65rem !important;
+      }
+      body.fit-1-page table td {
+        padding-top: 1.5px !important;
+        padding-bottom: 1.5px !important;
+      }
+      body.fit-1-page .pernyataan-box {
+        padding: 8px !important;
+        font-size: 10px !important;
+      }
+      body.fit-1-page .signature-box {
+        min-height: 88px !important;
+        padding: 4px !important;
+      }
     }
   </style>
 </head>
@@ -47,11 +105,11 @@
 
   <!-- TOP ACTION TOOLBAR (Hidden saat Print) -->
   <header class="no-print sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm py-3 px-4 sm:px-8">
-    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
       
       <!-- Info Dokumen -->
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-100">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-100 flex-shrink-0">
           <i data-lucide="file-text" class="w-5 h-5"></i>
         </div>
         <div>
@@ -69,8 +127,22 @@
         </div>
       </div>
 
-      <!-- Action Buttons -->
+      <!-- Action Controls -->
       <div class="flex items-center gap-2 flex-wrap">
+        
+        <!-- Opsi Format Halaman Cetak -->
+        <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 gap-1 text-xs">
+          <label for="selectPrintLayout" class="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+            <i data-lucide="layout" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span>Layout:</span>
+          </label>
+          <select id="selectPrintLayout" onchange="handleLayoutChange(this.value)" class="bg-transparent font-medium text-slate-700 text-xs focus:outline-none cursor-pointer">
+            <option value="auto">Otomatis (Pindah Page 2 jika tidak muat)</option>
+            <option value="page2">Tanda Tangan Selalu di Page 2</option>
+            <option value="compact">Pas 1 Lembar A4 (Compact)</option>
+          </select>
+        </div>
+
         <!-- Tombol Download / Cetak PDF -->
         <button type="button" onclick="triggerDownloadPdf()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-200">
           <i data-lucide="printer" class="w-4 h-4"></i>
@@ -139,7 +211,7 @@
     <div class="print-page max-w-4xl mx-auto bg-white rounded-3xl p-6 sm:p-12 shadow-xl border border-slate-200/80 space-y-6">
 
       <!-- KOP SURAT RESMI KOPERASI KARYAWAN SATYA ARDHIA -->
-      <div class="border-b-2 border-slate-900 pb-3 text-center space-y-1">
+      <div class="doc-header border-b-2 border-slate-900 pb-3 text-center space-y-1 avoid-break">
         <h2 class="text-base sm:text-xl font-black uppercase tracking-wide text-slate-900">
           KOPERASI KARYAWAN SATYA ARDHIA
         </h2>
@@ -154,7 +226,7 @@
       </div>
 
       <!-- NOMOR SURAT & PERIHAL -->
-      <div class="flex justify-between items-start text-xs pt-1">
+      <div class="flex justify-between items-start text-xs pt-1 avoid-break">
         <div class="space-y-0.5">
           <p><span class="inline-block w-20 text-slate-500">Nomor</span>: <span id="docNomorSurat" class="font-bold font-mono text-slate-900">-</span></p>
           <p><span class="inline-block w-20 text-slate-500">Lampiran</span>: <span>1 (satu) Berkas</span></p>
@@ -167,7 +239,7 @@
       </div>
 
       <!-- BAGIAN 1: DATA PEMOHON -->
-      <div class="space-y-2">
+      <div class="space-y-2 section-block avoid-break">
         <p class="font-bold text-xs uppercase bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200/60">
           I. Data Pribadi Pemohon
         </p>
@@ -206,7 +278,7 @@
       </div>
 
       <!-- BAGIAN 2: RINCIAN FASILITAS PINJAMAN -->
-      <div class="space-y-2">
+      <div class="space-y-2 section-block avoid-break">
         <p class="font-bold text-xs uppercase bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200/60">
           II. Rincian Fasilitas Kredit Tunai Yang Diajukan
         </p>
@@ -249,18 +321,25 @@
       </div>
 
       <!-- PERNYATAAN PEMOHON & KUASA PEMOTONGAN GAJI -->
-      <div class="text-[11px] text-slate-600 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 leading-relaxed">
+      <div class="pernyataan-box text-[11px] text-slate-600 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 leading-relaxed avoid-break">
         <p>Dengan ini saya menyatakan bahwa data yang diisi di atas adalah benar dan dapat dipertanggungjawabkan. Saya memberi kuasa kepada bendahara / juru bayar gaji untuk melakukan pemotongan gaji rutin bulanan saya setiap tanggal pembayaran gaji sampai seluruh kewajiban pinjaman ini dinyatakan lunas oleh Koperasi Satya Ardhia.</p>
       </div>
 
       <!-- 5 BLOK TANDA TANGAN RESMI PENGESAHAN (LAYOUT MAULANA HADY.XLSX) -->
-      <div class="pt-4 border-t border-slate-200">
+      <!-- Jika tidak muat di Halaman 1, seluruh blok pengesahan ini otomatis berpindah utuh ke Halaman 2 -->
+      <div id="sectionSignature" class="signature-section pt-4 border-t border-slate-200">
+        
+        <!-- Header sambungan halaman 2 saat print jika berpindah halaman -->
+        <p class="hidden print:block text-[10px] text-slate-400 font-mono text-right pb-1">
+          Lampiran Pengesahan — No: <span id="docNomorSuratFoot" class="font-bold">-</span>
+        </p>
+
         <p class="text-center font-bold text-xs uppercase mb-3 text-slate-700">Tanda Tangan Pengesahan Formulir</p>
         
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center text-xs">
+        <div class="signature-grid grid grid-cols-2 sm:grid-cols-3 gap-3 text-center text-xs">
           
           <!-- 1. Pemohon -->
-          <div class="border border-slate-200 p-3 rounded-xl bg-white min-h-[140px] flex flex-col justify-between">
+          <div class="signature-box border border-slate-200 p-3 rounded-xl bg-white min-h-[135px] flex flex-col justify-between">
             <p class="font-semibold text-slate-600">Pemohon,</p>
             <div>
               <p id="signNamaPemohon" class="font-bold underline text-slate-900">-</p>
@@ -269,7 +348,7 @@
           </div>
 
           <!-- 2. Mengetahui / Penjamin -->
-          <div class="border border-slate-200 p-3 rounded-xl bg-white min-h-[140px] flex flex-col justify-between">
+          <div class="signature-box border border-slate-200 p-3 rounded-xl bg-white min-h-[135px] flex flex-col justify-between">
             <p class="font-semibold text-slate-600">Mengetahui / Penjamin,</p>
             <div>
               <p class="font-bold underline text-slate-900">( ........................................ )</p>
@@ -278,7 +357,7 @@
           </div>
 
           <!-- 3. Diperiksa PIC Simpin -->
-          <div class="border border-slate-200 p-3 rounded-xl bg-white min-h-[140px] flex flex-col justify-between">
+          <div class="signature-box border border-slate-200 p-3 rounded-xl bg-white min-h-[135px] flex flex-col justify-between">
             <div class="space-y-0.5">
               <p class="font-semibold text-slate-600">Diperiksa oleh,</p>
               <span id="badgeSignPic" class="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">VERIFIED</span>
@@ -290,7 +369,7 @@
           </div>
 
           <!-- 4. Menyetujui Ketua Koperasi -->
-          <div class="border border-slate-200 p-3 rounded-xl bg-white min-h-[140px] flex flex-col justify-between">
+          <div class="signature-box border border-slate-200 p-3 rounded-xl bg-white min-h-[135px] flex flex-col justify-between">
             <div class="space-y-0.5">
               <p class="font-semibold text-slate-600">Menyetujui,</p>
               <span id="badgeSignKetua" class="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">APPROVED</span>
@@ -302,7 +381,7 @@
           </div>
 
           <!-- 5. Dibukukan Financial -->
-          <div class="border border-slate-200 p-3 rounded-xl bg-white min-h-[140px] flex flex-col justify-between col-span-2 sm:col-span-1">
+          <div class="signature-box border border-slate-200 p-3 rounded-xl bg-white min-h-[135px] flex flex-col justify-between col-span-2 sm:col-span-1">
             <div class="space-y-0.5">
               <p class="font-semibold text-slate-600">Dibukukan / Dibayarkan,</p>
               <span id="badgeSignFinancial" class="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">PAID / DISBURSED</span>
@@ -314,28 +393,29 @@
           </div>
 
         </div>
-      </div>
 
-      <!-- FOOTER CATATAN PENCAIRAN -->
-      <div id="docDisbursementInfo" class="hidden text-[11px] text-slate-600 border-t border-slate-200 pt-3 flex justify-between">
-        <span>No. Referensi Pencairan: <strong id="docDisbRef">-</strong></span>
-        <span>Tanggal Pencairan: <strong id="docDisbDate">-</strong></span>
-      </div>
-
-      <!-- FOOTER DOKUMEN E-MATERAI RESMI JIKA SUDAH TERVERIFIKASI -->
-      <div id="materaiVerifiedStamp" class="hidden border border-emerald-300 bg-emerald-50/70 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-900">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
-            <i data-lucide="shield-check" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <p class="font-extrabold text-emerald-900 uppercase">Dokumen Resmi Telah Dibubuhi e-Materai Rp10.000</p>
-            <p class="text-[11px] text-emerald-700">Tersertifikasi resmi via PajakInd & tersimpan aman di Google Drive Koperasi SA.</p>
-          </div>
+        <!-- FOOTER CATATAN PENCAIRAN -->
+        <div id="docDisbursementInfo" class="hidden text-[11px] text-slate-600 border-t border-slate-200 pt-3 mt-4 flex justify-between avoid-break">
+          <span>No. Referensi Pencairan: <strong id="docDisbRef">-</strong></span>
+          <span>Tanggal Pencairan: <strong id="docDisbDate">-</strong></span>
         </div>
-        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
-          VERIFIED & SECURED
-        </span>
+
+        <!-- FOOTER DOKUMEN E-MATERAI RESMI JIKA SUDAH TERVERIFIKASI -->
+        <div id="materaiVerifiedStamp" class="hidden border border-emerald-300 bg-emerald-50/70 p-3 rounded-xl flex items-center justify-between text-xs text-emerald-900 mt-3 avoid-break">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <p class="font-extrabold text-emerald-900 uppercase">Dokumen Resmi Telah Dibubuhi e-Materai Rp10.000</p>
+              <p class="text-[11px] text-emerald-700">Tersertifikasi resmi via PajakInd & tersimpan aman di Google Drive Koperasi SA.</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
+            VERIFIED & SECURED
+          </span>
+        </div>
+
       </div>
 
     </div>
@@ -347,6 +427,15 @@
     function formatRupiah(num) {
       const n = parseInt(num, 10) || 0;
       return 'Rp ' + n.toLocaleString('id-ID');
+    }
+
+    function handleLayoutChange(mode) {
+      document.body.classList.remove('force-page-2', 'fit-1-page');
+      if (mode === 'page2') {
+        document.body.classList.add('force-page-2');
+      } else if (mode === 'compact') {
+        document.body.classList.add('fit-1-page');
+      }
     }
 
     function triggerDownloadPdf() {
@@ -426,7 +515,11 @@
       }
 
       // Isi Data Dokumen
-      document.getElementById('docNomorSurat').innerText = doc.surat.nomorSurat || '-';
+      const noSurat = doc.surat.nomorSurat || '-';
+      document.getElementById('docNomorSurat').innerText = noSurat;
+      const footSurat = document.getElementById('docNomorSuratFoot');
+      if (footSurat) footSurat.innerText = noSurat;
+
       document.getElementById('docTanggalSurat').innerText = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
       // Pemohon
