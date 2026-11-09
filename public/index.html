@@ -400,6 +400,45 @@
           </button>
         </div>
 
+        <!-- Section 3: Antrean Persetujuan Pinjaman (Finance) -->
+        <div id="sectionApprovalLoans" class="hidden space-y-4">
+          <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h4 class="font-extrabold text-slate-900 text-base">Antrean Persetujuan Pengajuan Pinjaman</h4>
+                <p class="text-xs text-slate-500">Persetujuan tahap awal Finance sebelum anggota melakukan pembubuhan e-Materai Rp10.000 via PajakInd</p>
+              </div>
+              <button type="button" onclick="loadLoansApprovalData()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-auto">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Segarkan Data</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto rounded-2xl border border-slate-100">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-100 uppercase text-[10px]">
+                  <tr>
+                    <th class="py-3 px-4">Waktu Pengajuan</th>
+                    <th class="py-3 px-4">Nomor Surat</th>
+                    <th class="py-3 px-4">Pemohon</th>
+                    <th class="py-3 px-4">Plafon Pinjaman</th>
+                    <th class="py-3 px-4">Tenor & Cicilan</th>
+                    <th class="py-3 px-4">Rekening Bank</th>
+                    <th class="py-3 px-4">Keperluan</th>
+                    <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4 text-center">Aksi Finance</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyApprovalLoans" class="divide-y divide-slate-100">
+                  <tr>
+                    <td colspan="9" class="py-8 text-center text-slate-400">Memuat antrean pinjaman...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </header>
 
@@ -2639,6 +2678,12 @@
             <span>Persetujuan Auto-Input Finance</span>
             <span id="badgePillRules" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">0</span>
           </button>
+
+          <button id="pillApprovalLoansBtn" onclick="switchApprovalSection('loans')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2">
+            <i data-lucide="hand-coins" class="w-4 h-4"></i>
+            <span>Persetujuan Pinjaman (Finance)</span>
+            <span id="badgePillLoans" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">0</span>
+          </button>
         </div>
 
         <!-- Section 1: Antrean Perubahan Rekening Bank -->
@@ -2726,7 +2771,125 @@
       </div>
 
 
-    </main>
+    
+    <!-- MODAL: PEMBUBUHAN e-MATERAI RP10.000 VIA PAJAKIND & VERIFIKASI DRIVE -->
+  <div id="modalEmateraiProcess" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 my-8 space-y-6">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shadow-sm">
+            <i data-lucide="stamp" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">Pembubuhan e-Materai Rp10.000</h3>
+            <p class="text-xs text-slate-500">Verifikasi dokumen pinjaman resmi via PajakInd (Distributor Peruri Resmi)</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEmateraiModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Ringkasan Pinjaman Card -->
+      <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4 sm:p-5 rounded-2xl text-white space-y-3 relative overflow-hidden shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Permohonan Pinjaman Tunai</span>
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/30 text-amber-300 border border-amber-400/30">
+            DISETUJUI FINANCE · MENUNGGU e-MATERAI
+          </span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1 border-t border-slate-700/50">
+          <div>
+            <p class="text-[10px] text-slate-400">Nomor Surat</p>
+            <p id="emateraiNomorSurat" class="font-mono font-bold text-white text-xs sm:text-sm">-</p>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-400">Pemohon</p>
+            <p id="emateraiPemohonNama" class="font-bold text-white text-xs sm:text-sm">-</p>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-400">Plafon Pinjaman</p>
+            <p id="emateraiPlafon" class="font-extrabold text-emerald-400 text-xs sm:text-sm">Rp 0</p>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-400">Jangka Waktu</p>
+            <p id="emateraiTenor" class="font-bold text-white text-xs sm:text-sm">- Bln</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 Tombol Aksi Utama: Unduh Dokumen & Buka PajakInd -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button type="button" onclick="downloadOfficialLoanPdf(currentEmateraiLoanId)" class="w-full py-3 px-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition shadow-sm">
+          <i data-lucide="download" class="w-4 h-4 text-indigo-600"></i>
+          <span>1. Unduh Formulir PDF Resmi</span>
+        </button>
+
+        <a href="https://web.pajakind.com/" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-emerald-200">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+          <span>2. Buka web.pajakind.com ↗</span>
+        </a>
+      </div>
+
+      <!-- Panduan Tata Cara Pembelian & Pembubuhan e-Materai PajakInd -->
+      <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 sm:p-5 space-y-2 text-xs text-amber-950">
+        <p class="font-extrabold text-amber-900 flex items-center gap-1.5 text-sm">
+          <i data-lucide="help-circle" class="w-4 h-4 text-amber-600"></i>
+          Tata Cara Pembelian & Pembubuhan e-Materai Rp10.000:
+        </p>
+        <ol class="list-decimal list-inside space-y-1.5 pl-1 text-slate-700 leading-relaxed font-medium">
+          <li><strong>Unduh Formulir PDF Pinjaman</strong> Anda menggunakan tombol nomor 1 di atas.</li>
+          <li>Kunjungi situs distributor resmi e-Materai: <a href="https://web.pajakind.com/" target="_blank" class="text-amber-800 underline font-bold">https://web.pajakind.com/</a> lalu masuk ke akun Anda.</li>
+          <li>Pilih menu <strong>Beli Kuota e-Materai</strong> (Rp10.000) dan bayar secara instan menggunakan QRIS atau transfer bank.</li>
+          <li>Pilih menu <strong>Pembubuhan Dokumen (Stamping)</strong>, lalu upload file formulir PDF pinjaman yang sudah diunduh.</li>
+          <li>Geser stempel digital e-Materai Rp10.000 ke area kolom tanda tangan Pemohon (berdampingan).</li>
+          <li>Klik <strong>Bubuhkan Dokumen</strong> dan masukkan PIN pengamanan Anda.</li>
+          <li><strong>Unduh (Download)</strong> file PDF yang telah resmi memiliki stempel & sertifikat tanda tangan digital Peruri.</li>
+        </ol>
+      </div>
+
+      <!-- Form Upload Dokumen Bermaterai -->
+      <div class="space-y-4 pt-1 border-t border-slate-100">
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <i data-lucide="upload-cloud" class="w-4 h-4 text-orange-600"></i>
+            <span>3. Unggah Dokumen PDF yang Telah Dibubuhi e-Materai</span>
+          </h4>
+          <p class="text-[11px] text-slate-500 mt-0.5">Sistem akan memvalidasi tanda tangan digital Peruri/PajakInd dan menyimpan dokumen ke Google Drive sebelum memasukkannya ke Tracking & Progress.</p>
+        </div>
+
+        <div class="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-2xl p-5 text-center space-y-2 transition bg-slate-50/50">
+          <i data-lucide="file-check-2" class="w-8 h-8 text-orange-500 mx-auto"></i>
+          <div>
+            <label for="inputEmateraiPdf" class="cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
+              Pilih Berkas PDF Dokumen Bermaterai
+            </label>
+            <p class="text-[10px] text-slate-400 mt-1">Hanya format PDF standar (Maks. 10 MB). Berkas non-PDF atau tanpa tanda tangan digital akan ditolak sistem.</p>
+          </div>
+          <input type="file" id="inputEmateraiPdf" accept="application/pdf,.pdf" onchange="handleEmateraiFileChange(event)" class="hidden">
+          <div id="emateraiSelectedFileInfo" class="hidden text-xs font-semibold text-slate-700 bg-white p-2 rounded-xl border border-slate-200 inline-flex items-center gap-2 mt-2">
+            <i data-lucide="file" class="w-4 h-4 text-indigo-600"></i>
+            <span id="emateraiSelectedFileName">-</span>
+            <span id="emateraiSelectedFileSize" class="text-[10px] text-slate-400">(-)</span>
+          </div>
+        </div>
+
+        <!-- Status & Feedback Alert -->
+        <div id="emateraiStatusAlert" class="hidden p-3.5 rounded-2xl text-xs font-medium"></div>
+
+        <button type="button" id="btnSubmitEmaterai" onclick="submitEmateraiPdf()" class="w-full py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-orange-200 transition flex items-center justify-center gap-2">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span id="btnSubmitEmateraiText">Verifikasi e-Materai & Simpan ke Google Drive</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+</main>
 
   <!-- Modal Edit Operasional Executive Car -->
   <div id="modalEditOpsCar" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -3482,6 +3645,14 @@
           const m = urlStr.match(/\/api\/loans\/([^\/]+)\/disburse/);
           return callGas('disburseLoan', { loanId: m ? m[1] : '', ...body });
         }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/review-finance/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/review-finance/);
+          return callGas('reviewFinanceLoan', { loanId: m ? m[1] : '', ...body });
+        }
+        if (urlStr.match(/\/api\/loans\/[^\/]+\/upload-ematerai/)) {
+          const m = urlStr.match(/\/api\/loans\/([^\/]+)\/upload-ematerai/);
+          return callGas('uploadEmateraiLoan', { loanId: m ? m[1] : '', ...body });
+        }
 
         // Bridge Bank Accounts
         if (urlStr.includes('/api/bank-accounts/me')) {
@@ -3954,9 +4125,9 @@
         tabFormBtn.disabled = true;
       }
 
-      // 2a. Tab Management Approval (Admin & Ketua Koperasi)
+      // 2a. Tab Management Approval (Admin, Ketua Koperasi, & Financial)
       if (tabApprovalBtn) {
-        if (role === 'admin' || role === 'ketua koperasi') {
+        if (role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
           tabApprovalBtn.style.display = 'inline-flex';
           tabApprovalBtn.disabled = false;
           if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
@@ -4156,7 +4327,7 @@
       const role = currentUser ? normalizeRole(currentUser.role) : 'user';
 
       // Strict RBAC tab guards
-      if (tab === 'approval' && role !== 'admin' && role !== 'ketua koperasi') {
+      if (tab === 'approval' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial') {
         tab = 'tracking';
       }
       if (tab === 'users' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'pengurus') {
@@ -4213,7 +4384,7 @@
       if (tab === 'tracking') fetchData();
       if (tab === 'simpanan') loadSimpananData();
       if (tab === 'pinjaman') loadPinjamanData();
-      if (tab === 'approval' && (role === 'admin' || role === 'ketua koperasi')) refreshApprovalData();
+      if (tab === 'approval' && (role === 'admin' || role === 'ketua koperasi' || role === 'financial')) refreshApprovalData();
       if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus')) fetchUsersList();
       if (tab === 'absensi') onEnterAbsensiTab();
       else onLeaveAbsensiTab();
@@ -8485,6 +8656,9 @@ async function fetchMyLoans() {
 
 function getWorkflowBadge(status) {
   const s = String(status || '').toUpperCase();
+  if (s === 'PENDING_FINANCE') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Menunggu Persetujuan Finance</span>';
+  if (s === 'PENDING_EMATERAI') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">Wajib e-Materai (PajakInd)</span>';
+  if (s === 'VERIFIED_MATERAI') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">e-Materai Valid (Tracking Active)</span>';
   if (s === 'PENDING_PIC_SIMPIN') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Menunggu PIC Simpin</span>';
   if (s === 'PENDING_KETUA') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">Menunggu Ketua Koperasi</span>';
   if (s === 'READY_FOR_DISBURSEMENT') return '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 animate-pulse">Disetujui (Siap Cair)</span>';
@@ -8513,11 +8687,25 @@ function renderMyLoansTable(loans) {
         <p class="text-[10px] text-slate-400 font-semibold">${l.bankAtasNama}</p>
       </td>
       <td class="py-3 px-4 text-center">${getWorkflowBadge(l.statusWorkflow)}</td>
-      <td class="py-3 px-4 text-center">
-        <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
-          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-          <span>Lihat / Cetak</span>
-        </button>
+      <td class="py-3 px-4 text-center whitespace-nowrap">
+        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+          ${l.statusWorkflow === 'PENDING_EMATERAI' ? `
+            <button onclick="openEmateraiModal('${l.loanId}', '${l.nomorSurat}', '${l.pemohonNama}', ${l.jumlahPinjaman}, ${l.tenorBulan})" class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-extrabold text-xs shadow-md shadow-orange-200 transition inline-flex items-center gap-1 animate-pulse">
+              <i data-lucide="stamp" class="w-3.5 h-3.5"></i>
+              <span>Upload e-Materai</span>
+            </button>
+          ` : ''}
+          ${l.dokumenMateraiUrl ? `
+            <a href="${l.dokumenMateraiUrl}" target="_blank" class="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs transition inline-flex items-center gap-1 border border-emerald-200">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Lihat Drive</span>
+            </a>
+          ` : ''}
+          <button onclick="openLoanDocumentModal('${l.loanId}')" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition inline-flex items-center gap-1 border border-indigo-200">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Dokumen</span>
+          </button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -9171,27 +9359,32 @@ function switchApprovalSection(sec) {
   currentApprovalSection = sec;
   const btnBank = document.getElementById('pillApprovalBankBtn');
   const btnRules = document.getElementById('pillApprovalRulesBtn');
+  const btnLoans = document.getElementById('pillApprovalLoansBtn');
   const secBank = document.getElementById('sectionApprovalBank');
   const secRules = document.getElementById('sectionApprovalRules');
+  const secLoans = document.getElementById('sectionApprovalLoans');
 
-  if (sec === 'bank') {
-    if (btnBank) btnBank.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-600 text-white shadow-sm transition flex items-center gap-2";
-    if (btnRules) btnRules.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2";
-    if (secBank) secBank.classList.remove('hidden');
-    if (secRules) secRules.classList.add('hidden');
-  } else {
-    if (btnBank) btnBank.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2";
-    if (btnRules) btnRules.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white shadow-sm transition flex items-center gap-2";
-    if (secBank) secBank.classList.add('hidden');
-    if (secRules) secRules.classList.remove('hidden');
+  const activePill = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-600 text-white shadow-sm transition flex items-center gap-2";
+  const inactivePill = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2";
+
+  if (btnBank) btnBank.className = sec === 'bank' ? activePill : inactivePill;
+  if (btnRules) btnRules.className = sec === 'rules' ? activePill : inactivePill;
+  if (btnLoans) btnLoans.className = sec === 'loans' ? activePill : inactivePill;
+
+  if (secBank) secBank.classList.toggle('hidden', sec !== 'bank');
+  if (secRules) secRules.classList.toggle('hidden', sec !== 'rules');
+  if (secLoans) secLoans.classList.toggle('hidden', sec !== 'loans');
+
+  if (sec === 'loans' && typeof loadLoansApprovalData === 'function') {
+    loadLoansApprovalData();
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 async function loadApprovalBadgeCounts() {
   if (!currentUser) return;
   const role = normalizeRole(currentUser.role);
-  if (role !== 'admin' && role !== 'ketua koperasi') return;
+  if (role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial') return;
 
   try {
     // 1. Fetch bank account requests
@@ -9206,7 +9399,24 @@ async function loadApprovalBadgeCounts() {
     const rulesReqs = jsonRules.approvals || [];
     const pendingRules = rulesReqs.filter(r => (r.status || 'PENDING').toUpperCase() === 'PENDING').length;
 
-    const totalPending = pendingBank + pendingRules;
+    // 3. Permohonan Pinjaman Pending Finance
+    let pendingLoans = 0;
+    try {
+      const resLoans = await fetch(`${API_BASE}/api/loans/all?role=${encodeURIComponent(currentUser.role)}`);
+      const jsonLoans = await resLoans.json();
+      if (jsonLoans.success && Array.isArray(jsonLoans.loans)) {
+        pendingLoans = jsonLoans.loans.filter(l => l.statusWorkflow === 'PENDING_FINANCE').length;
+        const badgeLoans = document.getElementById('badgePillLoans');
+        if (badgeLoans) {
+          badgeLoans.innerText = pendingLoans;
+          badgeLoans.className = pendingLoans > 0
+            ? "px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-bold animate-pulse"
+            : "px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold";
+        }
+      }
+    } catch(e){}
+
+    const totalPending = pendingBank + pendingRules + pendingLoans;
     const badgeTotal = document.getElementById('badgeTotalPendingApprovals');
     if (badgeTotal) {
       if (totalPending > 0) {
@@ -9552,6 +9762,352 @@ async function handleRejectRuleRequest(approvalId, namaAnggota, ruleId) {
     }
   } catch (err) {
     showToast('Koneksi gagal: ' + err.message, true);
+  }
+}
+
+
+// ============================================================================
+// CONTROLLER CLIENT: APPROVAL FINANCE PINJAMAN & PEMBUBUHAN e-MATERAI PAJAKIND
+// ============================================================================
+
+let currentEmateraiLoanId = null;
+let currentEmateraiFileBase64 = null;
+let currentEmateraiFileName = null;
+let loansApprovalList = [];
+
+function openEmateraiModal(loanId, nomorSurat, pemohonNama, plafon, tenor) {
+  currentEmateraiLoanId = loanId;
+  currentEmateraiFileBase64 = null;
+  currentEmateraiFileName = null;
+
+  document.getElementById('emateraiNomorSurat').innerText = nomorSurat || '-';
+  document.getElementById('emateraiPemohonNama').innerText = pemohonNama || '-';
+  document.getElementById('emateraiPlafon').innerText = formatRupiahNumber(plafon || 0);
+  document.getElementById('emateraiTenor').innerText = (tenor || '-') + ' Bln';
+
+  const fileInput = document.getElementById('inputEmateraiPdf');
+  if (fileInput) fileInput.value = '';
+
+  const fileInfo = document.getElementById('emateraiSelectedFileInfo');
+  if (fileInfo) fileInfo.classList.add('hidden');
+
+  const alertBox = document.getElementById('emateraiStatusAlert');
+  if (alertBox) {
+    alertBox.className = 'hidden';
+    alertBox.innerHTML = '';
+  }
+
+  const btnSubmit = document.getElementById('btnSubmitEmaterai');
+  if (btnSubmit) {
+    btnSubmit.disabled = false;
+    document.getElementById('btnSubmitEmateraiText').innerText = 'Verifikasi e-Materai & Simpan ke Google Drive';
+  }
+
+  document.getElementById('modalEmateraiProcess').classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeEmateraiModal() {
+  document.getElementById('modalEmateraiProcess').classList.add('hidden');
+  currentEmateraiLoanId = null;
+}
+
+function downloadOfficialLoanPdf(loanId) {
+  if (!loanId && currentEmateraiLoanId) loanId = currentEmateraiLoanId;
+  if (!loanId) return;
+
+  showToast('Membuka dokumen resmi untuk diunduh / dicetak...');
+  openLoanDocumentModal(loanId);
+}
+
+function handleEmateraiFileChange(e) {
+  const file = e.target.files[0];
+  const alertBox = document.getElementById('emateraiStatusAlert');
+  const fileInfo = document.getElementById('emateraiSelectedFileInfo');
+
+  if (!file) {
+    currentEmateraiFileBase64 = null;
+    currentEmateraiFileName = null;
+    if (fileInfo) fileInfo.classList.add('hidden');
+    return;
+  }
+
+  // Cek MIME type & ekstensi
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    showToast('Format berkas tidak valid. Harap pilih file PDF standar.', true);
+    if (alertBox) {
+      alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
+      alertBox.innerHTML = '<i data-lucide="alert-octagon" class="w-4 h-4 inline mr-1 text-red-600"></i> Berkas bukan format PDF. Sistem menolak berkas non-PDF demi keamanan.';
+      alertBox.classList.remove('hidden');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    e.target.value = '';
+    return;
+  }
+
+  // Cek ukuran maks 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('Ukuran file melebihi batas maksimal 10 MB.', true);
+    if (alertBox) {
+      alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
+      alertBox.innerHTML = 'Ukuran file melebihi batas 10 MB. Silakan kompresi berkas terlebih dahulu.';
+      alertBox.classList.remove('hidden');
+    }
+    e.target.value = '';
+    return;
+  }
+
+  currentEmateraiFileName = file.name;
+
+  if (fileInfo) {
+    document.getElementById('emateraiSelectedFileName').innerText = file.name;
+    document.getElementById('emateraiSelectedFileSize').innerText = `(${(file.size / 1024).toFixed(1)} KB)`;
+    fileInfo.classList.remove('hidden');
+  }
+
+  if (alertBox) alertBox.classList.add('hidden');
+
+  // Baca base64
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    currentEmateraiFileBase64 = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitEmateraiPdf() {
+  if (!currentEmateraiLoanId) {
+    showToast('ID Pinjaman tidak valid.', true);
+    return;
+  }
+
+  if (!currentEmateraiFileBase64) {
+    showToast('Silakan pilih file PDF yang telah dibubuhi e-Materai terlebih dahulu.', true);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitEmaterai');
+  const btnText = document.getElementById('btnSubmitEmateraiText');
+  const alertBox = document.getElementById('emateraiStatusAlert');
+
+  btn.disabled = true;
+  btnText.innerText = 'Memeriksa e-Materai & Mengunggah ke Drive...';
+  if (alertBox) {
+    alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-2';
+    alertBox.innerHTML = '<span class="inline-block animate-spin"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memindai keamanan berkas dan memvalidasi stempel digital Peruri/PajakInd...';
+    alertBox.classList.remove('hidden');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${currentEmateraiLoanId}/upload-ematerai`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pdfBase64: currentEmateraiFileBase64,
+        fileName: currentEmateraiFileName || 'dokumen_bermaterai.pdf',
+        uploaderNik: currentUser.nik || currentUser.username,
+        uploaderNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        uploaderRole: currentUser.role
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      if (alertBox) {
+        alertBox.className = 'p-4 rounded-2xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-200 space-y-1.5';
+        alertBox.innerHTML = `
+          <div class="flex items-center gap-1.5 text-emerald-800 text-sm">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600"></i>
+            <span>Verifikasi e-Materai Berhasil!</span>
+          </div>
+          <p class="text-[11px] text-emerald-700 font-normal">Sertifikat digital: <strong>${data.provider || 'PajakInd / Peruri'}</strong>. Dokumen telah diarsipkan di Google Drive dan permohonan pinjaman resmi masuk ke <strong>Tracking & Progress</strong>.</p>
+          <div class="pt-1">
+            <a href="${data.driveUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs text-indigo-700 underline font-extrabold hover:text-indigo-900">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              Buka File di Google Drive
+            </a>
+          </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+
+      showToast('e-Materai berhasil diverifikasi! Permohonan telah masuk ke Tracking & Progress.');
+      setTimeout(() => {
+        closeEmateraiModal();
+        if (typeof fetchMyLoans === 'function') fetchMyLoans();
+        if (typeof fetchAllLoans === 'function') fetchAllLoans();
+        if (typeof loadLoansApprovalData === 'function') loadLoansApprovalData();
+      }, 2500);
+
+    } else {
+      btn.disabled = false;
+      btnText.innerText = 'Coba Verifikasi Ulang';
+      if (alertBox) {
+        alertBox.className = 'p-4 rounded-2xl text-xs font-semibold bg-red-50 text-red-900 border border-red-200 space-y-1';
+        alertBox.innerHTML = `
+          <div class="flex items-center gap-1.5 text-red-800 font-bold">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600"></i>
+            <span>Verifikasi Ditolak</span>
+          </div>
+          <p class="text-[11px] text-red-700">${data.message || 'Dokumen belum terdeteksi dibubuhi e-Materai resmi.'}</p>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+      showToast(data.message || 'Verifikasi e-Materai gagal.', true);
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btnText.innerText = 'Verifikasi e-Materai & Simpan ke Google Drive';
+    if (alertBox) {
+      alertBox.className = 'p-3.5 rounded-2xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200';
+      alertBox.innerText = 'Koneksi server gagal: ' + err.message;
+    }
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+// ----------------------------------------------------
+// PERSATUAN PINJAMAN OLEH FINANCE DI TAB APPROVAL
+// ----------------------------------------------------
+
+async function loadLoansApprovalData() {
+  const tbody = document.getElementById('tbodyApprovalLoans');
+  if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">Memuat data permohonan pinjaman...</td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/all?role=${encodeURIComponent(currentUser.role)}`);
+    const data = await res.json();
+
+    if (data.success && Array.isArray(data.loans)) {
+      loansApprovalList = data.loans.filter(l => l.statusWorkflow === 'PENDING_FINANCE');
+      renderLoansApprovalTable(loansApprovalList);
+
+      const badgeLoans = document.getElementById('badgePillLoans');
+      if (badgeLoans) {
+        badgeLoans.innerText = loansApprovalList.length;
+        badgeLoans.className = loansApprovalList.length > 0
+          ? "px-2 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-bold animate-pulse"
+          : "px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold";
+      }
+    }
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-red-500">Gagal memuat: ${err.message}</td></tr>`;
+  }
+}
+
+function renderLoansApprovalTable(loans) {
+  const tbody = document.getElementById('tbodyApprovalLoans');
+  if (!tbody) return;
+
+  if (!loans || loans.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">Tidak ada antrean pinjaman yang menunggu persetujuan Finance.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = loans.map(l => `
+    <tr class="hover:bg-slate-50/80 transition">
+      <td class="py-3 px-4 text-slate-600 whitespace-nowrap text-xs">${l.timestamp || l.tanggalPermohonan}</td>
+      <td class="py-3 px-4 font-mono font-bold text-slate-900 text-xs">${l.nomorSurat}</td>
+      <td class="py-3 px-4 text-xs">
+        <p class="font-bold text-slate-900">${l.pemohonNama}</p>
+        <p class="text-[10px] text-slate-500 font-medium">${l.pemohonNik} ${l.pemohonUnit ? '· ' + l.pemohonUnit : ''}</p>
+      </td>
+      <td class="py-3 px-4 font-extrabold text-indigo-700 text-xs">${formatRupiahNumber(l.jumlahPinjaman)}</td>
+      <td class="py-3 px-4 text-xs">
+        <p class="font-bold text-emerald-700">${formatRupiahNumber(l.cicilanBulanan)}/bln</p>
+        <p class="text-[10px] text-slate-400 font-medium">${l.tenorBulan} Bulan</p>
+      </td>
+      <td class="py-3 px-4 text-xs text-slate-600">
+        <p class="font-semibold text-slate-800">${l.bankNama} · ${l.bankNoRekening}</p>
+        <p class="text-[10px] text-slate-500">a.n ${l.bankAtasNama}</p>
+      </td>
+      <td class="py-3 px-4 text-xs text-slate-600 max-w-[180px] truncate" title="${l.keperluan}">${l.keperluan}</td>
+      <td class="py-3 px-4 text-center">
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+          Menunggu Review Finance
+        </span>
+      </td>
+      <td class="py-3 px-4 text-center whitespace-nowrap">
+        <div class="flex items-center justify-center gap-1.5">
+          <button onclick="handleApproveFinanceLoan('${l.loanId}', '${l.nomorSurat}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition inline-flex items-center gap-1">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Setujui (Lanjut e-Materai)</span>
+          </button>
+          <button onclick="handleRejectFinanceLoan('${l.loanId}', '${l.nomorSurat}')" class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold text-xs transition inline-flex items-center gap-1">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            <span>Tolak</span>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+async function handleApproveFinanceLoan(loanId, nomorSurat) {
+  if (!confirm(`Setujui pengajuan pinjaman ${nomorSurat}?\n\nSetelah disetujui, anggota wajib mengunduh formulir dan membubuhi e-Materai Rp10.000 via https://web.pajakind.com/ sebelum permohonan masuk ke Tracking & Progress.`)) return;
+
+  const catatan = prompt('Catatan persetujuan Finance (opsional):', 'Disetujui Finance, lanjut pembubuhan e-Materai Rp10.000 di PajakInd');
+  if (catatan === null) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${loanId}/review-finance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'APPROVE',
+        catatan,
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerRole: currentUser.role
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Pinjaman berhasil disetujui Finance!');
+      loadLoansApprovalData();
+      if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
+    } else {
+      showToast(data.message || 'Gagal memproses approval.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+async function handleRejectFinanceLoan(loanId, nomorSurat) {
+  const catatan = prompt(`Alasan penolakan pinjaman ${nomorSurat}:`);
+  if (!catatan) {
+    showToast('Alasan penolakan wajib diisi.', true);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/loans/${loanId}/review-finance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'REJECT',
+        catatan,
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerRole: currentUser.role
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      showToast('Permohonan pinjaman ditolak.');
+      loadLoansApprovalData();
+      if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
+    } else {
+      showToast(data.message || 'Gagal menolak permohonan.', true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
   }
 }
 

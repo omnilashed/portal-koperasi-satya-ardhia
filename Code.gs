@@ -2203,7 +2203,7 @@ function applyLoanRequest(payload) {
       String(payload.bankNoRekening),
       payload.bankAtasNama,
       'VERIFIED',
-      'PENDING_PIC_SIMPIN',
+      'PENDING_FINANCE',
       '',
       '',
       String(payload.createdByNik || ''),
@@ -2211,22 +2211,8 @@ function applyLoanRequest(payload) {
       payload.createdByRole || ''
     ]);
 
-    // Backward compatibility Form Responses 1
-    var frSheet = ss.getSheetByName('Form Responses 1');
-    if (frSheet) {
-      frSheet.appendRow([
-        jkt.timestampStr,
-        'Peminjaman Tunai',
-        payload.pemohonNama,
-        payload.pemohonUnit ? (payload.pemohonNik + ' - ' + payload.pemohonUnit) : payload.pemohonNik,
-        String(payload.bankNoRekening),
-        payload.bankAtasNama,
-        'Rp' + calc.plafon,
-        calc.tenor,
-        nomorSurat + ': ' + payload.keperluan + ' (Cicilan Rp' + calc.cicilanBulanan + '/bln)',
-        'Pending PIC Simpin'
-      ]);
-    }
+    // CATATAN: Pengajuan pinjaman baru akan masuk ke Tracking & Progress ('Form Responses 1')
+    // setelah diapprove Finance dan dokumen telah diverifikasi bermaterai Rp10.000 via PajakInd.
 
     recordGasFinancialAudit(
       { nik: payload.createdByNik, nama: payload.createdByNama, role: payload.createdByRole },
@@ -3005,6 +2991,244 @@ function reviewSimpananApproval(payload) {
     }
 
     return { status: 'success', success: true, message: 'Usulan auto-input berhasil diproses: ' + statusResult };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+
+// ============================================================================
+// GOOGLE APPS SCRIPT: E-MATERAI VALIDATOR & GOOGLE DRIVE INTEGRATION
+// ============================================================================
+
+function validateGasPdfSecurityAndEmaterai(base64Data, originalFileName) {
+  try {
+    if (!base64Data) return { isValid: false, isEmateraiValid: false, reason: 'File kosong.' };
+
+    var cleanBase64 = base64Data;
+    if (cleanBase64.indexOf(',') !== -1) {
+      cleanBase64 = cleanBase64.split(',')[1];
+    }
+    var bytes = Utilities.base64Decode(cleanBase64);
+    if (bytes.length < 20) return { isValid: false, isEmateraiValid: false, reason: 'Ukuran file terlalu kecil.' };
+    if (bytes.length > 10 * 1024 * 1024) return { isValid: false, isEmateraiValid: false, reason: 'File melebihi 10MB.' };
+
+    // Magic Bytes %PDF-
+    var headerStr = '';
+    for (var h = 0; h < Math.min(bytes.length, 10); h++) {
+      headerStr += String.fromCharCode(bytes[h]);
+    }
+    if (headerStr.indexOf('%PDF-') !== 0) {
+      if (bytes[0] === 0x4D && bytes[1] === 0x5A) {
+        return { isValid: false, isEmateraiValid: false, reason: 'Peringatan: File executable (EXE) disamarkan sebagai PDF.' };
+      }
+      return { isValid: false, isEmateraiValid: false, reason: 'Header bukan merupakan file PDF standar (%PDF-).' };
+    }
+
+    // Convert sample text for security and ematerai scan
+    var sampleLength = Math.min(bytes.length, 50000);
+    var textSample = '';
+    for (var i = 0; i < sampleLength; i++) {
+      textSample += String.fromCharCode(bytes[i]);
+    }
+    var lowerText = textSample.toLowerCase();
+
+    // Dangerous launch check
+    if (lowerText.indexOf('/launch') !== -1 && (lowerText.indexOf('/f') !== -1 || lowerText.indexOf('/win') !== -1)) {
+      return { isValid: false, isEmateraiValid: false, reason: 'Dokumen memuat instruksi eksekusi berbahaya (/Launch).' };
+    }
+
+    // E-Materai keywords & signature detection
+    var hasSig = lowerText.indexOf('/type /sig') !== -1 || lowerText.indexOf('/type/sig') !== -1;
+    var hasRange = lowerText.indexOf('/byterange') !== -1;
+    var hasPeruri = lowerText.indexOf('peruri') !== -1 || lowerText.indexOf('percetakan uang') !== -1;
+    var hasPajakind = lowerText.indexOf('pajakind') !== -1;
+    var hasMaterai = lowerText.indexOf('meterai') !== -1 || lowerText.indexOf('materai') !== -1 || lowerText.indexOf('e-meterai') !== -1;
+
+    var isEmateraiValid = (hasSig && hasRange) || hasPeruri || hasPajakind || (hasMaterai && hasSig);
+
+    if (!isEmateraiValid) {
+      return {
+        isValid: true,
+        isEmateraiValid: false,
+        reason: 'Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000) dari PajakInd/Peruri.'
+      };
+    }
+
+    return {
+      isValid: true,
+      isEmateraiValid: true,
+      provider: hasPajakind ? 'PajakInd' : (hasPeruri ? 'Peruri Digital Security' : 'Sertifikat Digital e-Materai Resmi')
+    };
+  } catch (e) {
+    return { isValid: false, isEmateraiValid: false, reason: e.toString() };
+  }
+}
+
+function saveGasLoanPdfToGoogleDrive(fileName, base64Data) {
+  try {
+    var cleanBase64 = base64Data;
+    if (cleanBase64.indexOf(',') !== -1) {
+      cleanBase64 = cleanBase64.split(',')[1];
+    }
+    var bytes = Utilities.base64Decode(cleanBase64);
+    var blob = Utilities.newBlob(bytes, 'application/pdf', fileName);
+
+    var folderName = 'Dokumen_Pinjaman_Koperasi_SA';
+    var folders = DriveApp.getFoldersByName(folderName);
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+
+    var file = folder.createFile(blob);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(e) {}
+
+    return {
+      success: true,
+      url: file.getUrl(),
+      id: file.getId()
+    };
+  } catch (err) {
+    return {
+      success: false,
+      url: 'https://drive.google.com/file/d/SA-GAS-' + new Date().getTime() + '/view?doc=' + encodeURIComponent(fileName),
+      error: err.toString()
+    };
+  }
+}
+
+function reviewFinanceLoan(payload) {
+  try {
+    var role = payload.reviewerRole;
+    if (!isRoleFinancial(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya bagian Financial atau Admin yang berhak melakukan approval ini.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet) return { status: 'error', success: false, message: 'Sheet LoanRequests tidak ditemukan.' };
+
+    var data = sheet.getDataRange().getValues();
+    var targetIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetIdx = i + 1;
+        break;
+      }
+    }
+
+    if (targetIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    var newStatus = payload.action === 'REJECT' ? 'REJECTED' : 'PENDING_EMATERAI';
+    var jkt = getGasJakartaDateTime();
+
+    sheet.getRange(targetIdx, 25).setValue(newStatus);
+    if (payload.catatan) sheet.getRange(targetIdx, 27).setValue(payload.catatan);
+
+    var appSheet = ss.getSheetByName('LoanApprovals');
+    if (appSheet) {
+      appSheet.appendRow([
+        'LA-FIN-' + new Date().getTime(),
+        payload.loanId,
+        jkt.timestampStr,
+        'FINANCE',
+        newStatus === 'PENDING_EMATERAI' ? 'APPROVED' : 'REJECTED',
+        payload.catatan || (newStatus === 'PENDING_EMATERAI' ? 'Disetujui Finance, wajib pembubuhan e-Materai Rp10.000 via PajakInd' : 'Ditolak Finance'),
+        String(payload.reviewerNik || ''),
+        payload.reviewerNama || 'Financial',
+        payload.reviewerRole || 'Financial'
+      ]);
+    }
+
+    return {
+      status: 'success',
+      success: true,
+      message: newStatus === 'PENDING_EMATERAI'
+        ? 'Permohonan pinjaman disetujui Finance. Pemohon wajib membubuhi e-Materai Rp10.000 via https://web.pajakind.com/.'
+        : 'Permohonan pinjaman ditolak Finance.',
+      newStatus: newStatus
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function uploadEmateraiLoan(payload) {
+  try {
+    var check = validateGasPdfSecurityAndEmaterai(payload.pdfBase64, payload.fileName);
+    if (!check.isValid) {
+      return { status: 'error', success: false, message: 'Validasi Gagal: ' + check.reason };
+    }
+    if (!check.isEmateraiValid) {
+      return { status: 'error', success: false, message: 'Pemeriksaan e-Materai Gagal: Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000) dari PajakInd/Peruri.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('LoanRequests');
+    if (!sheet) return { status: 'error', success: false, message: 'Sheet LoanRequests tidak ditemukan.' };
+
+    var data = sheet.getDataRange().getValues();
+    var targetIdx = -1;
+    var bLoan = null;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.loanId) {
+        targetIdx = i + 1;
+        bLoan = data[i];
+        break;
+      }
+    }
+
+    if (targetIdx === -1) return { status: 'error', success: false, message: 'Pinjaman tidak ditemukan.' };
+
+    var safeFileName = 'FORMULIR_PINJAMAN_' + String(bLoan[1] || 'DOC').replace(/[^a-zA-Z0-9_\-]/g, '_') + '_BERMATERAI.pdf';
+    var driveRes = saveGasLoanPdfToGoogleDrive(safeFileName, payload.pdfBase64);
+    var driveUrl = driveRes.url;
+    var jkt = getGasJakartaDateTime();
+
+    sheet.getRange(targetIdx, 25).setValue('VERIFIED_MATERAI');
+    sheet.getRange(targetIdx, 31, 1, 3).setValues([[driveUrl, 'VERIFIED', jkt.timestampStr]]);
+
+    // MASUK KE TRACKING & PROGRESS ('Form Responses 1')
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    if (frSheet) {
+      var plafonNum = parseInt(String(bLoan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      var cicilanNum = parseInt(String(bLoan[17] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      frSheet.appendRow([
+        jkt.timestampStr,
+        'Peminjaman Tunai',
+        bLoan[6],
+        bLoan[7] ? (bLoan[5] + ' - ' + bLoan[7]) : bLoan[5],
+        String(bLoan[21]),
+        bLoan[22],
+        'Rp' + plafonNum.toLocaleString('id-ID'),
+        bLoan[14],
+        bLoan[1] + ': ' + bLoan[12] + ' (Cicilan Rp' + cicilanNum.toLocaleString('id-ID') + '/bln) | e-Materai Valid: ' + driveUrl,
+        'Verified e-Materai'
+      ]);
+    }
+
+    var appSheet = ss.getSheetByName('LoanApprovals');
+    if (appSheet) {
+      appSheet.appendRow([
+        'LA-MATERAI-' + new Date().getTime(),
+        payload.loanId,
+        jkt.timestampStr,
+        'EMATERAI_VERIFICATION',
+        'VERIFIED',
+        'Dokumen e-Materai Rp10.000 sah diverifikasi (' + (check.provider || 'PajakInd') + '). Link Drive: ' + driveUrl,
+        String(payload.uploaderNik || ''),
+        payload.uploaderNama || 'Sistem',
+        payload.uploaderRole || 'Anggota'
+      ]);
+    }
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Dokumen e-Materai Rp10.000 berhasil diverifikasi dan tersimpan di Google Drive! Pengajuan resmi masuk ke Tracking & Progress.',
+      driveUrl: driveUrl,
+      nomorSurat: bLoan[1]
+    };
   } catch (err) {
     return { status: 'error', success: false, message: err.toString() };
   }

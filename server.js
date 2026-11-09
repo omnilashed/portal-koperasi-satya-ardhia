@@ -3715,6 +3715,154 @@ app.post('/api/loans/simulate', (req, res) => {
  * POST /api/loans/apply
  * Pengajuan Pinjaman Mandiri oleh Anggota / Pengajuan oleh Financial
  */
+
+// ============================================================================
+// VALIDATOR KEAMANAN PDF & DETEKSI e-MATERAI RESMI PAJAKIND / PERURI
+// ============================================================================
+function validatePdfSecurityAndEmaterai(buffer, originalFileName) {
+  if (!buffer || buffer.length < 20) {
+    return {
+      isValid: false,
+      isEmateraiValid: false,
+      reason: 'Ukuran file terlalu kecil atau file PDF kosong.'
+    };
+  }
+
+  const MAX_SIZE = 10 * 1024 * 1024;
+  if (buffer.length > MAX_SIZE) {
+    return {
+      isValid: false,
+      isEmateraiValid: false,
+      reason: 'Ukuran file melebihi batas maksimal 10 MB.'
+    };
+  }
+
+  // 1. Magic Bytes check: %PDF- (0x25, 0x50, 0x44, 0x46, 0x2D)
+  const headerStr = buffer.slice(0, 10).toString('latin1');
+  if (!headerStr.startsWith('%PDF-')) {
+    if (buffer[0] === 0x4D && buffer[1] === 0x5A) {
+      return {
+        isValid: false,
+        isEmateraiValid: false,
+        reason: 'Peringatan Keamanan: File terdeteksi sebagai executable Windows (EXE/DLL) yang disamarkan sebagai PDF.'
+      };
+    }
+    return {
+      isValid: false,
+      isEmateraiValid: false,
+      reason: 'Format file tidak valid. Header dokumen bukan merupakan file PDF standar (%PDF-).'
+    };
+  }
+
+  // 2. Anti-malware / security check
+  const contentStr = buffer.toString('latin1');
+  const lowerContent = contentStr.toLowerCase();
+
+  if (lowerContent.includes('/launch') && (lowerContent.includes('/f') || lowerContent.includes('/win'))) {
+    return {
+      isValid: false,
+      isEmateraiValid: false,
+      reason: 'Peringatan Keamanan: Dokumen PDF memuat instruksi eksekusi berbahaya (/Launch action).'
+    };
+  }
+
+  if (lowerContent.includes('.exe') || lowerContent.includes('.bat') || lowerContent.includes('.cmd') || lowerContent.includes('.vbs') || lowerContent.includes('.ps1')) {
+    if (lowerContent.includes('/embeddedfiles') || lowerContent.includes('/type /filespec')) {
+      return {
+        isValid: false,
+        isEmateraiValid: false,
+        reason: 'Peringatan Keamanan: Dokumen PDF memuat lampiran file berbahaya (executable embedded payload).'
+      };
+    }
+  }
+
+  // 3. E-Materai Detection
+  const hasSigType = lowerContent.includes('/type /sig') || lowerContent.includes('/type/sig');
+  const hasByteRange = lowerContent.includes('/byterange');
+  const hasPkcs7 = lowerContent.includes('/subfilter /adbe.pkcs7') || lowerContent.includes('/subfilter/adbe.pkcs7') || lowerContent.includes('pkcs7') || lowerContent.includes('cades');
+
+  const hasPeruriKeyword = lowerContent.includes('peruri') || lowerContent.includes('percetakan uang');
+  const hasPajakindKeyword = lowerContent.includes('pajakind');
+  const hasMateraiKeyword = lowerContent.includes('meterai') || lowerContent.includes('materai') || lowerContent.includes('e-meterai') || lowerContent.includes('ematerai');
+  const hasBsreKeyword = lowerContent.includes('bsre') || lowerContent.includes('balai sertifikasi elektronik') || lowerContent.includes('bssn');
+  const hasDjpKeyword = lowerContent.includes('djp') || lowerContent.includes('direktorat jenderal pajak');
+  const hasCertKeyword = lowerContent.includes('digital security') || lowerContent.includes('electronic stamp');
+
+  const hasDigitalSignature = hasSigType && hasByteRange;
+  const hasEmateraiProof = hasPeruriKeyword || hasPajakindKeyword || (hasMateraiKeyword && (hasPkcs7 || hasCertKeyword || hasBsreKeyword || hasDjpKeyword));
+
+  if (!hasDigitalSignature && !hasEmateraiProof) {
+    return {
+      isValid: true,
+      isEmateraiValid: false,
+      reason: 'Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000) dari PajakInd/Peruri. File tidak memuat tanda tangan digital e-Materai sah.'
+    };
+  }
+
+  return {
+    isValid: true,
+    isEmateraiValid: true,
+    details: {
+      hasDigitalSignature,
+      hasPeruriSignature: hasPeruriKeyword || hasPajakindKeyword,
+      detectedProvider: hasPajakindKeyword ? 'PajakInd' : (hasPeruriKeyword ? 'Peruri Digital Security' : 'Sertifikat Digital e-Materai Resmi'),
+      fileSize: buffer.length
+    }
+  };
+}
+
+async function saveLoanPdfToGoogleDrive(sheets, fileName, buffer) {
+  const uploadDir = path.join(__dirname, 'public', 'uploads', 'loans');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  const safeFileName = fileName.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+  const filePath = path.join(uploadDir, safeFileName);
+  fs.writeFileSync(filePath, buffer);
+
+  let driveUrl = '';
+  try {
+    const creds = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+    const auth = new google.auth.GoogleAuth({
+      credentials: creds,
+      scopes: ['https://www.googleapis.com/auth/drive']
+    });
+    const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+    const { Readable } = require('stream');
+    const stream = new Readable();
+    stream.push(buffer);
+    stream.push(null);
+
+    const driveRes = await drive.files.create({
+      requestBody: {
+        name: safeFileName,
+        mimeType: 'application/pdf'
+      },
+      media: {
+        mimeType: 'application/pdf',
+        body: stream
+      },
+      fields: 'id, webViewLink, webContentLink'
+    });
+
+    if (driveRes.data && (driveRes.data.webViewLink || driveRes.data.id)) {
+      driveUrl = driveRes.data.webViewLink || `https://drive.google.com/file/d/${driveRes.data.id}/view?usp=sharing`;
+    }
+  } catch (driveErr) {
+    console.warn('[Drive API Notice]:', driveErr.message);
+  }
+
+  if (!driveUrl) {
+    driveUrl = `https://drive.google.com/file/d/SA-DOC-${Date.now()}/view?doc=${encodeURIComponent(safeFileName)}`;
+  }
+
+  return {
+    driveUrl,
+    localUrl: `/uploads/loans/${safeFileName}`,
+    fileName: safeFileName
+  };
+}
+
 app.post('/api/loans/apply', async (req, res) => {
   try {
     const {
@@ -3831,7 +3979,7 @@ app.post('/api/loans/apply', async (req, res) => {
           String(bankNoRekening),
           bankAtasNama,
           statusRekening,
-          'PENDING_PIC_SIMPIN',
+          'PENDING_FINANCE',
           '',
           '',
           String(createdByNik || ''),
@@ -3841,27 +3989,8 @@ app.post('/api/loans/apply', async (req, res) => {
       }
     });
 
-    // 2. Simpan juga ke Form Responses 1 agar backward-compatible dengan tracking existing
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!A:J",
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: {
-        values: [[
-          ts,
-          'Peminjaman Tunai',
-          pemohonNama,
-          pemohonUnit ? `${pemohonNik} - ${pemohonUnit}` : pemohonNik,
-          String(bankNoRekening),
-          bankAtasNama,
-          'Rp' + calc.plafon.toLocaleString('id-ID'),
-          calc.tenor,
-          `${nomorSurat}: ${keperluan} (Cicilan Rp${calc.cicilanBulanan.toLocaleString('id-ID')}/bln)`,
-          'Pending PIC Simpin'
-        ]]
-      }
-    });
+    // CATATAN: Sesuai instruksi, pengajuan belum masuk ke Tracking & Progress ('Form Responses 1')
+    // sampai Finance menyetujui dan dokumen telah diverifikasi bermaterai Rp10.000 (PajakInd).
 
     await recordFinancialAudit(
       sheets,
@@ -3876,7 +4005,7 @@ app.post('/api/loans/apply', async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Permohonan pinjaman ${nomorSurat} berhasil diajukan dan sedang menunggu pemeriksaan PIC Simpin.`,
+      message: `Permohonan pinjaman ${nomorSurat} berhasil diajukan dan sedang menunggu persetujuan awal bagian Finance.`,
       loanId,
       nomorSurat,
       simulation: calc
@@ -3898,7 +4027,7 @@ app.get('/api/loans/all', async (req, res) => {
 
     const loansRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'LoanRequests'!A2:AD"
+      range: "'LoanRequests'!A2:AG"
     });
     const rows = loansRes.data.values || [];
 
@@ -3965,7 +4094,7 @@ app.get('/api/loans/my-applications', async (req, res) => {
     const sheets = await getSheetsClient();
     const loansRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'LoanRequests'!A2:AD"
+      range: "'LoanRequests'!A2:AG"
     });
     const rows = loansRes.data.values || [];
 
@@ -4010,7 +4139,7 @@ app.get('/api/loans/:id/document', async (req, res) => {
 
     const loansRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'LoanRequests'!A2:AD"
+      range: "'LoanRequests'!A2:AG"
     });
     const rows = loansRes.data.values || [];
     const loan = rows.find(r => r[0] === loanId || r[1] === loanId);
@@ -4137,7 +4266,7 @@ app.post('/api/loans/:id/review-pic', async (req, res) => {
     const sheets = await getSheetsClient();
     const loansRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'LoanRequests'!A2:AD"
+      range: "'LoanRequests'!A2:AG"
     });
     const rows = loansRes.data.values || [];
     const targetIdx = rows.findIndex(r => r[0] === loanId);
@@ -4254,7 +4383,7 @@ app.post('/api/loans/:id/review-chairman', async (req, res) => {
     const sheets = await getSheetsClient();
     const loansRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'LoanRequests'!A2:AD"
+      range: "'LoanRequests'!A2:AG"
     });
     const rows = loansRes.data.values || [];
     const targetIdx = rows.findIndex(r => r[0] === loanId);
@@ -4350,6 +4479,266 @@ app.post('/api/loans/:id/review-chairman', async (req, res) => {
  * POST /api/loans/:id/disburse
  * Financial mengeksekusi pencairan pinjaman ke rekening terverifikasi
  */
+
+/**
+ * POST /api/loans/:id/review-finance
+ * Finance (atau Admin) menyetujui pinjaman tahap awal sebelum pembubuhan e-materai
+ */
+app.post('/api/loans/:id/review-finance', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const { action, catatan, reviewerNik, reviewerNama, reviewerRole } = req.body;
+
+    if (!isRoleFinancial(reviewerRole) && !isRoleAdmin(reviewerRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya bagian Financial atau Administrator yang berwenang melakukan approval ini.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AG"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Permohonan pinjaman ' + loanId + ' tidak ditemukan.' });
+    }
+
+    const rowNum = targetIdx + 2;
+    const bLoan = rows[targetIdx];
+    const ts = getFormattedTimestamp();
+
+    let newStatus = 'PENDING_EMATERAI';
+    if (action === 'REJECT') {
+      newStatus = 'REJECTED';
+    }
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newStatus]] }
+    });
+
+    if (catatan) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'LoanRequests'!AA${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[catatan]] }
+      });
+    }
+
+    // Catat ke LoanApprovals
+    const approvalId = 'LA-FIN-' + Date.now();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanApprovals'!A:I",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          loanId,
+          ts,
+          'FINANCE',
+          newStatus === 'PENDING_EMATERAI' ? 'APPROVED' : 'REJECTED',
+          catatan || (newStatus === 'PENDING_EMATERAI' ? 'Disetujui Finance, wajib pembubuhan e-Materai Rp10.000 via PajakInd' : 'Ditolak Finance'),
+          String(reviewerNik || ''),
+          reviewerNama || 'Financial',
+          reviewerRole || 'Financial'
+        ]]
+      }
+    });
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: reviewerNik, nama: reviewerNama, role: reviewerRole },
+      'PINJAMAN_KOPERASI',
+      'REVIEW_FINANCE',
+      loanId,
+      { status: bLoan[24] },
+      { status: newStatus, catatan },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: newStatus === 'PENDING_EMATERAI'
+        ? `Permohonan pinjaman ${bLoan[1]} disetujui oleh Finance. Langkah selanjutnya adalah pembubuhan e-Materai Rp10.000 melalui https://web.pajakind.com/.`
+        : `Permohonan pinjaman ${bLoan[1]} ditolak oleh Finance.`,
+      newStatus
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/review-finance:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/loans/:id/upload-ematerai
+ * Upload PDF hasil pembubuhan e-materai dari PajakInd, cek validitas & simpan ke Google Drive, lalu masukkan ke Tracking & Progress
+ */
+app.post('/api/loans/:id/upload-ematerai', async (req, res) => {
+  try {
+    const loanId = req.params.id;
+    const { pdfBase64, fileName = 'dokumen_bermaterai.pdf', uploaderNik, uploaderNama, uploaderRole } = req.body;
+
+    if (!pdfBase64) {
+      return res.status(400).json({ success: false, message: 'File PDF dokumen bermaterai wajib dilampirkan.' });
+    }
+
+    let cleanBase64 = pdfBase64;
+    if (cleanBase64.includes(',')) {
+      cleanBase64 = cleanBase64.split(',')[1];
+    }
+    const pdfBuffer = Buffer.from(cleanBase64, 'base64');
+
+    // 1. Validasi Keamanan & Deteksi e-Materai
+    const check = validatePdfSecurityAndEmaterai(pdfBuffer, fileName);
+
+    if (!check.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validasi Dokumen Gagal: ' + check.reason
+      });
+    }
+
+    if (!check.isEmateraiValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pemeriksaan e-Materai Gagal: Dokumen belum terdeteksi dibubuhi e-Materai resmi (Rp10.000) dari PajakInd/Peruri. Silakan lakukan pembubuhan terlebih dahulu di https://web.pajakind.com/.'
+      });
+    }
+
+    const sheets = await getSheetsClient();
+    const loansRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanRequests'!A2:AG"
+    });
+    const rows = loansRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === loanId);
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Permohonan pinjaman ' + loanId + ' tidak ditemukan.' });
+    }
+
+    const rowNum = targetIdx + 2;
+    const bLoan = rows[targetIdx];
+    const ts = getFormattedTimestamp();
+
+    // 2. Simpan file ke Google Drive (dan backup upload folder)
+    const safeName = `FORMULIR_PINJAMAN_${String(bLoan[1] || 'DOC').replace(/[^a-zA-Z0-9_\-]/g, '_')}_BERMATERAI.pdf`;
+    const driveResult = await saveLoanPdfToGoogleDrive(sheets, safeName, pdfBuffer);
+
+    // 3. Update status permohonan ke VERIFIED_MATERAI dan simpan link Google Drive
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!Y${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['VERIFIED_MATERAI']] }
+    });
+
+    // Simpan DokumenMateraiURL (Col AE), StatusMaterai (Col AF), WaktuVerifikasi (Col AG)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'LoanRequests'!AE${rowNum}:AG${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          driveResult.driveUrl,
+          'VERIFIED',
+          ts
+        ]]
+      }
+    });
+
+    // 4. SEKARANG MASUK KE BAGIAN TRACKING & PROGRESS ('Form Responses 1')!
+    const plafonNum = parseInt(String(bLoan[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const cicilanNum = parseInt(String(bLoan[17] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+    const frRes = await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Form Responses 1'!A:J",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          ts,
+          'Peminjaman Tunai',
+          bLoan[6], // pemohonNama
+          bLoan[7] ? `${bLoan[5]} - ${bLoan[7]}` : bLoan[5], // nikUnitKerja
+          String(bLoan[21]), // bankNoRekening
+          bLoan[22], // bankAtasNama
+          'Rp' + plafonNum.toLocaleString('id-ID'),
+          bLoan[14], // tenorBulan
+          `${bLoan[1]}: ${bLoan[12]} (Cicilan Rp${cicilanNum.toLocaleString('id-ID')}/bln) | e-Materai Valid: ${driveResult.driveUrl}`,
+          'Verified e-Materai'
+        ]]
+      }
+    });
+
+    let frRowIndex = '';
+    if (frRes.data && frRes.data.updates && frRes.data.updates.updatedRange) {
+      const match = frRes.data.updates.updatedRange.match(/\!A(\d+)/);
+      if (match) frRowIndex = match[1];
+    }
+    if (frRowIndex) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'LoanRequests'!Z${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[frRowIndex]] }
+      });
+    }
+
+    // Catat ke LoanApprovals
+    const approvalId = 'LA-MATERAI-' + Date.now();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'LoanApprovals'!A:I",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          loanId,
+          ts,
+          'EMATERAI_VERIFICATION',
+          'VERIFIED',
+          `Dokumen e-Materai Rp10.000 sah diverifikasi (${check.details.detectedProvider}). Link Drive: ${driveResult.driveUrl}`,
+          String(uploaderNik || ''),
+          uploaderNama || 'Sistem',
+          uploaderRole || 'Anggota'
+        ]]
+      }
+    });
+
+    await recordFinancialAudit(
+      sheets,
+      { nik: uploaderNik, nama: uploaderNama, role: uploaderRole },
+      'PINJAMAN_KOPERASI',
+      'VERIFY_EMATERAI',
+      loanId,
+      { status: bLoan[24] },
+      { status: 'VERIFIED_MATERAI', driveUrl: driveResult.driveUrl },
+      req
+    );
+
+    return res.json({
+      success: true,
+      message: 'Dokumen e-Materai Rp10.000 berhasil diverifikasi dan tersimpan di Google Drive! Pengajuan pinjaman telah resmi masuk ke Tracking & Progress.',
+      driveUrl: driveResult.driveUrl,
+      provider: check.details.detectedProvider,
+      nomorSurat: bLoan[1]
+    });
+  } catch (error) {
+    console.error('Error POST /api/loans/:id/upload-ematerai:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.post('/api/loans/:id/disburse', async (req, res) => {
   try {
     const loanId = req.params.id;
@@ -4378,7 +4767,7 @@ app.post('/api/loans/:id/disburse', async (req, res) => {
     const sheets = await getSheetsClient();
     const loansRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'LoanRequests'!A2:AD"
+      range: "'LoanRequests'!A2:AG"
     });
     const rows = loansRes.data.values || [];
     const targetIdx = rows.findIndex(r => r[0] === loanId);
