@@ -2779,7 +2779,7 @@ function requestBankAccountChange(payload) {
 
 function getBankAccountRequests(role) {
   try {
-    if (!isRoleAdmin(role)) return { status: 'error', success: false, message: 'Akses ditolak.' };
+    if (!isRoleAdmin(role) && !isRoleKetua(role)) return { status: 'error', success: false, message: 'Akses ditolak. Khusus Admin atau Ketua Koperasi.' };
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('BankAccountChangeRequests');
@@ -2816,7 +2816,7 @@ function getBankAccountRequests(role) {
 
 function reviewBankAccountRequest(payload) {
   try {
-    if (!isRoleAdmin(payload.adminRole)) return { status: 'error', success: false, message: 'Hanya Admin.' };
+    if (!isRoleAdmin(payload.adminRole) && !isRoleKetua(payload.adminRole)) return { status: 'error', success: false, message: 'Hanya Admin atau Ketua Koperasi yang berhak meninjau.' };
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('BankAccountChangeRequests');
@@ -2884,6 +2884,98 @@ function reviewBankAccountRequest(payload) {
     );
 
     return { status: 'success', success: true, message: 'Permohonan perubahan rekening ' + newStatus + '.' };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function getSimpananApprovals() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('SimpananSukarelaApprovals');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, approvals: [] };
+
+    var data = sheet.getDataRange().getValues();
+    var approvals = [];
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      approvals.push({
+        rowIndex: i + 1,
+        approvalId: r[0],
+        ruleId: r[1],
+        timestamp: r[2],
+        nik: r[3],
+        namaAnggota: r[4],
+        tipePerubahan: r[5],
+        lama: r[6],
+        baru: r[7],
+        diajukanOlehNama: r[9],
+        status: r[10] || 'PENDING',
+        catatanReview: r[11] || '-'
+      });
+    }
+    approvals.reverse();
+    return { status: 'success', success: true, approvals: approvals };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function reviewSimpananApproval(payload) {
+  try {
+    var role = payload.reviewerRole;
+    if (!isRoleKetua(role) && !isRoleAdmin(role)) {
+      return { status: 'error', success: false, message: 'Hanya Ketua Koperasi atau Administrator yang berwenang meninjau usulan auto-input.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('SimpananSukarelaApprovals');
+    if (!sheet) return { status: 'error', success: false, message: 'Sheet tidak ditemukan.' };
+
+    var data = sheet.getDataRange().getValues();
+    var targetIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.approvalId) {
+        targetIdx = i + 1;
+        break;
+      }
+    }
+
+    if (targetIdx === -1) return { status: 'error', success: false, message: 'Approval tidak ditemukan.' };
+
+    var appRow = data[targetIdx - 1];
+    var ruleId = appRow[1];
+    var statusResult = payload.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+    var jkt = getGasJakartaDateTime();
+
+    sheet.getRange(targetIdx, 11, 1, 5).setValues([[
+      statusResult,
+      payload.catatan || '-',
+      String(payload.reviewerNik || ''),
+      payload.reviewerNama || '',
+      jkt.timestampStr
+    ]]);
+
+    if (payload.action === 'APPROVE') {
+      var baruObj = {};
+      try { baruObj = JSON.parse(appRow[7] || '{}'); } catch(e){}
+
+      var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
+      if (rulesSheet && rulesSheet.getLastRow() > 1) {
+        var rData = rulesSheet.getDataRange().getValues();
+        for (var j = 1; j < rData.length; j++) {
+          if (rData[j][0] === ruleId) {
+            if (baruObj.nominalRutin) {
+              rulesSheet.getRange(j + 1, 6).setValue(baruObj.nominalRutin);
+            }
+            rulesSheet.getRange(j + 1, 11).setValue('ACTIVE');
+            break;
+          }
+        }
+      }
+    }
+
+    return { status: 'success', success: true, message: 'Usulan auto-input berhasil diproses: ' + statusResult };
   } catch (err) {
     return { status: 'error', success: false, message: err.toString() };
   }

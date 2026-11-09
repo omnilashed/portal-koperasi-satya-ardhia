@@ -2694,7 +2694,7 @@ async function calculateMemberSimpananSaldo(sheets, targetNik) {
           if (tanggal.includes(currentMonthYear) || timestamp.includes(jakarta.month + '/' + jakarta.year) || timestamp.includes('/' + jakarta.month + '/')) {
             totalSetoranBulanIni += nominal;
           }
-        } else if (jenis === 'PENARIKAN') {
+        } else if (jenis === 'PENARIKAN' || jenis === 'PENGAMBILAN' || jenis.includes('TARIK') || jenis.includes('AMBIL')) {
           saldo -= nominal;
           totalPenarikanAll += nominal;
         } else if (jenis === 'KOREKSI') {
@@ -3030,24 +3030,25 @@ app.post('/api/simpanan/transactions', async (req, res) => {
     }
 
     const jenisUpper = jenisTransaksi.trim().toUpperCase();
-    if (!['SETORAN', 'PENARIKAN', 'KOREKSI', 'OPENING_BALANCE'].includes(jenisUpper)) {
+    if (!['SETORAN', 'PENARIKAN', 'PENGAMBILAN', 'KOREKSI', 'OPENING_BALANCE'].includes(jenisUpper)) {
       return res.status(400).json({ success: false, message: 'Jenis transaksi tidak valid.' });
     }
 
     const sheets = await getSheetsClient();
     const currentMember = await calculateMemberSimpananSaldo(sheets, nik);
     const saldoSebelumnya = currentMember.saldo;
+    const isPengambilan = (jenisUpper === 'PENARIKAN' || jenisUpper === 'PENGAMBILAN' || jenisUpper.includes('TARIK') || jenisUpper.includes('AMBIL'));
 
-    if (jenisUpper === 'PENARIKAN' && nom > saldoSebelumnya) {
+    if (isPengambilan && nom > saldoSebelumnya) {
       return res.status(400).json({
         success: false,
-        message: `Saldo tidak mencukupi untuk penarikan. Saldo saat ini: Rp ${saldoSebelumnya.toLocaleString('id-ID')}, Permintaan penarikan: Rp ${nom.toLocaleString('id-ID')}.`
+        message: `Saldo tidak mencukupi untuk pengambilan sukarela. Saldo saat ini: Rp ${saldoSebelumnya.toLocaleString('id-ID')}, Permintaan pengambilan: Rp ${nom.toLocaleString('id-ID')}.`
       });
     }
 
     let saldoSesudahnya = saldoSebelumnya;
     if (jenisUpper === 'SETORAN' || jenisUpper === 'OPENING_BALANCE') saldoSesudahnya += nom;
-    else if (jenisUpper === 'PENARIKAN') saldoSesudahnya -= nom;
+    else if (isPengambilan) saldoSesudahnya -= nom;
     else if (jenisUpper === 'KOREKSI') saldoSesudahnya += nom;
 
     const jakarta = getJakartaDateTime();
@@ -3376,9 +3377,39 @@ app.post('/api/simpanan/rules', async (req, res) => {
       }
     });
 
+    // Jika yang mengajukan adalah role Financial, wajib masukkan ke antrean approval Ketua Koperasi
+    if (initialStatus !== 'ACTIVE') {
+      const approvalId = 'APP-RULE-' + Date.now();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'SimpananSukarelaApprovals'!A:O",
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [[
+            approvalId,
+            ruleId,
+            ts,
+            String(nik).trim(),
+            namaAnggota,
+            'NEW_RULE',
+            JSON.stringify({ nominalRutin: 0, status: 'NONE' }),
+            JSON.stringify({ nominalRutin: nom, tanggalEksekusi }),
+            String(createdByNik || ''),
+            createdByNama || '',
+            'PENDING',
+            keterangan || 'Setting baru simpanan sukarela rutin oleh Financial',
+            '',
+            '',
+            ''
+          ]]
+        }
+      });
+    }
+
     return res.json({
       success: true,
-      message: initialStatus === 'ACTIVE' ? 'Aturan auto-input simpanan sukarela berhasil diaktifkan.' : 'Aturan auto-input berhasil disimpan dan menunggu approval Ketua Koperasi.',
+      message: initialStatus === 'ACTIVE' ? 'Aturan auto-input simpanan sukarela berhasil diaktifkan.' : 'Usulan auto-input baru oleh Financial berhasil diajukan dan menunggu persetujuan Ketua Koperasi.',
       ruleId
     });
   } catch (error) {
@@ -4594,8 +4625,8 @@ app.post('/api/bank-accounts/change-request', async (req, res) => {
 app.get('/api/bank-accounts/requests', async (req, res) => {
   try {
     const { role } = req.query;
-    if (!isRoleAdmin(role)) {
-      return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses ke daftar ini.' });
+    if (!isRoleAdmin(role) && !isRoleKetua(role)) {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator atau Ketua Koperasi yang memiliki akses ke antrean permohonan rekening.' });
     }
 
     const sheets = await getSheetsClient();
@@ -4638,8 +4669,8 @@ app.post('/api/bank-accounts/requests/:id/review', async (req, res) => {
     const reqId = req.params.id;
     const { action, catatan, adminNik, adminNama, adminRole } = req.body;
 
-    if (!isRoleAdmin(adminRole)) {
-      return res.status(403).json({ success: false, message: 'Hanya Administrator yang berhak meninjau permohonan perubahan rekening.' });
+    if (!isRoleAdmin(adminRole) && !isRoleKetua(adminRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator atau Ketua Koperasi yang berhak meninjau permohonan perubahan rekening.' });
     }
 
     const sheets = await getSheetsClient();

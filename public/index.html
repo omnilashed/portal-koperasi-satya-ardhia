@@ -357,6 +357,14 @@
                 <span class="sm:hidden">Pinjaman</span>
               </button>
 
+              <!-- Tab: Management Approval (Admin & Ketua Koperasi) -->
+              <button id="tabApprovalBtn" onclick="switchTab('approval')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="shield-check" class="w-4 h-4 text-amber-600"></i>
+                <span class="hidden sm:inline">Management Approval</span>
+                <span class="sm:hidden">Approval</span>
+                <span id="badgeTotalPendingApprovals" class="hidden px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">0</span>
+              </button>
+
               <!-- Tab: Verifikasi Akun (Admin, Ketua Koperasi, Pengurus) -->
               <button id="tabUsersBtn" onclick="switchTab('users')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
                 <i data-lucide="user-check" class="w-4 h-4"></i>
@@ -2017,9 +2025,9 @@
                   <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Transaksi <span class="text-red-500">*</span></label>
                     <select id="simpananJenisTransaksi" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 bg-white font-semibold text-slate-800">
-                      <option value="SETORAN">SETORAN (+)</option>
-                      <option value="PENARIKAN">PENARIKAN (-)</option>
-                      <option value="KOREKSI">KOREKSI</option>
+                      <option value="SETORAN">Setoran Simpanan Sukarela (+)</option>
+                      <option value="PENGAMBILAN">Pengambilan / Penarikan Sukarela (-)</option>
+                      <option value="KOREKSI">Koreksi Pembukuan (+/-)</option>
                     </select>
                   </div>
                   <div>
@@ -2538,6 +2546,170 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+      </div>
+
+
+    
+      <!-- VIEW 8: MANAGEMENT APPROVAL (KHUSUS ADMIN & KETUA KOPERASI) -->
+      <div id="viewApproval" class="hidden space-y-6">
+
+        <!-- Top Header & Banner -->
+        <div class="bg-gradient-to-r from-amber-600 via-amber-700 to-orange-700 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
+            <i data-lucide="shield-check" class="w-64 h-64"></i>
+          </div>
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="space-y-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/50 backdrop-blur-sm text-xs font-semibold text-amber-100 border border-amber-400/30">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                Otorisasi & Dual-Control Persetujuan
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Management Approval</h2>
+              <p class="text-amber-100 text-xs sm:text-sm max-w-xl">
+                Pusat kendali persetujuan resmi untuk permohonan perubahan rekening bank anggota dan usulan auto-input simpanan sukarela dari Finance.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <button onclick="refreshApprovalData()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow-sm">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>Segarkan Antrean</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Antrean Rekening Bank</p>
+              <p id="kpiBankPendingCount" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Menunggu Otorisasi</p>
+            </div>
+            <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="landmark" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Antrean Auto-Input Finance</p>
+              <p id="kpiRulesPendingCount" class="text-2xl font-bold text-indigo-600 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Khusus Ketua Koperasi / Admin</p>
+            </div>
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="refresh-ccw" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Otorisasi Selesai</p>
+              <p id="kpiApprovedTotalCount" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Riwayat Disetujui</p>
+            </div>
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-View Navigation Pills -->
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-3">
+          <button id="pillApprovalBankBtn" onclick="switchApprovalSection('bank')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-600 text-white shadow-sm transition flex items-center gap-2">
+            <i data-lucide="landmark" class="w-4 h-4"></i>
+            <span>Persetujuan Perubahan Rekening</span>
+            <span id="badgePillBank" class="px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-bold">0</span>
+          </button>
+          <button id="pillApprovalRulesBtn" onclick="switchApprovalSection('rules')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2">
+            <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
+            <span>Persetujuan Auto-Input Finance</span>
+            <span id="badgePillRules" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">0</span>
+          </button>
+        </div>
+
+        <!-- Section 1: Antrean Perubahan Rekening Bank -->
+        <div id="sectionApprovalBank" class="space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-slate-900 text-base">Permohonan Perubahan Nomor Rekening Bank Anggota</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Persetujuan dari Admin atau Ketua Koperasi wajib dilakukan sebelum rekening baru dapat digunakan untuk pencairan pinjaman.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="filterBankApprovalStatus" onchange="renderBankApprovalTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white">
+                <option value="ALL">Semua Status</option>
+                <option value="REQUESTED" selected>Menunggu Approval (Pending)</option>
+                <option value="APPROVED">Disetujui (Approved)</option>
+                <option value="REJECTED">Ditolak (Rejected)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[11px]">
+                  <tr>
+                    <th class="py-3.5 px-4">Tgl Pengajuan</th>
+                    <th class="py-3.5 px-4">Anggota (NIK)</th>
+                    <th class="py-3.5 px-4">Rekening Lama</th>
+                    <th class="py-3.5 px-4">Rekening Baru</th>
+                    <th class="py-3.5 px-4">Alasan & Bukti</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-4 text-center">Aksi / Otorisasi</th>
+                  </tr>
+                </thead>
+                <tbody id="bankApprovalTableBody" class="divide-y divide-slate-100 font-normal">
+                  <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400">Memuat data permohonan rekening...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Antrean Auto-Input Simpanan Sukarela -->
+        <div id="sectionApprovalRules" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-slate-900 text-base">Usulan Pengaturan Simpanan Sukarela Rutin (Auto-Input)</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Usulan perubahan atau setting potong gaji rutin yang diinput oleh role Financial wajib disetujui terlebih dahulu oleh Ketua Koperasi.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="filterRulesApprovalStatus" onchange="renderRulesApprovalTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white">
+                <option value="ALL">Semua Status</option>
+                <option value="PENDING" selected>Menunggu Approval Ketua</option>
+                <option value="APPROVED">Disetujui (Approved)</option>
+                <option value="REJECTED">Ditolak (Rejected)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[11px]">
+                  <tr>
+                    <th class="py-3.5 px-4">Tgl Usulan</th>
+                    <th class="py-3.5 px-4">Anggota (NIK)</th>
+                    <th class="py-3.5 px-4">Pengusul (Finance)</th>
+                    <th class="py-3.5 px-4">Nominal Lama vs Baru</th>
+                    <th class="py-3.5 px-4">Keterangan</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-4 text-center">Aksi / Otorisasi</th>
+                  </tr>
+                </thead>
+                <tbody id="rulesApprovalTableBody" class="divide-y divide-slate-100 font-normal">
+                  <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400">Memuat data usulan auto-input...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -3691,6 +3863,7 @@
       roleBadge.innerText = currentUser.role || 'User';
       
       const tabFormBtn = document.getElementById('tabFormBtn');
+      const tabApprovalBtn = document.getElementById('tabApprovalBtn');
       const tabUsersBtn = document.getElementById('tabUsersBtn');
       const tabAbsensiBtn = document.getElementById('tabAbsensiBtn');
       const tabAbsensiLabel = document.getElementById('tabAbsensiLabel');
@@ -3730,6 +3903,18 @@
       } else {
         tabFormBtn.style.display = 'none';
         tabFormBtn.disabled = true;
+      }
+
+      // 2a. Tab Management Approval (Admin & Ketua Koperasi)
+      if (tabApprovalBtn) {
+        if (role === 'admin' || role === 'ketua koperasi') {
+          tabApprovalBtn.style.display = 'inline-flex';
+          tabApprovalBtn.disabled = false;
+          if (typeof loadApprovalBadgeCounts === 'function') loadApprovalBadgeCounts();
+        } else {
+          tabApprovalBtn.style.display = 'none';
+          tabApprovalBtn.disabled = true;
+        }
       }
 
       // 2. Tab Validasi Akun (Admin & Ketua Koperasi)
@@ -3922,6 +4107,9 @@
       const role = currentUser ? normalizeRole(currentUser.role) : 'user';
 
       // Strict RBAC tab guards
+      if (tab === 'approval' && role !== 'admin' && role !== 'ketua koperasi') {
+        tab = 'tracking';
+      }
       if (tab === 'users' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'pengurus') {
         tab = 'tracking';
       }
@@ -3949,12 +4137,15 @@
       if (viewSimp) viewSimp.classList.toggle('hidden', tab !== 'simpanan');
       const viewPinj = document.getElementById('viewPinjaman');
       if (viewPinj) viewPinj.classList.toggle('hidden', tab !== 'pinjaman');
+      const viewApp = document.getElementById('viewApproval');
+      if (viewApp) viewApp.classList.toggle('hidden', tab !== 'approval');
 
       const trackBtn = document.getElementById('tabTrackBtn');
       const simpananBtn = document.getElementById('tabSimpananBtn');
       const pinjamanBtn = document.getElementById('tabPinjamanBtn');
       const formBtn = document.getElementById('tabFormBtn');
       const usersBtn = document.getElementById('tabUsersBtn');
+      const approvalBtn = document.getElementById('tabApprovalBtn');
       const absensiBtn = document.getElementById('tabAbsensiBtn');
       const operasionalBtn = document.getElementById('tabOperasionalBtn');
 
@@ -3968,10 +4159,12 @@
       if (operasionalBtn) operasionalBtn.className = (tab === 'operasional' ? activeClass : inactiveClass) + " flex";
       if (formBtn) formBtn.className = (tab === 'form' ? activeClass : inactiveClass) + " flex";
       if (usersBtn) usersBtn.className = (tab === 'users' ? activeClass : inactiveClass) + " flex";
+      if (approvalBtn) approvalBtn.className = (tab === 'approval' ? activeClass : inactiveClass) + " flex";
 
       if (tab === 'tracking') fetchData();
       if (tab === 'simpanan') loadSimpananData();
       if (tab === 'pinjaman') loadPinjamanData();
+      if (tab === 'approval' && (role === 'admin' || role === 'ketua koperasi')) refreshApprovalData();
       if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus')) fetchUsersList();
       if (tab === 'absensi') onEnterAbsensiTab();
       else onLeaveAbsensiTab();
@@ -3983,6 +4176,7 @@
           tracking: 'tabTrackBtn',
           simpanan: 'tabSimpananBtn',
           pinjaman: 'tabPinjamanBtn',
+          approval: 'tabApprovalBtn',
           users: 'tabUsersBtn',
           absensi: 'tabAbsensiBtn',
           operasional: 'tabOperasionalBtn',
@@ -7702,21 +7896,40 @@ function handleFilterSimpananJenis(val) {
 
 async function fetchUsersForSimpananDropdown() {
   const role = currentUser ? normalizeRole(currentUser.role) : 'user';
-  if (role !== 'financial' && role !== 'admin' && role !== 'ketua koperasi') return;
+  if (role !== 'financial' && role !== 'admin' && role !== 'ketua koperasi' && role !== 'pengurus') return;
 
   try {
     const res = await fetch(`${API_BASE}/api/users?role=${encodeURIComponent(currentUser.role)}`);
-    const users = await res.json();
+    const raw = await res.json();
+    const userList = Array.isArray(raw) ? raw : (raw.data || []);
 
-    if (Array.isArray(users)) {
-      const targetSel = document.getElementById('simpananTargetNik');
-      const ruleSel = document.getElementById('ruleTargetNik');
+    // Filter: HANYA Anggota yang statusnya aktif dan BUKAN Admin
+    const activeMembers = userList.filter(u => {
+      const st = String(u.accountStatus || '').trim().toLowerCase();
+      const r = normalizeRole(u.role);
+      return (st === 'active' || st === 'aktif') && r !== 'admin';
+    });
 
-      const options = users.map(u => `<option value="${u.nik || u.username}" data-nama="${u.namaLengkap || u.username}" data-unit="${u.unitKerja || ''}">${u.namaLengkap || u.username} (${u.nik || u.username})</option>`).join('');
+    // Urutkan alfabetis berdasarkan Nama Lengkap
+    activeMembers.sort((a, b) => {
+      const nameA = String(a.namaLengkap || a.nama || a.username || '').toLowerCase();
+      const nameB = String(b.namaLengkap || b.nama || b.username || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
-      if (targetSel) targetSel.innerHTML = '<option value="">-- Pilih Anggota Koperasi --</option>' + options;
-      if (ruleSel) ruleSel.innerHTML = '<option value="">-- Pilih Anggota --</option>' + options;
-    }
+    const targetSel = document.getElementById('simpananTargetNik');
+    const ruleSel = document.getElementById('ruleTargetNik');
+
+    const options = activeMembers.map(u => {
+      const val = u.nik || u.username;
+      const nama = u.namaLengkap || u.nama || u.username;
+      const unit = u.unitKerja || u.unit || '';
+      const roleLabel = u.role ? ` · ${u.role}` : '';
+      return `<option value="${val}" data-nama="${nama}" data-unit="${unit}">${nama} (${val}${roleLabel})</option>`;
+    }).join('');
+
+    if (targetSel) targetSel.innerHTML = '<option value="">-- Pilih Anggota Koperasi (Aktif) --</option>' + options;
+    if (ruleSel) ruleSel.innerHTML = '<option value="">-- Pilih Anggota (Aktif) --</option>' + options;
   } catch (e) {
     console.warn('Gagal memuat list users untuk simpanan dropdown:', e.message);
   }
@@ -8822,6 +9035,403 @@ async function handleReviewBankChangeRequest(requestId, action) {
       }
       showAuthView('login');
     };
-  </script>
+  
+// ==========================================
+// MANAGEMENT APPROVAL CONTROLLER (ADMIN & KETUA KOPERASI)
+// ==========================================
+
+let bankApprovalList = [];
+let rulesApprovalList = [];
+let currentApprovalSection = 'bank'; // 'bank' | 'rules'
+
+function switchApprovalSection(sec) {
+  currentApprovalSection = sec;
+  const btnBank = document.getElementById('pillApprovalBankBtn');
+  const btnRules = document.getElementById('pillApprovalRulesBtn');
+  const secBank = document.getElementById('sectionApprovalBank');
+  const secRules = document.getElementById('sectionApprovalRules');
+
+  if (sec === 'bank') {
+    if (btnBank) btnBank.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-600 text-white shadow-sm transition flex items-center gap-2";
+    if (btnRules) btnRules.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2";
+    if (secBank) secBank.classList.remove('hidden');
+    if (secRules) secRules.classList.add('hidden');
+  } else {
+    if (btnBank) btnBank.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2";
+    if (btnRules) btnRules.className = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white shadow-sm transition flex items-center gap-2";
+    if (secBank) secBank.classList.add('hidden');
+    if (secRules) secRules.classList.remove('hidden');
+  }
+  lucide.createIcons();
+}
+
+async function loadApprovalBadgeCounts() {
+  if (!currentUser) return;
+  const role = normalizeRole(currentUser.role);
+  if (role !== 'admin' && role !== 'ketua koperasi') return;
+
+  try {
+    // 1. Fetch bank account requests
+    const resBank = await fetch(`${API_BASE}/api/bank-accounts/requests?role=${encodeURIComponent(currentUser.role)}`);
+    const jsonBank = await resBank.json();
+    const bankReqs = jsonBank.requests || [];
+    const pendingBank = bankReqs.filter(r => (r.status || 'REQUESTED').toUpperCase() === 'REQUESTED' || (r.status || '').toUpperCase() === 'PENDING').length;
+
+    // 2. Fetch auto-input rules approvals
+    const resRules = await fetch(`${API_BASE}/api/simpanan/approvals`);
+    const jsonRules = await resRules.json();
+    const rulesReqs = jsonRules.approvals || [];
+    const pendingRules = rulesReqs.filter(r => (r.status || 'PENDING').toUpperCase() === 'PENDING').length;
+
+    const totalPending = pendingBank + pendingRules;
+    const badgeTotal = document.getElementById('badgeTotalPendingApprovals');
+    if (badgeTotal) {
+      if (totalPending > 0) {
+        badgeTotal.innerText = totalPending;
+        badgeTotal.classList.remove('hidden');
+      } else {
+        badgeTotal.classList.add('hidden');
+      }
+    }
+
+    const kpiBank = document.getElementById('kpiBankPendingCount');
+    const kpiRules = document.getElementById('kpiRulesPendingCount');
+    const pillBank = document.getElementById('badgePillBank');
+    const pillRules = document.getElementById('badgePillRules');
+
+    if (kpiBank) kpiBank.innerText = pendingBank;
+    if (kpiRules) kpiRules.innerText = pendingRules;
+    if (pillBank) pillBank.innerText = pendingBank;
+    if (pillRules) pillRules.innerText = pendingRules;
+
+    const approvedBank = bankReqs.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length;
+    const approvedRules = rulesReqs.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length;
+    const kpiApproved = document.getElementById('kpiApprovedTotalCount');
+    if (kpiApproved) kpiApproved.innerText = approvedBank + approvedRules;
+
+  } catch (err) {
+    console.warn('Gagal memuat count badge approval:', err.message);
+  }
+}
+
+async function refreshApprovalData() {
+  if (!currentUser) return;
+  const role = normalizeRole(currentUser.role);
+  if (role !== 'admin' && role !== 'ketua koperasi') return;
+
+  await Promise.all([
+    fetchBankApprovalRequests(),
+    fetchRulesApprovalRequests(),
+    loadApprovalBadgeCounts()
+  ]);
+}
+
+async function fetchBankApprovalRequests() {
+  const tbody = document.getElementById('bankApprovalTableBody');
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400"><span class="inline-block animate-spin mr-1"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memuat data permohonan rekening...</td></tr>`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/bank-accounts/requests?role=${encodeURIComponent(currentUser.role)}`);
+    const json = await res.json();
+    bankApprovalList = json.requests || [];
+    renderBankApprovalTable();
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-red-500">Gagal memuat permohonan rekening: ${err.message}</td></tr>`;
+  }
+}
+
+function renderBankApprovalTable() {
+  const tbody = document.getElementById('bankApprovalTableBody');
+  if (!tbody) return;
+
+  const filterStatus = (document.getElementById('filterBankApprovalStatus') || {}).value || 'REQUESTED';
+  let list = bankApprovalList;
+  if (filterStatus !== 'ALL') {
+    list = list.filter(r => {
+      const st = (r.status || 'REQUESTED').toUpperCase();
+      if (filterStatus === 'REQUESTED') return st === 'REQUESTED' || st === 'PENDING';
+      return st === filterStatus;
+    });
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada permohonan perubahan rekening dengan status ${filterStatus}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(r => {
+    const st = (r.status || 'REQUESTED').toUpperCase();
+    let badgeClass = 'bg-amber-100 text-amber-800';
+    let statusLabel = 'Menunggu Approval';
+    if (st === 'APPROVED') { badgeClass = 'bg-emerald-100 text-emerald-800'; statusLabel = 'Disetujui'; }
+    if (st === 'REJECTED') { badgeClass = 'bg-rose-100 text-rose-800'; statusLabel = 'Ditolak'; }
+
+    const isPending = (st === 'REQUESTED' || st === 'PENDING');
+    const buktiLink = r.buktiUrl && r.buktiUrl !== '-' ? `<a href="${r.buktiUrl}" target="_blank" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-semibold mt-1"><i data-lucide="external-link" class="w-3 h-3"></i>Lihat Bukti</a>` : '<span class="text-xs text-slate-400 block mt-0.5">Tidak ada lampiran</span>';
+
+    const actionsHtml = isPending ? `
+      <div class="flex items-center justify-center gap-2">
+        <button onclick="handleApproveBankRequest('${r.requestId}', '${r.namaAnggota}', '${r.bankBaru}', '${r.rekeningBaru}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1 active:scale-95" title="Setujui Rekening Baru">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Approve</span>
+        </button>
+        <button onclick="handleRejectBankRequest('${r.requestId}', '${r.namaAnggota}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1 active:scale-95" title="Tolak Permohonan">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <span>Tolak</span>
+        </button>
+      </div>
+    ` : `<span class="text-xs text-slate-400 block text-center">${r.catatanAdmin || '-'}</span>`;
+
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="py-3 px-4 font-mono text-slate-500 text-xs">${r.timestamp || r.requestId}</td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900">${r.namaAnggota}</p>
+          <p class="text-xs text-slate-500 font-mono">${r.nik}</p>
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-semibold text-slate-700 text-xs">${r.bankLama || '-'}</p>
+          <p class="font-mono text-slate-500 text-xs">${r.rekeningLama || '-'}</p>
+          <p class="text-[11px] text-slate-400 truncate max-w-[140px]">a.n. ${r.atasNamaLama || '-'}</p>
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-indigo-700 text-xs">${r.bankBaru}</p>
+          <p class="font-mono text-slate-900 font-bold text-xs">${r.rekeningBaru}</p>
+          <p class="text-[11px] text-slate-600 font-medium truncate max-w-[140px]">a.n. ${r.atasNamaBaru}</p>
+        </td>
+        <td class="py-3 px-4">
+          <p class="text-xs text-slate-700 max-w-xs break-words">${r.alasan || '-'}</p>
+          ${buktiLink}
+        </td>
+        <td class="py-3 px-4">
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+        </td>
+        <td class="py-3 px-4">
+          ${actionsHtml}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+async function handleApproveBankRequest(requestId, namaAnggota, bankBaru, rekeningBaru) {
+  if (!confirm(`Setujui permohonan perubahan rekening untuk anggota:\n\nNama: ${namaAnggota}\nBank Baru: ${bankBaru}\nNo. Rekening: ${rekeningBaru}\n\nRekening ini akan berstatus VERIFIED dan aktif untuk pencairan dana pinjaman.`)) return;
+
+  showToast('Memproses persetujuan rekening...');
+  try {
+    const res = await fetch(`${API_BASE}/api/bank-accounts/requests/${requestId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'APPROVE',
+        catatan: `Disetujui oleh ${currentUser.nama || currentUser.role}`,
+        adminNik: currentUser.nik || currentUser.username,
+        adminNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        adminRole: currentUser.role
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Rekening baru untuk ${namaAnggota} berhasil disetujui & diverifikasi!`);
+      refreshApprovalData();
+    } else {
+      showToast('Gagal memproses approval: ' + json.message, true);
+    }
+  } catch (err) {
+    showToast('Koneksi gagal: ' + err.message, true);
+  }
+}
+
+async function handleRejectBankRequest(requestId, namaAnggota) {
+  const reason = prompt(`Masukkan alasan penolakan permohonan rekening untuk ${namaAnggota}:`);
+  if (!reason || !reason.trim()) return;
+
+  showToast('Memproses penolakan permohonan...');
+  try {
+    const res = await fetch(`${API_BASE}/api/bank-accounts/requests/${requestId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'REJECT',
+        catatan: reason.trim(),
+        adminNik: currentUser.nik || currentUser.username,
+        adminNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        adminRole: currentUser.role
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Permohonan rekening untuk ${namaAnggota} telah ditolak.`);
+      refreshApprovalData();
+    } else {
+      showToast('Gagal memproses penolakan: ' + json.message, true);
+    }
+  } catch (err) {
+    showToast('Koneksi gagal: ' + err.message, true);
+  }
+}
+
+async function fetchRulesApprovalRequests() {
+  const tbody = document.getElementById('rulesApprovalTableBody');
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400"><span class="inline-block animate-spin mr-1"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memuat antrean auto-input...</td></tr>`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/approvals`);
+    const json = await res.json();
+    rulesApprovalList = json.approvals || [];
+    renderRulesApprovalTable();
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-red-500">Gagal memuat usulan auto-input: ${err.message}</td></tr>`;
+  }
+}
+
+function renderRulesApprovalTable() {
+  const tbody = document.getElementById('rulesApprovalTableBody');
+  if (!tbody) return;
+
+  const filterStatus = (document.getElementById('filterRulesApprovalStatus') || {}).value || 'PENDING';
+  let list = rulesApprovalList;
+  if (filterStatus !== 'ALL') {
+    list = list.filter(r => (r.status || 'PENDING').toUpperCase() === filterStatus);
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada usulan auto-input dengan status ${filterStatus}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(r => {
+    const st = (r.status || 'PENDING').toUpperCase();
+    let badgeClass = 'bg-indigo-100 text-indigo-800';
+    let statusLabel = 'Menunggu Approval Ketua';
+    if (st === 'APPROVED') { badgeClass = 'bg-emerald-100 text-emerald-800'; statusLabel = 'Disetujui'; }
+    if (st === 'REJECTED') { badgeClass = 'bg-rose-100 text-rose-800'; statusLabel = 'Ditolak'; }
+
+    const isPending = (st === 'PENDING');
+
+    // Parse lama & baru
+    let lamaNominal = 0;
+    let baruNominal = 0;
+    try {
+      const objLama = typeof r.lama === 'string' ? JSON.parse(r.lama || '{}') : (r.lama || {});
+      const objBaru = typeof r.baru === 'string' ? JSON.parse(r.baru || '{}') : (r.baru || {});
+      lamaNominal = parseInt(objLama.nominalRutin || 0, 10) || 0;
+      baruNominal = parseInt(objBaru.nominalRutin || 0, 10) || 0;
+    } catch (e) {}
+
+    const actionsHtml = isPending ? `
+      <div class="flex items-center justify-center gap-2">
+        <button onclick="handleApproveRuleRequest('${r.approvalId}', '${r.namaAnggota}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1 active:scale-95" title="Setujui Auto-Input">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Approve</span>
+        </button>
+        <button onclick="handleRejectRuleRequest('${r.approvalId}', '${r.namaAnggota}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1 active:scale-95" title="Tolak Usulan">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <span>Tolak</span>
+        </button>
+      </div>
+    ` : `<span class="text-xs text-slate-400 block text-center">${r.catatanReview || '-'}</span>`;
+
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="py-3 px-4 font-mono text-slate-500 text-xs">${r.timestamp || r.approvalId}</td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900">${r.namaAnggota}</p>
+          <p class="text-xs text-slate-500 font-mono">${r.nik}</p>
+        </td>
+        <td class="py-3 px-4">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-semibold">
+            <i data-lucide="user" class="w-3 h-3"></i>
+            ${r.diajukanOlehNama || 'Financial'}
+          </span>
+        </td>
+        <td class="py-3 px-4">
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-400 font-mono line-through">Rp ${lamaNominal.toLocaleString('id-ID')}</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span class="font-bold text-emerald-700 font-mono text-sm">Rp ${baruNominal.toLocaleString('id-ID')}</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">Potong Gaji Rutin Bulanan</p>
+        </td>
+        <td class="py-3 px-4">
+          <p class="text-xs text-slate-700 max-w-xs break-words">${r.catatanReview || r.tipePerubahan || '-'}</p>
+        </td>
+        <td class="py-3 px-4">
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+        </td>
+        <td class="py-3 px-4">
+          ${actionsHtml}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+async function handleApproveRuleRequest(approvalId, namaAnggota, ruleId) {
+  if (!confirm(`Setujui usulan auto-input simpanan sukarela untuk:\n\nAnggota: ${namaAnggota}\n\nSetelah disetujui, aturan pemotongan gaji rutin simpanan sukarela akan berstatus ACTIVE.`)) return;
+
+  showToast('Memproses persetujuan auto-input...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/approvals/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approvalId,
+        action: 'APPROVE',
+        catatan: `Disetujui oleh Ketua Koperasi (${currentUser.nama || currentUser.role})`,
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerRole: currentUser.role
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Usulan auto-input untuk ${namaAnggota} berhasil disetujui!`);
+      refreshApprovalData();
+    } else {
+      showToast('Gagal memproses approval: ' + json.message, true);
+    }
+  } catch (err) {
+    showToast('Koneksi gagal: ' + err.message, true);
+  }
+}
+
+async function handleRejectRuleRequest(approvalId, namaAnggota, ruleId) {
+  const reason = prompt(`Masukkan alasan penolakan usulan auto-input untuk ${namaAnggota}:`);
+  if (!reason || !reason.trim()) return;
+
+  showToast('Memproses penolakan usulan...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/approvals/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        approvalId,
+        action: 'REJECT',
+        catatan: reason.trim(),
+        reviewerNik: currentUser.nik || currentUser.username,
+        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerRole: currentUser.role
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Usulan auto-input untuk ${namaAnggota} telah ditolak.`);
+      refreshApprovalData();
+    } else {
+      showToast('Gagal memproses penolakan: ' + json.message, true);
+    }
+  } catch (err) {
+    showToast('Koneksi gagal: ' + err.message, true);
+  }
+}
+
+</script>
 </body>
 </html>
