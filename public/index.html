@@ -551,13 +551,27 @@
           </div>
 
           <form id="submissionForm" onsubmit="handleSubmit(event)" class="space-y-5">
+            <!-- Quick Select Anggota Terdaftar (Auto-Fill NIK & Nama) -->
+            <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <label class="text-xs font-bold text-emerald-900 uppercase flex items-center gap-1.5">
+                  <i data-lucide="user-check" class="w-4 h-4 text-emerald-600"></i>
+                  <span>Pilih Cepat Anggota Terdaftar (Auto-Fill NIK &amp; Nama)</span>
+                </label>
+                <span class="text-[11px] text-emerald-700 font-medium">Opsional · Memastikan pengajuan otomatis terintegrasi ke akun NIK anggota</span>
+              </div>
+              <select id="formSelectMemberAuto" onchange="onSelectMemberForPengajuan(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-emerald-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800 font-medium">
+                <option value="">-- Ketik / Pilih Anggota Aktif atau Isi Manual di Bawah --</option>
+              </select>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Tipe Formulir <span class="text-red-500">*</span></label>
                 <select name="tipeFormulir" id="formTipeSelect" onchange="toggleCustomTipe(this.value)" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
                   <option value="Pencairan Simpanan Sukarela">Pencairan Simpanan Sukarela</option>
-                  <option value="Peminjaman Multiguna">Peminjaman Multiguna</option>
-                  <option value="Peminjaman Tunai">Peminjaman Tunai</option>
+                  <option value="Peminjaman Multiguna">Peminjaman Multiguna (Maks. 10 Jt · Bunga 20%/Thn · Maks. 12 Bln)</option>
+                  <option value="Peminjaman Tunai">Peminjaman Tunai (Plafon s/d 50 Jt · Bunga Tabel SA)</option>
                   <option value="Pengajuan Anggaran Unit">Pengajuan Anggaran Unit</option>
                   <option value="CUSTOM">Yang lain: (Tulis manual)</option>
                 </select>
@@ -570,37 +584,79 @@
               </div>
             </div>
 
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK - UNIT KERJA <span class="text-red-500">*</span></label>
-              <input type="text" id="inputNikUnit" name="nikUnit" required placeholder="Contoh: 2024098 - Unit Logistik" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <!-- Pemisahan NIK dan Unit Kerja -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK Karyawan / Anggota <span class="text-red-500">*</span></label>
+                <input type="text" id="inputNikAnggota" name="nikAnggota" required placeholder="Contoh: 2024098" oninput="syncHiddenNikUnit()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <p class="text-[11px] text-slate-400 mt-1">Digunakan untuk integrasi otomatis ke Monitoring Pinjaman Anggota saat status <b>Done</b>.</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Unit Kerja <span class="text-red-500">*</span></label>
+                <input type="text" id="inputUnitKerja" name="unitKerja" required placeholder="Contoh: Unit Logistik / AVSEC / ARFF" oninput="syncHiddenNikUnit()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <p class="text-[11px] text-slate-400 mt-1">Nama unit atau bagian penugasan anggota.</p>
+              </div>
+              <input type="hidden" id="inputNikUnit" name="nikUnit">
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">No. Rekening <span class="text-red-500">*</span></label>
-                <input type="text" name="noRekening" required placeholder="Contoh: 1234567890" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <input type="text" id="inputNoRekening" name="noRekening" required placeholder="Contoh: 1234567890" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
 
               <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">No. Rekening Atas Nama Siapa? <span class="text-red-500">*</span></label>
-                <input type="text" name="atasNamaRekening" required placeholder="Sesuai dengan nama lengkap" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <input type="text" id="inputAtasNamaRekening" name="atasNamaRekening" required placeholder="Sesuai dengan nama lengkap" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Total Ditransfer (Rp) <span class="text-red-500">*</span></label>
-                <input type="number" name="totalDitransfer" step="any" min="0" required placeholder="Contoh: 1500000" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900">
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Total Ditransfer / Pokok Pinjaman (Rp) <span class="text-red-500">*</span></label>
+                <input type="number" id="inputTotalDitransfer" name="totalDitransfer" step="any" min="0" required placeholder="Contoh: 5000000" oninput="onFormLoanAmountOrTenorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900">
+                <p id="hintMaxPlafonForm" class="text-[11px] text-slate-400 mt-1">Masukkan jumlah pokok dana yang dicairkan.</p>
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Berapa Kali Cicilan <span class="text-red-500">*</span></label>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Berapa Kali Cicilan (Tenor Bulan) <span class="text-red-500">*</span></label>
                 <div class="relative">
-                  <input type="number" id="inputCicilan" name="cicilan" min="0" max="180" step="1" required placeholder="0 untuk non-cicil / maks. 180 kali" oninput="if(this.value > 180) this.value = 180; if(this.value < 0 && this.value !== '') this.value = 0;" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
-                  <span class="absolute right-3.5 top-2.5 text-xs text-slate-400 pointer-events-none">Kali</span>
+                  <input type="number" id="inputCicilan" name="cicilan" min="0" max="180" step="1" required placeholder="0 untuk non-cicil / maks. 12 bln (Multiguna)" oninput="onFormLoanAmountOrTenorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                  <span class="absolute right-3.5 top-2.5 text-xs text-slate-400 pointer-events-none">Kali (Bln)</span>
                 </div>
-                <p class="text-[11px] text-slate-400 mt-1">Isi <b>0</b> jika tanpa cicilan (misal: Simpanan Sukarela/Anggaran Unit), maks. 180 kali.</p>
+                <p id="hintMaxCicilanForm" class="text-[11px] text-slate-400 mt-1">Isi <b>0</b> jika tanpa cicilan (misal: Simpanan Sukarela/Anggaran Unit).</p>
               </div>
+            </div>
+
+            <!-- Box Ketentuan & Kalkulasi Otomatis Pinjaman Multiguna / Tunai -->
+            <div id="formLoanRulePreviewBox" class="hidden rounded-2xl border p-4 space-y-3 transition-all">
+              <div class="flex items-center justify-between border-b border-slate-200/70 pb-2.5">
+                <div class="flex items-center gap-2">
+                  <span id="badgeFormLoanType" class="px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase bg-indigo-100 text-indigo-800">Peminjaman Multiguna</span>
+                  <span id="descFormLoanRule" class="text-xs font-semibold text-slate-600">Maks. Rp 10.000.000 · Bunga 20% / Tahun · Maks. 12 Bulan</span>
+                </div>
+                <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">Terintegrasi ke NIK saat Done</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80">
+                  <p class="text-[10px] text-slate-400 uppercase font-bold">Pokok Pinjaman</p>
+                  <p id="previewFormPokok" class="font-extrabold text-slate-900 text-sm mt-0.5">Rp 0</p>
+                </div>
+                <div class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80">
+                  <p class="text-[10px] text-slate-400 uppercase font-bold" id="labelPreviewFormBunga">Bunga (20%/Thn)</p>
+                  <p id="previewFormBunga" class="font-extrabold text-amber-700 text-sm mt-0.5">Rp 0</p>
+                </div>
+                <div class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80">
+                  <p class="text-[10px] text-slate-400 uppercase font-bold">Total Kewajiban</p>
+                  <p id="previewFormTotalKewajiban" class="font-extrabold text-indigo-700 text-sm mt-0.5">Rp 0</p>
+                </div>
+                <div class="bg-white/90 p-2.5 rounded-xl border border-emerald-200">
+                  <p class="text-[10px] text-emerald-700 uppercase font-bold">Cicilan / Bulan</p>
+                  <p id="previewFormCicilanBulan" class="font-black text-emerald-700 text-sm mt-0.5">Rp 0 / bln</p>
+                </div>
+              </div>
+              <p id="previewFormWarningMsg" class="hidden text-xs font-bold text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200"></p>
             </div>
 
             <div>
@@ -2242,24 +2298,168 @@
           </div>
         </div>
 
+        <!-- =================================================================== -->
+        <!-- MONITORING PINJAMAN ANGGOTA TERINTEGRASI NIK (MULTIGUNA & TUNAI)   -->
+        <!-- =================================================================== -->
+        <div class="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-6">
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-5">
+            <div class="flex items-start sm:items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-200 shrink-0">
+                <i data-lucide="activity" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">Monitoring Pinjaman Anggota (Terintegrasi NIK)</h3>
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Auto-Sync Status Done</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">
+                  Pantau rincian pinjaman aktif yang telah disetujui &amp; dicairkan (<b class="text-emerald-700">Done</b>) oleh Finance berdasarkan NIK Anggota:
+                  <strong id="monitoringActiveNikBadge" class="font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 ml-1">-</strong>
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Toggle Scope untuk Admin / Finance / Ketua / PIC Simpin -->
+              <div id="monitoringScopeToggleWrap" class="hidden bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center text-xs font-bold">
+                <button type="button" id="btnScopeSelf" onclick="setLoanMonitoringScope('self')" class="px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm transition">
+                  Pinjaman Saya
+                </button>
+                <button type="button" id="btnScopeAll" onclick="setLoanMonitoringScope('all')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                  Semua Anggota
+                </button>
+              </div>
+
+              <button type="button" onclick="fetchLoanMonitoringData()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Refresh Monitoring</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Kartu Ringkasan Monitoring Pinjaman -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 to-orange-50/50 border border-amber-200/80">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-800">Pinjaman Multiguna</span>
+                <span class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px]" id="monCountMultiguna">0 Aktif</span>
+              </div>
+              <p id="monTotalPokokMultiguna" class="text-xl font-black text-slate-900 mt-2">Rp 0</p>
+              <p class="text-[11px] text-amber-700 font-medium mt-1">Maks. Plafon 10 Jt · Bunga 20%/Thn · Maks. 12 Bln</p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-teal-50/50 border border-emerald-200/80">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800">Cicilan Multiguna / Bln</span>
+                <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-600"></i>
+              </div>
+              <p id="monCicilanMultiguna" class="text-xl font-black text-emerald-700 mt-2">Rp 0</p>
+              <p class="text-[11px] text-slate-500 mt-1">Sisa Kewajiban: <strong id="monSisaMultiguna" class="text-slate-700">Rp 0</strong></p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/90 to-blue-50/50 border border-indigo-200/80">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-800">Pinjaman Tunai</span>
+                <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-[10px]" id="monCountTunai">0 Aktif</span>
+              </div>
+              <p id="monTotalPokokTunai" class="text-xl font-black text-slate-900 mt-2">Rp 0</p>
+              <p class="text-[11px] text-indigo-700 font-medium mt-1">Plafon s/d 50 Jt · Bunga Tabel SA · Tenor s/d 60 Bln</p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-purple-50/90 to-indigo-50/50 border border-purple-200/80">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-purple-800">Cicilan Tunai / Bln</span>
+                <i data-lucide="wallet" class="w-4 h-4 text-purple-600"></i>
+              </div>
+              <p id="monCicilanTunai" class="text-xl font-black text-purple-700 mt-2">Rp 0</p>
+              <p class="text-[11px] text-slate-500 mt-1">Sisa Kewajiban: <strong id="monSisaTunai" class="text-slate-700">Rp 0</strong></p>
+            </div>
+          </div>
+
+          <!-- Sub-Tab Kategori Monitoring: 1. Pinjaman Multiguna | 2. Pinjaman Tunai -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div class="inline-flex p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80">
+              <button type="button" id="tabBtnMonMultiguna" onclick="switchLoanMonitoringTab('MULTIGUNA')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 bg-white text-amber-700 shadow-sm">
+                <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                <span>1. Pinjaman Multiguna</span>
+                <span id="badgeTabMultiguna" class="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800">0</span>
+              </button>
+              <button type="button" id="tabBtnMonTunai" onclick="switchLoanMonitoringTab('TUNAI')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 text-slate-600 hover:text-slate-900">
+                <i data-lucide="banknote" class="w-4 h-4"></i>
+                <span>2. Pinjaman Tunai</span>
+                <span id="badgeTabTunai" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700">0</span>
+              </button>
+            </div>
+
+            <div class="relative w-full sm:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="searchLoanMonitoringInput" oninput="renderLoanMonitoringActiveTab()" placeholder="Cari NIK, Nama, Unit, Keperluan..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+          </div>
+
+          <!-- Banner Info Ketentuan Kategori Aktif -->
+          <div id="bannerRuleMultiguna" class="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2.5 text-amber-900">
+              <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0"></i>
+              <span><strong>Ketentuan Pinjaman Multiguna:</strong> Plafon maksimal <b>Rp 10.000.000</b> · Bunga tetap <b>20% per tahun</b> (proporsional tenor) · Maksimal tenor <b>12 bulan</b>. Otomatis tampil saat pengajuan diinput Finance &amp; berstatus <b>Done</b>.</span>
+            </div>
+          </div>
+
+          <div id="bannerRuleTunai" class="hidden bg-indigo-50/80 border border-indigo-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2.5 text-indigo-900">
+              <i data-lucide="info" class="w-4 h-4 text-indigo-600 shrink-0"></i>
+              <span><strong>Ketentuan Pinjaman Tunai:</strong> Plafon s/d <b>Rp 50.000.000</b> · Suku bunga sesuai Tabel Resmi Koperasi SA (10 bln: 11%, 12 bln: 14%, 20 bln: 22%, 24 bln: 28%, 36 bln: 42%, 48 bln: 56%, 60 bln: 70%). Mencakup pengajuan Finance berstatus <b>Done</b> &amp; Kontrak Kredit Tunai.</span>
+            </div>
+          </div>
+
+          <!-- Tabel Monitoring Pinjaman -->
+          <div class="overflow-x-auto rounded-2xl border border-slate-200/90">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50/90 text-slate-500 font-bold uppercase border-b border-slate-200 text-[10px]">
+                  <th class="py-3.5 px-4">Tgl Cair / Ref</th>
+                  <th class="py-3.5 px-4">Anggota (NIK &amp; Unit Kerja)</th>
+                  <th class="py-3.5 px-4 text-right">Pokok Pinjaman</th>
+                  <th class="py-3.5 px-4 text-right">Bunga</th>
+                  <th class="py-3.5 px-4 text-right">Total Kewajiban</th>
+                  <th class="py-3.5 px-4 text-center">Tenor &amp; Cicilan/Bln</th>
+                  <th class="py-3.5 px-4">Progress Angsuran &amp; Sisa</th>
+                  <th class="py-3.5 px-4 text-center">Status &amp; Jadwal</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyLoanMonitoring" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="8" class="py-8 text-center text-slate-400">Memuat data monitoring pinjaman anggota...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- SIMULATOR PINJAMAN & FORM PENGAJUAN -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           <!-- SIMULATOR KIRI (7 Kolom) -->
           <div class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                   <i data-lucide="calculator" class="w-5 h-5"></i>
                 </div>
                 <div>
                   <h3 class="font-extrabold text-slate-900 text-base">Simulator Cicilan Resmi</h3>
-                  <p class="text-xs text-slate-500">Plafon Rp 10jt - Rp 50jt sesuai tabel potongan SA</p>
+                  <p id="simSubtitleDesc" class="text-xs text-slate-500">Plafon Rp 10jt - Rp 50jt sesuai tabel potongan SA</p>
                 </div>
               </div>
-              <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
-                Akurat 100%
-              </span>
+              <!-- Pilihan Mode Simulator: Pinjaman Tunai vs Pinjaman Multiguna -->
+              <div class="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold">
+                <button type="button" id="btnSimModeTunai" onclick="setSimulatorCategory('TUNAI')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm transition">
+                  Pinjaman Tunai
+                </button>
+                <button type="button" id="btnSimModeMultiguna" onclick="setSimulatorCategory('MULTIGUNA')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                  Multiguna (Maks 10Jt)
+                </button>
+              </div>
             </div>
 
             <!-- Input Plafon Pinjaman -->
@@ -3293,10 +3493,15 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK - Unit Kerja <span class="text-red-500">*</span></label>
-            <input type="text" id="editNikUnitKerja" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">NIK Anggota <span class="text-red-500">*</span></label>
+            <input type="text" id="editNikAnggota" required placeholder="Contoh: 2024098" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Unit Kerja <span class="text-red-500">*</span></label>
+            <input type="text" id="editUnitKerja" required placeholder="Contoh: AVSEC / Logistik" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <input type="hidden" id="editNikUnitKerja">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Status Pengajuan <span class="text-red-500">*</span></label>
@@ -3720,6 +3925,72 @@
     </div>
   </div>
 
+  <!-- MODAL RINCIAN MONITORING & JADWAL ANGSURAN PINJAMAN ANGGOTA -->
+  <div id="modalMonitoringSchedule" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 my-8 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="monModalTitle" class="font-extrabold text-slate-900 text-base">Rincian Monitoring Pinjaman</h3>
+              <span id="monModalKategoriBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">MULTIGUNA</span>
+            </div>
+            <p id="monModalSubtitle" class="text-xs text-slate-500">Terintegrasi dengan NIK Anggota</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeMonitoringScheduleModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase font-bold">Anggota &amp; NIK</p>
+          <p id="monModalNama" class="font-bold text-slate-900 mt-0.5">-</p>
+          <p id="monModalNikUnit" class="text-[11px] font-mono text-indigo-700">-</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase font-bold">Pokok Pinjaman</p>
+          <p id="monModalPokok" class="font-extrabold text-slate-900 mt-0.5">Rp 0</p>
+          <p id="monModalBunga" class="text-[11px] text-amber-700">Bunga: Rp 0</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase font-bold">Total Kewajiban</p>
+          <p id="monModalTotalKewajiban" class="font-extrabold text-indigo-700 mt-0.5">Rp 0</p>
+          <p id="monModalCicilanBulan" class="text-[11px] text-emerald-700 font-bold">Cicilan: Rp 0/bln</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase font-bold">Progress &amp; Sisa</p>
+          <p id="monModalProgressText" class="font-extrabold text-emerald-700 mt-0.5">0 / 12 Bln</p>
+          <p id="monModalSisaKewajiban" class="text-[11px] text-slate-600 font-semibold">Sisa: Rp 0</p>
+        </div>
+      </div>
+
+      <div class="max-h-72 overflow-y-auto rounded-2xl border border-slate-200">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-slate-100 text-slate-600 font-bold uppercase text-[10px] sticky top-0">
+            <tr>
+              <th class="py-2.5 px-4">Angsuran</th>
+              <th class="py-2.5 px-4 text-right">Nominal Cicilan</th>
+              <th class="py-2.5 px-4 text-center">Status Bulan Berjalan</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMonModalSchedule" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
+        <span id="monModalKeperluan">Keperluan: -</span>
+        <button type="button" onclick="closeMonitoringScheduleModal()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition">
+          Tutup Rincian
+        </button>
+      </div>
+    </div>
+  </div>
+
 
   <script>
     const API_BASE = '';
@@ -3860,6 +4131,16 @@
         if (urlStr.includes('/api/simpanan/auto-input/run')) return callGas('runSimpananAutoInputScheduler', body.forceRun);
 
         // Bridge Pinjaman Koperasi
+        if (urlStr.includes('/api/loans/monitoring')) {
+          const u = new URL(urlStr, window.location.href);
+          return callGas('getMemberLoanMonitoring', {
+            nik: u.searchParams.get('nik') || '',
+            nama: u.searchParams.get('nama') || '',
+            username: u.searchParams.get('username') || '',
+            role: u.searchParams.get('role') || '',
+            scope: u.searchParams.get('scope') || 'self'
+          });
+        }
         if (urlStr.includes('/api/loans/rates')) return callGas('getLoanRates');
         if (urlStr.includes('/api/loans/simulate')) return callGas('simulateLoanCalculation', body.plafon, body.tenor);
         if (urlStr.includes('/api/loans/apply')) return callGas('applyLoanRequest', body);
@@ -4648,6 +4929,13 @@
       if (approvalBtn) approvalBtn.className = (tab === 'approval' ? activeClass : inactiveClass) + " flex";
 
       if (tab === 'tracking') fetchData();
+      if (tab === 'form') {
+        if (typeof populateFormMemberQuickSelect === 'function') populateFormMemberQuickSelect();
+        if (typeof toggleCustomTipe === 'function') {
+          const sel = document.getElementById('formTipeSelect');
+          if (sel) toggleCustomTipe(sel.value);
+        }
+      }
       if (tab === 'simpanan') loadSimpananData();
       if (tab === 'pinjaman') loadPinjamanData();
       if (tab === 'approval' && (role === 'admin' || role === 'ketua koperasi' || role === 'financial')) refreshApprovalData();
@@ -4902,20 +5190,25 @@
             return isNaN(parsed) ? 0 : parsed;
           }
 
-          let list = (json.data || []).map(r => ({
-            rowIndex: r.rowIndex,
-            datetime: r.timestamp || r.datetime || '',
-            tipeFormulir: r.tipeFormulir,
-            namaKaryawan: r.namaKaryawan,
-            nikUnit: r.nikUnitKerja || r.nikUnit || '',
-            nikUnitKerja: r.nikUnitKerja || r.nikUnit || '',
-            noRekening: r.noRekening,
-            atasNamaRekening: r.atasNamaRekening,
-            totalDitransfer: r.totalDitransfer,
-            cicilan: r.cicilan,
-            keterangan: r.keterangan,
-            status: r.status
-          }));
+          let list = (json.data || []).map(r => {
+            const parsedSplit = splitClientNikAndUnit(r.nikUnitKerja || r.nikUnit || '', r.nik || '', r.unitKerja || '');
+            return {
+              rowIndex: r.rowIndex,
+              datetime: r.timestamp || r.datetime || '',
+              tipeFormulir: r.tipeFormulir,
+              namaKaryawan: r.namaKaryawan,
+              nik: parsedSplit.nik,
+              unitKerja: parsedSplit.unitKerja,
+              nikUnit: parsedSplit.combined || r.nikUnitKerja || r.nikUnit || '',
+              nikUnitKerja: parsedSplit.combined || r.nikUnitKerja || r.nikUnit || '',
+              noRekening: r.noRekening,
+              atasNamaRekening: r.atasNamaRekening,
+              totalDitransfer: r.totalDitransfer,
+              cicilan: r.cicilan,
+              keterangan: r.keterangan,
+              status: r.status
+            };
+          });
 
           // Client-side safety filter: jika bukan Admin, Ketua, atau Financial
           if (!canSeeAll) {
@@ -5082,6 +5375,9 @@
           if (target) target.status = newStatus;
           updateKPIs();
           renderTable();
+          if (newStatus === 'Done' && typeof fetchLoanMonitoringData === 'function') {
+            fetchLoanMonitoringData();
+          }
         } else {
           showToast('Gagal update: ' + (data.message || ''), true);
         }
@@ -5202,7 +5498,11 @@
               <td class="py-3.5 px-4 text-xs text-slate-500 font-mono whitespace-nowrap">${row.datetime || '-'}</td>
               <td class="py-3.5 px-4">
                 <div class="font-medium text-slate-900">${row.namaKaryawan || '-'}</div>
-                <div class="text-xs text-slate-500">${row.nikUnit || '-'}</div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  ${row.nik ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80" title="NIK Anggota">NIK: ${row.nik}</span>` : ''}
+                  ${row.unitKerja ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200" title="Unit Kerja">${row.unitKerja}</span>` : ''}
+                  ${(!row.nik && !row.unitKerja) ? `<span class="text-xs text-slate-500">${row.nikUnit || '-'}</span>` : ''}
+                </div>
               </td>
               <td class="py-3.5 px-4 whitespace-nowrap">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -5311,9 +5611,126 @@
       document.getElementById('kpiDone').innerText = doneCount;
     }
 
+    function splitClientNikAndUnit(rawNikUnit, explicitNik = '', explicitUnit = '') {
+      let nik = String(explicitNik || '').trim();
+      let unit = String(explicitUnit || '').trim();
+      const raw = String(rawNikUnit || '').trim();
+
+      if (nik && unit) {
+        return { nik, unitKerja: unit, combined: `${nik} - ${unit}` };
+      }
+
+      if (raw) {
+        if (raw.includes(' - ')) {
+          const parts = raw.split(' - ').map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            const p0HasDigit = /\d{3,}/.test(parts[0]);
+            const p1HasDigit = /\d{3,}/.test(parts[1]);
+            if (p0HasDigit || !p1HasDigit) {
+              if (!nik) nik = parts[0];
+              if (!unit) unit = parts.slice(1).join(' - ');
+            } else {
+              if (!unit) unit = parts[0];
+              if (!nik) nik = parts.slice(1).join(' - ');
+            }
+          }
+        } else if (raw.includes('/')) {
+          const parts = raw.split('/').map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 2 && /\d{3,}/.test(parts[0])) {
+            if (!nik) nik = parts[0];
+            if (!unit) unit = parts.slice(1).join(' / ');
+          }
+        }
+
+        if (!nik && !unit) {
+          const numMatch = raw.match(/\b(\d{4,15})\b/);
+          if (numMatch) {
+            nik = numMatch[1];
+            const leftover = raw.replace(numMatch[1], '').replace(/^\s*[-–/|,:]+\s*|\s*[-–/|,:]+\s*$/g, '').trim();
+            if (leftover) unit = leftover;
+          } else {
+            unit = raw;
+          }
+        }
+      }
+
+      const combined = (nik && unit) ? `${nik} - ${unit}` : (nik || unit || raw);
+      return { nik, unitKerja: unit, combined };
+    }
+
+    function syncHiddenNikUnit() {
+      const nikEl = document.getElementById('inputNikAnggota');
+      const unitEl = document.getElementById('inputUnitKerja');
+      const hiddenEl = document.getElementById('inputNikUnit');
+      if (!hiddenEl) return;
+      const n = (nikEl ? nikEl.value : '').trim();
+      const u = (unitEl ? unitEl.value : '').trim();
+      hiddenEl.value = (n && u) ? `${n} - ${u}` : (n || u);
+    }
+
+    async function populateFormMemberQuickSelect() {
+      const sel = document.getElementById('formSelectMemberAuto');
+      if (!sel || !currentUser) return;
+      try {
+        if (!usersList || usersList.length === 0) {
+          const res = await fetch(API_BASE + '/api/users?role=' + encodeURIComponent(currentUser.role || 'Admin'));
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            usersList = json.data.map(u => ({
+              rowIndex: u.rowIndex,
+              nama: u.namaLengkap,
+              nik: u.nik,
+              username: u.username,
+              email: u.email,
+              role: u.role,
+              accountStatus: u.accountStatus
+            }));
+          }
+        }
+        const activeUsers = (usersList || []).filter(u => String(u.accountStatus || 'Active').toLowerCase() === 'active');
+        sel.innerHTML = '<option value="">-- Ketik / Pilih Anggota Aktif atau Isi Manual di Bawah --</option>' +
+          activeUsers.map((u, idx) => `<option value="${idx}">${u.nama || u.username} (NIK: ${u.nik || u.username})</option>`).join('');
+      } catch (e) {
+        console.warn('Gagal memuat daftar anggota untuk quick select:', e.message);
+      }
+    }
+
+    function onSelectMemberForPengajuan(idxStr) {
+      if (idxStr === '' || idxStr === null || idxStr === undefined) return;
+      const activeUsers = (usersList || []).filter(u => String(u.accountStatus || 'Active').toLowerCase() === 'active');
+      const u = activeUsers[parseInt(idxStr, 10)];
+      if (!u) return;
+
+      const namaEl = document.getElementById('inputNamaKaryawan');
+      const nikEl = document.getElementById('inputNikAnggota');
+      const unitEl = document.getElementById('inputUnitKerja');
+      const atasNamaEl = document.getElementById('inputAtasNamaRekening');
+
+      if (namaEl) namaEl.value = u.nama || u.username || '';
+      if (nikEl) nikEl.value = u.nik || u.username || '';
+      if (atasNamaEl && !atasNamaEl.value) atasNamaEl.value = u.nama || u.username || '';
+
+      // Cari histori unit kerja & no rekening anggota dari globalData jika ada
+      const pastSubmission = (globalData || []).find(item =>
+        (u.nik && String(item.nik || '').toLowerCase() === String(u.nik).toLowerCase()) ||
+        (u.nama && String(item.namaKaryawan || '').toLowerCase() === String(u.nama).toLowerCase())
+      );
+      if (pastSubmission) {
+        if (unitEl && pastSubmission.unitKerja) unitEl.value = pastSubmission.unitKerja;
+        const rekEl = document.getElementById('inputNoRekening');
+        if (rekEl && !rekEl.value && pastSubmission.noRekening) rekEl.value = pastSubmission.noRekening;
+        if (atasNamaEl && pastSubmission.atasNamaRekening) atasNamaEl.value = pastSubmission.atasNamaRekening;
+      }
+
+      syncHiddenNikUnit();
+    }
+
     function toggleCustomTipe(val) {
       const customInput = document.getElementById('customTipeInput');
       const cicilanInput = document.getElementById('inputCicilan');
+      const nominalInput = document.getElementById('inputTotalDitransfer');
+      const hintPlafon = document.getElementById('hintMaxPlafonForm');
+      const hintCicilan = document.getElementById('hintMaxCicilanForm');
 
       if (val === 'CUSTOM') {
         customInput.classList.remove('hidden');
@@ -5325,7 +5742,123 @@
 
       // Otomatis isi 0 jika tipe form adalah pencairan simpanan atau anggaran unit (non-cicil)
       if (val === 'Pencairan Simpanan Sukarela' || val === 'Pengajuan Anggaran Unit') {
-        if (cicilanInput) cicilanInput.value = '0';
+        if (cicilanInput) {
+          cicilanInput.value = '0';
+          cicilanInput.max = '180';
+        }
+        if (nominalInput) nominalInput.removeAttribute('max');
+        if (hintPlafon) hintPlafon.innerHTML = 'Masukkan jumlah nominal dana yang diajukan.';
+        if (hintCicilan) hintCicilan.innerHTML = 'Isi <b>0</b> karena non-cicilan.';
+      } else if (val === 'Peminjaman Multiguna') {
+        if (cicilanInput) {
+          cicilanInput.max = '12';
+          if (!cicilanInput.value || parseInt(cicilanInput.value, 10) === 0 || parseInt(cicilanInput.value, 10) > 12) {
+            cicilanInput.value = '12';
+          }
+        }
+        if (nominalInput) nominalInput.max = '10000000';
+        if (hintPlafon) hintPlafon.innerHTML = '<span class="text-amber-700 font-semibold">Maksimal Plafon Pinjaman Multiguna: <b>Rp 10.000.000</b> (Bunga 20%/Tahun).</span>';
+        if (hintCicilan) hintCicilan.innerHTML = '<span class="text-amber-700 font-semibold">Tenor Pinjaman Multiguna: <b>1 s/d 12 Bulan</b> (Maks. 12 kali cicilan).</span>';
+      } else if (val === 'Peminjaman Tunai') {
+        if (cicilanInput) {
+          cicilanInput.max = '60';
+          if (!cicilanInput.value || parseInt(cicilanInput.value, 10) === 0) {
+            cicilanInput.value = '12';
+          }
+        }
+        if (nominalInput) nominalInput.max = '50000000';
+        if (hintPlafon) hintPlafon.innerHTML = '<span class="text-indigo-700 font-semibold">Plafon Pinjaman Tunai s/d <b>Rp 50.000.000</b> sesuai tabel Koperasi SA.</span>';
+        if (hintCicilan) hintCicilan.innerHTML = '<span class="text-indigo-700 font-semibold">Tenor Pinjaman Tunai: 10, 12, 20, 24, 36, 48, atau 60 Bulan.</span>';
+      } else {
+        if (cicilanInput) cicilanInput.max = '180';
+        if (nominalInput) nominalInput.removeAttribute('max');
+      }
+
+      onFormLoanAmountOrTenorChange();
+    }
+
+    function onFormLoanAmountOrTenorChange() {
+      const tipeSelect = document.getElementById('formTipeSelect');
+      const box = document.getElementById('formLoanRulePreviewBox');
+      const nominalInput = document.getElementById('inputTotalDitransfer');
+      const cicilanInput = document.getElementById('inputCicilan');
+      const warnEl = document.getElementById('previewFormWarningMsg');
+      if (!tipeSelect || !box) return;
+
+      const tipe = tipeSelect.value;
+      const pokok = parseFloat(nominalInput ? nominalInput.value : '0') || 0;
+      let tenor = parseInt(cicilanInput ? cicilanInput.value : '0', 10) || 0;
+
+      if (tipe !== 'Peminjaman Multiguna' && tipe !== 'Peminjaman Tunai') {
+        box.classList.add('hidden');
+        return;
+      }
+
+      box.classList.remove('hidden');
+      const badgeEl = document.getElementById('badgeFormLoanType');
+      const descEl = document.getElementById('descFormLoanRule');
+      const lblBunga = document.getElementById('labelPreviewFormBunga');
+
+      if (tipe === 'Peminjaman Multiguna') {
+        box.className = 'rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-3 transition-all';
+        if (badgeEl) {
+          badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase bg-amber-100 text-amber-800';
+          badgeEl.innerText = 'Pinjaman Multiguna';
+        }
+        if (descEl) descEl.innerText = 'Maks. Rp 10.000.000 · Bunga 20% / Tahun · Maks. Tenor 12 Bulan';
+
+        const effectiveTenor = Math.min(Math.max(tenor || 12, 1), 12);
+        const bungaRateTotal = 0.20;
+        const totalBunga = Math.round(pokok * bungaRateTotal);
+        const totalKewajiban = pokok + totalBunga;
+        const cicilanBulanan = Math.round(totalKewajiban / effectiveTenor);
+
+        if (lblBunga) lblBunga.innerText = 'Bunga (20% / Tahun)';
+        document.getElementById('previewFormPokok').innerText = formatRupiah(pokok);
+        document.getElementById('previewFormBunga').innerText = formatRupiah(totalBunga);
+        document.getElementById('previewFormTotalKewajiban').innerText = formatRupiah(totalKewajiban);
+        document.getElementById('previewFormCicilanBulan').innerText = `${formatRupiah(cicilanBulanan)} / bln (${effectiveTenor}x)`;
+
+        const warnings = [];
+        if (pokok > 10000000) warnings.push('⚠️ Plafon Pinjaman Multiguna melebihi batas maksimal Rp 10.000.000!');
+        if (tenor > 12) warnings.push('⚠️ Tenor Pinjaman Multiguna melebihi batas maksimal 12 bulan!');
+        if (warnEl) {
+          if (warnings.length > 0) {
+            warnEl.innerText = warnings.join(' ');
+            warnEl.classList.remove('hidden');
+          } else {
+            warnEl.classList.add('hidden');
+          }
+        }
+      } else if (tipe === 'Peminjaman Tunai') {
+        box.className = 'rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3 transition-all';
+        if (badgeEl) {
+          badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase bg-indigo-100 text-indigo-800';
+          badgeEl.innerText = 'Pinjaman Tunai';
+        }
+        if (descEl) descEl.innerText = 'Plafon s/d Rp 50.000.000 · Suku Bunga Tabel Resmi Koperasi SA';
+
+        const effectiveTenor = Math.max(tenor || 12, 1);
+        const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+        const rate = rateMap[effectiveTenor] !== undefined ? rateMap[effectiveTenor] : (0.14 * (effectiveTenor / 12));
+        const totalBunga = Math.round(pokok * rate);
+        const totalKewajiban = pokok + totalBunga;
+        const cicilanBulanan = Math.round(totalKewajiban / effectiveTenor);
+
+        if (lblBunga) lblBunga.innerText = `Jasa Koperasi (${Math.round(rate * 100)}%)`;
+        document.getElementById('previewFormPokok').innerText = formatRupiah(pokok);
+        document.getElementById('previewFormBunga').innerText = formatRupiah(totalBunga);
+        document.getElementById('previewFormTotalKewajiban').innerText = formatRupiah(totalKewajiban);
+        document.getElementById('previewFormCicilanBulan').innerText = `${formatRupiah(cicilanBulanan)} / bln (${effectiveTenor}x)`;
+
+        if (warnEl) {
+          if (pokok > 50000000) {
+            warnEl.innerText = '⚠️ Plafon Pinjaman Tunai maksimal Rp 50.000.000.';
+            warnEl.classList.remove('hidden');
+          } else {
+            warnEl.classList.add('hidden');
+          }
+        }
       }
     }
 
@@ -5334,20 +5867,42 @@
       const form = e.target;
       const btn = document.getElementById('btnSubmit');
 
-      btn.disabled = true;
-      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
-      lucide.createIcons();
-
+      syncHiddenNikUnit();
       const formData = new FormData(form);
       let tipeForm = formData.get('tipeFormulir');
       if (tipeForm === 'CUSTOM') {
         tipeForm = document.getElementById('customTipeInput').value;
       }
 
+      const nikAnggota = String(document.getElementById('inputNikAnggota')?.value || '').trim();
+      const unitKerja = String(document.getElementById('inputUnitKerja')?.value || '').trim();
+      const combinedNikUnit = (nikAnggota && unitKerja) ? `${nikAnggota} - ${unitKerja}` : (nikAnggota || unitKerja || formData.get('nikUnit'));
+
+      const nominalVal = parseFloat(formData.get('totalDitransfer') || '0') || 0;
+      const cicilanVal = parseInt(formData.get('cicilan') || '0', 10) || 0;
+
+      // Validasi Ketat Pinjaman Multiguna di Sisi Client
+      if (String(tipeForm).toLowerCase().includes('multiguna')) {
+        if (nominalVal > 10000000) {
+          showToast('Pinjaman Multiguna maksimal plafon Rp 10.000.000!', true);
+          return;
+        }
+        if (cicilanVal < 1 || cicilanVal > 12) {
+          showToast('Tenor Pinjaman Multiguna wajib antara 1 s/d 12 bulan (bunga 20% per tahun)!', true);
+          return;
+        }
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
+      lucide.createIcons();
+
       const payload = {
         tipeFormulir: tipeForm,
         namaKaryawan: formData.get('namaKaryawan'),
-        nikUnitKerja: formData.get('nikUnit'),
+        nik: nikAnggota,
+        unitKerja: unitKerja,
+        nikUnitKerja: combinedNikUnit,
         noRekening: formData.get('noRekening'),
         atasNamaRekening: formData.get('atasNamaRekening'),
         totalDitransfer: formData.get('totalDitransfer'),
@@ -5366,6 +5921,7 @@
         if (data.success) {
           form.reset();
           document.getElementById('customTipeInput').classList.add('hidden');
+          document.getElementById('formLoanRulePreviewBox')?.classList.add('hidden');
           showToast('Pengajuan berhasil disimpan & menunggu persetujuan Pengurus!');
           switchTab('tracking');
         } else {
@@ -5388,10 +5944,16 @@
         return;
       }
 
+      const parsed = splitClientNikAndUnit(item.nikUnit || item.nikUnitKerja || '', item.nik || '', item.unitKerja || '');
+
       document.getElementById('editRowIndex').value = item.rowIndex;
       document.getElementById('editTipeFormulir').value = item.tipeFormulir || '';
       document.getElementById('editNamaKaryawan').value = item.namaKaryawan || '';
-      document.getElementById('editNikUnitKerja').value = item.nikUnit || '';
+      const editNikEl = document.getElementById('editNikAnggota');
+      const editUnitEl = document.getElementById('editUnitKerja');
+      if (editNikEl) editNikEl.value = parsed.nik || '';
+      if (editUnitEl) editUnitEl.value = parsed.unitKerja || '';
+      document.getElementById('editNikUnitKerja').value = parsed.combined || item.nikUnit || '';
       document.getElementById('editStatus').value = item.status || 'Created';
       document.getElementById('editNoRekening').value = item.noRekening || '';
       document.getElementById('editAtasNamaRekening').value = item.atasNamaRekening || '';
@@ -5414,6 +5976,26 @@
       e.preventDefault();
       if (!currentUser || currentUser.role !== 'Admin') return;
 
+      const editNik = String(document.getElementById('editNikAnggota')?.value || '').trim();
+      const editUnit = String(document.getElementById('editUnitKerja')?.value || '').trim();
+      const combinedEditNikUnit = (editNik && editUnit) ? `${editNik} - ${editUnit}` : (editNik || editUnit);
+      document.getElementById('editNikUnitKerja').value = combinedEditNikUnit;
+
+      const tipeVal = document.getElementById('editTipeFormulir').value || '';
+      const nominalVal = parseFloat(document.getElementById('editTotalDitransfer').value || '0') || 0;
+      const cicilanVal = parseInt(String(document.getElementById('editCicilan').value || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+      if (tipeVal.toLowerCase().includes('multiguna')) {
+        if (nominalVal > 10000000) {
+          showToast('Pinjaman Multiguna maksimal plafon Rp 10.000.000!', true);
+          return;
+        }
+        if (cicilanVal > 12) {
+          showToast('Tenor Pinjaman Multiguna maksimal 12 bulan!', true);
+          return;
+        }
+      }
+
       const btn = document.getElementById('btnSaveEdit');
       btn.disabled = true;
       btn.innerHTML = `<span class="inline-block animate-spin mr-2"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Menyimpan...`;
@@ -5423,9 +6005,11 @@
       const payload = {
         rowIndex,
         role: currentUser.role,
-        tipeFormulir: document.getElementById('editTipeFormulir').value,
+        tipeFormulir: tipeVal,
         namaKaryawan: document.getElementById('editNamaKaryawan').value,
-        nikUnitKerja: document.getElementById('editNikUnitKerja').value,
+        nik: editNik,
+        unitKerja: editUnit,
+        nikUnitKerja: combinedEditNikUnit,
         status: document.getElementById('editStatus').value,
         noRekening: document.getElementById('editNoRekening').value,
         atasNamaRekening: document.getElementById('editAtasNamaRekening').value,
@@ -8669,6 +9253,16 @@ async function triggerRunAutoInputScheduler() {
 // 2. LOGIK TAB PINJAMAN KOPERASI & SIMULATOR
 // ----------------------------------------------------
 
+let currentSimCategory = 'TUNAI'; // 'TUNAI' | 'MULTIGUNA'
+let currentMonitoringTab = 'MULTIGUNA'; // 'MULTIGUNA' | 'TUNAI'
+let currentMonitoringScope = 'self'; // 'self' | 'all'
+let loanMonitoringData = {
+  multigunaLoans: [],
+  tunaiLoans: [],
+  allLoans: [],
+  summary: {}
+};
+
 async function loadPinjamanData() {
   if (!currentUser) return;
 
@@ -8676,24 +9270,319 @@ async function loadPinjamanData() {
   document.getElementById('formLoanNamaPemohon').innerText = currentUser.nama || currentUser.namaLengkap || currentUser.username;
   document.getElementById('formLoanNikPemohon').innerText = `${currentUser.nik || currentUser.username} ${currentUser.unitKerja ? '· ' + currentUser.unitKerja : ''}`;
 
+  const activeNikBadge = document.getElementById('monitoringActiveNikBadge');
+  if (activeNikBadge) {
+    activeNikBadge.innerText = `NIK: ${currentUser.nik || currentUser.username} (${currentUser.nama || currentUser.namaLengkap || currentUser.username})`;
+  }
+
+  const role = normalizeRole(currentUser.role);
+  const canSeeAll = (role === 'admin' || role === 'financial' || role === 'ketua koperasi' || role === 'pic simpin' || role === 'pengurus');
+  const scopeWrap = document.getElementById('monitoringScopeToggleWrap');
+  if (scopeWrap) {
+    scopeWrap.classList.toggle('hidden', !canSeeAll);
+  }
+
   await Promise.all([
     fetchLoanRates(),
+    fetchLoanMonitoringData(),
     fetchMyLoans(),
     fetchMyBankAccount()
   ]);
 
-  const role = normalizeRole(currentUser.role);
   if (role === 'pic simpin' || role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
     fetchAllLoans();
   }
 
   // Initialize Simulator with defaults
-  setSimulatorPlafon(10000000);
+  if (currentSimCategory === 'MULTIGUNA') {
+    setSimulatorCategory('MULTIGUNA');
+  } else {
+    setSimulatorPlafon(10000000);
+  }
 }
 
 function refreshLoanData() {
-  showToast('Memperbarui data pinjaman...');
+  showToast('Memperbarui data & monitoring pinjaman...');
   loadPinjamanData();
+}
+
+function setLoanMonitoringScope(scope) {
+  currentMonitoringScope = scope === 'all' ? 'all' : 'self';
+  const btnSelf = document.getElementById('btnScopeSelf');
+  const btnAll = document.getElementById('btnScopeAll');
+  if (btnSelf && btnAll) {
+    if (currentMonitoringScope === 'self') {
+      btnSelf.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm transition';
+      btnAll.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+    } else {
+      btnAll.className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-700 shadow-sm transition';
+      btnSelf.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+    }
+  }
+  fetchLoanMonitoringData();
+}
+
+async function fetchLoanMonitoringData() {
+  if (!currentUser) return;
+  const tbody = document.getElementById('tbodyLoanMonitoring');
+  try {
+    const nik = currentUser.nik || currentUser.username || '';
+    const nama = currentUser.nama || currentUser.namaLengkap || '';
+    const username = currentUser.username || '';
+    const role = currentUser.role || 'User';
+
+    const url = `${API_BASE}/api/loans/monitoring?nik=${encodeURIComponent(nik)}&nama=${encodeURIComponent(nama)}&username=${encodeURIComponent(username)}&role=${encodeURIComponent(role)}&scope=${encodeURIComponent(currentMonitoringScope)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.success) {
+      loanMonitoringData = {
+        multigunaLoans: data.multigunaLoans || [],
+        tunaiLoans: data.tunaiLoans || [],
+        allLoans: data.allLoans || [],
+        summary: data.summary || {}
+      };
+
+      // Otomatis pilih tab yang memiliki data jika tab aktif kosong
+      if (currentMonitoringTab === 'MULTIGUNA' && loanMonitoringData.multigunaLoans.length === 0 && loanMonitoringData.tunaiLoans.length > 0) {
+        currentMonitoringTab = 'TUNAI';
+      }
+
+      updateLoanMonitoringSummaryCards();
+      switchLoanMonitoringTab(currentMonitoringTab);
+    } else {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">${data.message || 'Gagal memuat monitoring pinjaman.'}</td></tr>`;
+    }
+  } catch (err) {
+    console.warn('Gagal memuat monitoring pinjaman:', err.message);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">Gagal memuat monitoring: ${err.message}</td></tr>`;
+  }
+}
+
+function updateLoanMonitoringSummaryCards() {
+  const s = loanMonitoringData.summary || {};
+  const sm = s.multiguna || {};
+  const st = s.tunai || {};
+  const mLoans = loanMonitoringData.multigunaLoans || [];
+  const tLoans = loanMonitoringData.tunaiLoans || [];
+
+  const totalPokokM = sm.totalPokok !== undefined ? sm.totalPokok : mLoans.reduce((acc, x) => acc + (x.pokokPinjaman || 0), 0);
+  const totalCicilM = sm.totalCicilanBulanan !== undefined ? sm.totalCicilanBulanan : mLoans.reduce((acc, x) => acc + (x.cicilanBulanan || 0), 0);
+  const sisaMultiguna = sm.totalSisaKewajiban !== undefined ? sm.totalSisaKewajiban : mLoans.reduce((acc, x) => acc + (x.sisaKewajiban || 0), 0);
+
+  const totalPokokT = st.totalPokok !== undefined ? st.totalPokok : tLoans.reduce((acc, x) => acc + (x.pokokPinjaman || 0), 0);
+  const totalCicilT = st.totalCicilanBulanan !== undefined ? st.totalCicilanBulanan : tLoans.reduce((acc, x) => acc + (x.cicilanBulanan || 0), 0);
+  const sisaTunai = st.totalSisaKewajiban !== undefined ? st.totalSisaKewajiban : tLoans.reduce((acc, x) => acc + (x.sisaKewajiban || 0), 0);
+
+  const elCountM = document.getElementById('monCountMultiguna');
+  const elPokokM = document.getElementById('monTotalPokokMultiguna');
+  const elCicilM = document.getElementById('monCicilanMultiguna');
+  const elSisaM = document.getElementById('monSisaMultiguna');
+
+  if (elCountM) elCountM.innerText = `${sm.count !== undefined ? sm.count : mLoans.length} Pinjaman`;
+  if (elPokokM) elPokokM.innerText = formatRupiahNumber(totalPokokM);
+  if (elCicilM) elCicilM.innerText = formatRupiahNumber(totalCicilM);
+  if (elSisaM) elSisaM.innerText = formatRupiahNumber(sisaMultiguna);
+
+  const elCountT = document.getElementById('monCountTunai');
+  const elPokokT = document.getElementById('monTotalPokokTunai');
+  const elCicilT = document.getElementById('monCicilanTunai');
+  const elSisaT = document.getElementById('monSisaTunai');
+
+  if (elCountT) elCountT.innerText = `${st.count !== undefined ? st.count : tLoans.length} Pinjaman`;
+  if (elPokokT) elPokokT.innerText = formatRupiahNumber(totalPokokT);
+  if (elCicilT) elCicilT.innerText = formatRupiahNumber(totalCicilT);
+  if (elSisaT) elSisaT.innerText = formatRupiahNumber(sisaTunai);
+
+  const badgeM = document.getElementById('badgeTabMultiguna');
+  const badgeT = document.getElementById('badgeTabTunai');
+  if (badgeM) badgeM.innerText = mLoans.length;
+  if (badgeT) badgeT.innerText = tLoans.length;
+}
+
+function switchLoanMonitoringTab(tab) {
+  currentMonitoringTab = tab === 'TUNAI' ? 'TUNAI' : 'MULTIGUNA';
+
+  const btnM = document.getElementById('tabBtnMonMultiguna');
+  const btnT = document.getElementById('tabBtnMonTunai');
+  const bannerM = document.getElementById('bannerRuleMultiguna');
+  const bannerT = document.getElementById('bannerRuleTunai');
+
+  if (currentMonitoringTab === 'MULTIGUNA') {
+    if (btnM) btnM.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 bg-white text-amber-700 shadow-sm';
+    if (btnT) btnT.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 text-slate-600 hover:text-slate-900';
+    if (bannerM) bannerM.classList.remove('hidden');
+    if (bannerT) bannerT.classList.add('hidden');
+  } else {
+    if (btnT) btnT.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 bg-white text-indigo-700 shadow-sm';
+    if (btnM) btnM.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center gap-2 text-slate-600 hover:text-slate-900';
+    if (bannerT) bannerT.classList.remove('hidden');
+    if (bannerM) bannerM.classList.add('hidden');
+  }
+
+  renderLoanMonitoringActiveTab();
+}
+
+function renderLoanMonitoringActiveTab() {
+  const tbody = document.getElementById('tbodyLoanMonitoring');
+  if (!tbody) return;
+
+  const sourceList = currentMonitoringTab === 'MULTIGUNA'
+    ? (loanMonitoringData.multigunaLoans || [])
+    : (loanMonitoringData.tunaiLoans || []);
+
+  const q = String(document.getElementById('searchLoanMonitoringInput')?.value || '').trim().toLowerCase();
+  const filtered = sourceList.filter(item => {
+    if (!q) return true;
+    const itemNama = item.namaAnggota || item.nama || '';
+    return (
+      String(item.nik || '').toLowerCase().includes(q) ||
+      String(itemNama).toLowerCase().includes(q) ||
+      String(item.unitKerja || '').toLowerCase().includes(q) ||
+      String(item.nomorReferensi || '').toLowerCase().includes(q) ||
+      String(item.keterangan || '').toLowerCase().includes(q)
+    );
+  });
+
+  if (filtered.length === 0) {
+    const labelKat = currentMonitoringTab === 'MULTIGUNA' ? 'Pinjaman Multiguna' : 'Pinjaman Tunai';
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="py-10 text-center text-slate-400">
+          <div class="flex flex-col items-center justify-center gap-1.5">
+            <i data-lucide="inbox" class="w-7 h-7 text-slate-300"></i>
+            <p class="font-bold text-slate-600 text-xs">Belum ada data ${labelKat} aktif berstatus Done untuk filter ini.</p>
+            <p class="text-[11px] text-slate-400">Saat Finance menginput pengajuan anggota &amp; mengubah status menjadi <b>Done</b>, pinjaman otomatis tampil di sini.</p>
+          </div>
+        </td>
+      </tr>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(item => {
+    const itemNama = item.namaAnggota || item.nama || '-';
+    const itemTanggal = item.tanggalCair || item.tanggalPengajuan || '-';
+    const itemBungaPct = item.bungaPersen || item.bungaPersenTotal || '';
+    const itemTerbayar = item.sudahDibayar !== undefined ? item.sudahDibayar : (item.sudahTerbayar || 0);
+    const pct = item.progressPersen !== undefined
+      ? item.progressPersen
+      : (item.tenorBulan > 0 ? Math.min(100, Math.round((item.bulanBerjalan / item.tenorBulan) * 100)) : 100);
+    const isLunas = (item.sisaKewajiban !== undefined && item.sisaKewajiban <= 0) || item.bulanBerjalan >= item.tenorBulan;
+    const progressColor = isLunas ? 'bg-emerald-500' : (currentMonitoringTab === 'MULTIGUNA' ? 'bg-amber-500' : 'bg-indigo-600');
+
+    return `
+      <tr class="hover:bg-slate-50/90 transition">
+        <td class="py-3.5 px-4 whitespace-nowrap">
+          <div class="font-mono font-bold text-slate-900 text-xs">${item.nomorReferensi || item.monitoringId}</div>
+          <div class="text-[11px] text-slate-400">${itemTanggal}</div>
+        </td>
+        <td class="py-3.5 px-4">
+          <div class="font-bold text-slate-900">${itemNama}</div>
+          <div class="flex flex-wrap items-center gap-1 mt-1">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">NIK: ${item.nik || '-'}</span>
+            ${(item.unitKerja && item.unitKerja !== '-') ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">${item.unitKerja}</span>` : ''}
+          </div>
+        </td>
+        <td class="py-3.5 px-4 text-right font-extrabold text-slate-900 whitespace-nowrap">
+          ${formatRupiahNumber(item.pokokPinjaman)}
+        </td>
+        <td class="py-3.5 px-4 text-right whitespace-nowrap">
+          <div class="font-bold text-amber-700">${formatRupiahNumber(item.totalBunga)}</div>
+          <div class="text-[10px] text-slate-400 font-semibold">${itemBungaPct}</div>
+        </td>
+        <td class="py-3.5 px-4 text-right font-extrabold text-indigo-700 whitespace-nowrap">
+          ${formatRupiahNumber(item.totalKewajiban)}
+        </td>
+        <td class="py-3.5 px-4 text-center whitespace-nowrap">
+          <div class="font-black text-emerald-700">${formatRupiahNumber(item.cicilanBulanan)}<span class="text-[10px] font-normal text-slate-500">/bln</span></div>
+          <div class="text-[10px] font-bold text-slate-500">Tenor ${item.tenorBulan} Bulan</div>
+        </td>
+        <td class="py-3.5 px-4 min-w-[180px]">
+          <div class="flex items-center justify-between text-[10px] font-bold mb-1">
+            <span class="text-slate-600">Angsuran: ${item.bulanBerjalan}/${item.tenorBulan} Bln</span>
+            <span class="${isLunas ? 'text-emerald-700' : 'text-indigo-700'}">${pct}%</span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden border border-slate-200/60">
+            <div class="h-full ${progressColor} transition-all" style="width: ${pct}%"></div>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-slate-500 mt-1">
+            <span>Terbayar: ${formatRupiahNumber(itemTerbayar)}</span>
+            <span class="font-bold text-slate-700">Sisa: ${formatRupiahNumber(item.sisaKewajiban || 0)}</span>
+          </div>
+        </td>
+        <td class="py-3.5 px-4 text-center whitespace-nowrap">
+          <div class="flex flex-col items-center gap-1.5">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${isLunas ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+              ${isLunas ? '✅ LUNAS' : '🔄 AKTIF (Done)'}
+            </span>
+            <button type="button" onclick="openMonitoringScheduleModal('${item.monitoringId}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-bold text-[11px] border border-slate-200 transition inline-flex items-center gap-1">
+              <i data-lucide="calendar" class="w-3 h-3"></i>
+              <span>Jadwal Cicilan</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function openMonitoringScheduleModal(monitoringId) {
+  const all = [...(loanMonitoringData.multigunaLoans || []), ...(loanMonitoringData.tunaiLoans || [])];
+  const item = all.find(x => x.monitoringId === monitoringId);
+  if (!item) return;
+
+  const isMulti = String(item.kategori || '').toUpperCase().includes('MULTIGUNA');
+  const itemNama = item.namaAnggota || item.nama || '-';
+  const itemTanggal = item.tanggalCair || item.tanggalPengajuan || '-';
+  const itemBungaPct = item.bungaPersen || item.bungaPersenTotal || '';
+
+  document.getElementById('monModalTitle').innerText = `Rincian Pinjaman ${item.nomorReferensi || item.monitoringId}`;
+  const badge = document.getElementById('monModalKategoriBadge');
+  if (badge) {
+    badge.innerText = isMulti ? 'PINJAMAN MULTIGUNA (MAKS 10JT · 20%/THN)' : 'PINJAMAN TUNAI';
+    badge.className = isMulti
+      ? 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800'
+      : 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800';
+  }
+  document.getElementById('monModalSubtitle').innerText = `Tanggal Pencairan (Done): ${itemTanggal} · Rekening: ${item.noRekening || '-'} (a.n ${item.atasNamaRekening || '-'}) `;
+  document.getElementById('monModalNama').innerText = itemNama;
+  document.getElementById('monModalNikUnit').innerText = `NIK: ${item.nik || '-'} ${(item.unitKerja && item.unitKerja !== '-') ? '· ' + item.unitKerja : ''}`;
+  document.getElementById('monModalPokok').innerText = formatRupiahNumber(item.pokokPinjaman);
+  document.getElementById('monModalBunga').innerText = `Bunga: ${formatRupiahNumber(item.totalBunga)} (${itemBungaPct})`;
+  document.getElementById('monModalTotalKewajiban').innerText = formatRupiahNumber(item.totalKewajiban);
+  document.getElementById('monModalCicilanBulan').innerText = `Cicilan: ${formatRupiahNumber(item.cicilanBulanan)} / bln`;
+  document.getElementById('monModalProgressText').innerText = `${item.bulanBerjalan} / ${item.tenorBulan} Bulan`;
+  document.getElementById('monModalSisaKewajiban').innerText = `Sisa: ${formatRupiahNumber(item.sisaKewajiban)}`;
+  document.getElementById('monModalKeperluan').innerText = `Keperluan: ${item.keterangan || '-'}`;
+
+  const tbody = document.getElementById('tbodyMonModalSchedule');
+  const jadwal = item.jadwal || [];
+  tbody.innerHTML = jadwal.map(j => {
+    const isPaid = j.bulanKe <= (item.bulanBerjalan || 0);
+    const nom = j.cicilan !== undefined ? j.cicilan : j.angsuran;
+    return `
+      <tr class="${isPaid ? 'bg-emerald-50/40' : 'hover:bg-slate-50'}">
+        <td class="py-2.5 px-4 font-semibold text-slate-800">Angsuran Bulan ke-${j.bulanKe}</td>
+        <td class="py-2.5 px-4 text-right font-mono font-bold text-slate-900">${formatRupiahNumber(nom)}</td>
+        <td class="py-2.5 px-4 text-center">
+          ${isPaid
+            ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">✅ Terbayar / Berjalan</span>'
+            : '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">⏳ Dijadwalkan</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('modalMonitoringSchedule').classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeMonitoringScheduleModal() {
+  document.getElementById('modalMonitoringSchedule').classList.add('hidden');
 }
 
 async function fetchLoanRates() {
@@ -8708,9 +9597,51 @@ async function fetchLoanRates() {
   }
 }
 
+function setSimulatorCategory(cat) {
+  currentSimCategory = cat === 'MULTIGUNA' ? 'MULTIGUNA' : 'TUNAI';
+  const btnTunai = document.getElementById('btnSimModeTunai');
+  const btnMulti = document.getElementById('btnSimModeMultiguna');
+  const rangeEl = document.getElementById('rangePlafon');
+  const descEl = document.getElementById('simSubtitleDesc');
+  const noticeEl = document.getElementById('tenorNotice');
+
+  if (currentSimCategory === 'MULTIGUNA') {
+    if (btnMulti) btnMulti.className = 'px-3 py-1.5 rounded-lg bg-amber-600 text-white shadow-sm transition';
+    if (btnTunai) btnTunai.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+    if (descEl) descEl.innerText = 'Pinjaman Multiguna: Maks. Rp 10 Jt · Bunga 20%/Tahun · Maks. Tenor 12 Bulan';
+    if (noticeEl) noticeEl.innerText = '*Pinjaman Multiguna memiliki batas maksimal plafon Rp 10.000.000, bunga 20% per tahun, dan maksimal tenor 12 bulan.';
+    if (rangeEl) {
+      rangeEl.min = '1000000';
+      rangeEl.max = '10000000';
+      rangeEl.step = '500000';
+    }
+    currentSimTenor = 12;
+    setSimulatorPlafon(Math.min(currentSimPlafon || 5000000, 10000000));
+  } else {
+    if (btnTunai) btnTunai.className = 'px-3 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm transition';
+    if (btnMulti) btnMulti.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+    if (descEl) descEl.innerText = 'Pinjaman Tunai: Plafon Rp 10jt - Rp 50jt sesuai tabel potongan SA';
+    if (noticeEl) noticeEl.innerText = '*Tenor 48 & 60 bulan hanya tersedia untuk pinjaman Rp 31jt - Rp 50jt.';
+    if (rangeEl) {
+      rangeEl.min = '10000000';
+      rangeEl.max = '50000000';
+      rangeEl.step = '1000000';
+    }
+    currentSimTenor = 10;
+    setSimulatorPlafon(Math.max(currentSimPlafon || 10000000, 10000000));
+  }
+}
+
 function setSimulatorPlafon(amount) {
-  currentSimPlafon = parseInt(amount, 10);
-  document.getElementById('rangePlafon').value = currentSimPlafon;
+  let amt = parseInt(amount, 10) || 10000000;
+  if (currentSimCategory === 'MULTIGUNA') {
+    amt = Math.min(Math.max(amt, 500000), 10000000);
+  } else {
+    amt = Math.min(Math.max(amt, 10000000), 50000000);
+  }
+  currentSimPlafon = amt;
+  const rangeEl = document.getElementById('rangePlafon');
+  if (rangeEl) rangeEl.value = currentSimPlafon;
   document.getElementById('displaySimPlafon').innerText = formatRupiahNumber(currentSimPlafon);
 
   // Update quick select buttons state
@@ -8733,6 +9664,26 @@ function onSimulatorPlafonChange(amount) {
 
 function renderTenorButtons(plafon) {
   const container = document.getElementById('containerTenorButtons');
+  if (currentSimCategory === 'MULTIGUNA') {
+    const multiTenors = [3, 6, 9, 12];
+    if (!multiTenors.includes(currentSimTenor)) {
+      currentSimTenor = 12;
+    }
+    container.innerHTML = multiTenors.map(t => {
+      const isActive = t === currentSimTenor;
+      const effPct = (20 * (t / 12)).toFixed(1).replace(/\.0$/, '') + '%';
+      const activeClass = "bg-amber-600 text-white shadow-md shadow-amber-200 border-amber-600";
+      const inactiveClass = "bg-white text-slate-700 border-slate-200 hover:border-amber-400";
+      return `
+        <button type="button" onclick="setSimulatorTenor(${t})" class="p-2.5 rounded-xl border text-center transition ${isActive ? activeClass : inactiveClass}">
+          <p class="font-extrabold text-sm">${t} Bulan</p>
+          <p class="text-[10px] ${isActive ? 'text-amber-100' : 'text-slate-400'} font-medium">Bunga ${effPct} (20%/thn)</p>
+        </button>
+      `;
+    }).join('');
+    return;
+  }
+
   const validTenors = plafon <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
 
   if (!validTenors.includes(currentSimTenor)) {
@@ -8766,8 +9717,17 @@ function setSimulatorTenor(tenor) {
 function recalculateSimulator() {
   const p = currentSimPlafon;
   const t = currentSimTenor;
-  const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
-  const rate = rateMap[t] || 0.11;
+  let rate = 0.11;
+  let rateLabel = '11%';
+
+  if (currentSimCategory === 'MULTIGUNA') {
+    rate = 0.20;
+    rateLabel = '20% / Tahun';
+  } else {
+    const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+    rate = rateMap[t] || 0.11;
+    rateLabel = Math.round(rate * 100) + '%';
+  }
 
   const totalBiaya = Math.round(p * rate);
   const totalKewajiban = p + totalBiaya;
@@ -8791,7 +9751,7 @@ function recalculateSimulator() {
     plafon: p,
     tenor: t,
     rate,
-    ratePersen: Math.round(rate * 100) + '%',
+    ratePersen: rateLabel,
     totalBiaya,
     totalKewajiban,
     cicilanBulanan: cicilanNormal,

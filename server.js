@@ -712,6 +712,83 @@ app.put('/api/users/role', async (req, res) => {
 // ==========================================
 
 /**
+ * Helper: Pisahkan NIK dan Unit Kerja dari string gabungan atau field terpisah
+ */
+function splitNikAndUnitKerja(rawNikUnit, explicitNik, explicitUnit) {
+  let nik = String(explicitNik || '').trim();
+  let unitKerja = String(explicitUnit || '').trim();
+  const raw = String(rawNikUnit || '').trim();
+
+  if (nik && nik.includes(' - ')) {
+    const p = nik.split(' - ');
+    nik = p[0].trim();
+    if (!unitKerja) unitKerja = p.slice(1).join(' - ').trim();
+  }
+
+  if ((!nik || !unitKerja || unitKerja === '-') && raw) {
+    if (raw.includes(' - ')) {
+      const parts = raw.split(' - ');
+      if (!nik) nik = parts[0].trim();
+      if (!unitKerja || unitKerja === '-') unitKerja = parts.slice(1).join(' - ').trim();
+    } else if (/^\d{4,}$/.test(raw) || /^FIN\d+/i.test(raw) || /^ADM\d+/i.test(raw)) {
+      if (!nik) nik = raw;
+    } else {
+      if (!unitKerja || unitKerja === '-') unitKerja = raw;
+    }
+  }
+
+  const combined = (nik && unitKerja && unitKerja !== '-')
+    ? `${nik} - ${unitKerja}`
+    : (nik || unitKerja || raw || '-');
+
+  return {
+    nik: nik || '-',
+    unitKerja: unitKerja || '-',
+    combined
+  };
+}
+
+/**
+ * Helper: Hitung Pinjaman Multiguna (Maks 10 Juta, Bunga 20% / Tahun, Maks Tenor 12 Bulan)
+ */
+function calculateMultigunaLoanDetails(pokokInput, tenorInput) {
+  const pokok = parseInt(String(pokokInput || '0').replace(/[^0-9]/g, ''), 10) || 0;
+  let tenor = parseInt(String(tenorInput || '10').replace(/[^0-9]/g, ''), 10) || 10;
+  if (tenor < 1) tenor = 1;
+  if (tenor > 12) tenor = 12;
+
+  const rateTahunan = 0.20; // 20% per tahun
+  const totalBiaya = Math.round(pokok * rateTahunan);
+  const totalKewajiban = pokok + totalBiaya;
+  const cicilanNormal = Math.round(totalKewajiban / tenor);
+
+  const jadwal = [];
+  let akumulasi = 0;
+  for (let i = 1; i <= tenor; i++) {
+    if (i === tenor) {
+      const akhir = totalKewajiban - akumulasi;
+      jadwal.push({ bulanKe: i, cicilan: akhir });
+      akumulasi += akhir;
+    } else {
+      jadwal.push({ bulanKe: i, cicilan: cicilanNormal });
+      akumulasi += cicilanNormal;
+    }
+  }
+
+  return {
+    kategori: 'MULTIGUNA',
+    pokok,
+    tenor,
+    rate: rateTahunan,
+    ratePercent: '20% / Thn',
+    totalBiaya,
+    totalKewajiban,
+    cicilanNormal,
+    jadwal
+  };
+}
+
+/**
  * GET /api/pengajuan
  * Query params: role, nik, nama, username
  */
@@ -722,25 +799,30 @@ app.get('/api/pengajuan', async (req, res) => {
     const sheets = await getSheetsClient();
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!A2:J"
+      range: "'Form Responses 1'!A2:L"
     });
 
     const rows = response.data.values || [];
-    let list = rows.map((r, idx) => ({
-      rowIndex: idx + 2,
-      timestamp: r[0] || '',
-      datetime: r[0] || '',
-      tipeFormulir: r[1] || '',
-      namaKaryawan: r[2] || '',
-      nikUnitKerja: r[3] || '',
-      nikUnit: r[3] || '',
-      noRekening: r[4] || '',
-      atasNamaRekening: r[5] || '',
-      totalDitransfer: r[6] || '0',
-      cicilan: r[7] || '-',
-      keterangan: r[8] || '',
-      status: r[9] || 'Created'
-    }));
+    let list = rows.map((r, idx) => {
+      const parsed = splitNikAndUnitKerja(r[3] || '', r[10] || '', r[11] || '');
+      return {
+        rowIndex: idx + 2,
+        timestamp: r[0] || '',
+        datetime: r[0] || '',
+        tipeFormulir: r[1] || '',
+        namaKaryawan: r[2] || '',
+        nikUnitKerja: r[3] || parsed.combined,
+        nikUnit: r[3] || parsed.combined,
+        nik: parsed.nik,
+        unitKerja: parsed.unitKerja,
+        noRekening: r[4] || '',
+        atasNamaRekening: r[5] || '',
+        totalDitransfer: r[6] || '0',
+        cicilan: r[7] || '-',
+        keterangan: r[8] || '',
+        status: r[9] || 'Created'
+      };
+    });
 
     // Hak Akses Tracking & Progress:
     // Yang bisa melihat semua data adalah role Administrator, Ketua Koperasi, dan Financial.
@@ -876,13 +958,15 @@ app.get('/api/pengajuan', async (req, res) => {
 
 /**
  * POST /api/pengajuan
- * Body: { tipeFormulir, namaKaryawan, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, userRole }
+ * Body: { tipeFormulir, namaKaryawan, nik, unitKerja, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, userRole }
  */
 app.post('/api/pengajuan', async (req, res) => {
   try {
     const {
       tipeFormulir,
       namaKaryawan,
+      nik,
+      unitKerja,
       nikUnitKerja,
       noRekening,
       atasNamaRekening,
@@ -900,30 +984,59 @@ app.post('/api/pengajuan', async (req, res) => {
       });
     }
 
-    if (!tipeFormulir || !namaKaryawan || !nikUnitKerja || !noRekening || !atasNamaRekening || !totalDitransfer) {
-      return res.status(400).json({ success: false, message: 'Lengkapi semua field wajib pada formulir pengajuan.' });
+    const parsedNikUnit = splitNikAndUnitKerja(nikUnitKerja, nik, unitKerja);
+    const cleanNik = parsedNikUnit.nik !== '-' ? parsedNikUnit.nik : '';
+    const cleanUnit = parsedNikUnit.unitKerja !== '-' ? parsedNikUnit.unitKerja : '';
+    const combinedNikUnit = parsedNikUnit.combined;
+
+    if (!tipeFormulir || !namaKaryawan || (!cleanNik && !cleanUnit) || !noRekening || !atasNamaRekening || !totalDitransfer) {
+      return res.status(400).json({ success: false, message: 'Lengkapi semua field wajib (termasuk NIK dan Unit Kerja) pada formulir pengajuan.' });
+    }
+
+    const nominalNum = parseInt(String(totalDitransfer).replace(/[^0-9]/g, ''), 10) || 0;
+    const tenorNum = parseInt(String(cicilan || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const tipeLower = String(tipeFormulir).trim().toLowerCase();
+
+    // Validasi Aturan Resmi Pinjaman Multiguna (Maks Rp 10 Juta, Bunga 20%/Thn, Maks Tenor 12 Bulan)
+    if (tipeLower === 'peminjaman multiguna') {
+      if (nominalNum <= 0 || nominalNum > 10000000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Plafon Pinjaman Multiguna maksimal adalah Rp 10.000.000 (dengan bunga 20% per tahun).'
+        });
+      }
+      if (tenorNum < 1 || tenorNum > 12) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tenor Pinjaman Multiguna maksimal adalah 12 bulan (1 s/d 12 kali cicilan).'
+        });
+      }
     }
 
     const timestamp = getCurrentTimestamp();
     const defaultStatus = 'Created';
 
+    const sheets = await getSheetsClient();
+    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 12);
+
     const newRow = [
       timestamp,
       tipeFormulir,
       namaKaryawan,
-      nikUnitKerja,
+      combinedNikUnit,
       String(noRekening),
       atasNamaRekening,
       totalDitransfer,
       cicilan || '-',
       keterangan || '-',
-      defaultStatus
+      defaultStatus,
+      cleanNik || '-',
+      cleanUnit || '-'
     ];
 
-    const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!A:J",
+      range: "'Form Responses 1'!A:L",
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: {
@@ -938,6 +1051,9 @@ app.post('/api/pengajuan', async (req, res) => {
         timestamp,
         tipeFormulir,
         namaKaryawan,
+        nik: cleanNik,
+        unitKerja: cleanUnit,
+        nikUnitKerja: combinedNikUnit,
         status: defaultStatus
       }
     });
@@ -950,6 +1066,7 @@ app.post('/api/pengajuan', async (req, res) => {
 /**
  * PUT /api/pengajuan/status
  * Body: { rowIndex, newStatus, userRole }
+ * Otomatis mengintegrasikan data pinjaman ke NIK anggota ketika status menjadi 'Done'
  */
 app.put('/api/pengajuan/status', async (req, res) => {
   try {
@@ -987,18 +1104,61 @@ app.put('/api/pengajuan/status', async (req, res) => {
     }
 
     const sheets = await getSheetsClient();
+    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 12);
+
+    // Ambil data baris pengajuan untuk integrasi otomatis NIK saat status Done
+    const rowRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'Form Responses 1'!A${rowIndex}:L${rowIndex}`
+    });
+    const r = (rowRes.data.values && rowRes.data.values[0]) ? rowRes.data.values[0] : [];
+    const tipeForm = String(r[1] || '').trim();
+    const namaKaryawan = String(r[2] || '').trim();
+    const parsedNikUnit = splitNikAndUnitKerja(r[3] || '', r[10] || '', r[11] || '');
+    let resolvedNik = parsedNikUnit.nik !== '-' ? parsedNikUnit.nik : '';
+    let resolvedUnit = parsedNikUnit.unitKerja !== '-' ? parsedNikUnit.unitKerja : '';
+
+    // Jika NIK belum terisi murni, cari otomatis di sheet Users berdasarkan Nama Lengkap
+    if (!resolvedNik && namaKaryawan) {
+      try {
+        const uRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: "'Users'!A2:H"
+        });
+        const uRows = uRes.data.values || [];
+        const cleanTargetName = namaKaryawan.toLowerCase().replace(/\s+/g, ' ');
+        const matchedU = uRows.find(u => {
+          const uName = String(u[3] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const uUname = String(u[0] || '').trim().toLowerCase();
+          return uName === cleanTargetName || uUname === cleanTargetName || (uName && cleanTargetName.includes(uName));
+        });
+        if (matchedU) {
+          const uSplit = splitNikAndUnitKerja(matchedU[4] || '', '', '');
+          if (uSplit.nik !== '-') resolvedNik = uSplit.nik;
+          if (!resolvedUnit && uSplit.unitKerja !== '-') resolvedUnit = uSplit.unitKerja;
+        }
+      } catch (eLookup) {}
+    }
+
+    // Update Status (Col J) dan pastikan NIK & Unit Kerja (Col K:L) terintegrasi
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!J" + rowIndex,
+      range: `'Form Responses 1'!J${rowIndex}:L${rowIndex}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [[newStatus]]
+        values: [[newStatus, resolvedNik || '-', resolvedUnit || '-']]
       }
     });
 
+    const isLoan = tipeForm.toLowerCase().includes('peminjaman') || tipeForm.toLowerCase().includes('pinjaman');
+    const integrationNote = (newStatus === 'Done' && isLoan)
+      ? ` Data pinjaman telah otomatis terintegrasi dengan NIK anggota (${resolvedNik || namaKaryawan}) pada Monitoring Pinjaman.`
+      : '';
+
     return res.json({
       success: true,
-      message: 'Status pengajuan baris ke-' + rowIndex + ' berhasil diperbarui menjadi ' + newStatus + '.'
+      message: 'Status pengajuan baris ke-' + rowIndex + ' berhasil diperbarui menjadi ' + newStatus + '.' + integrationNote,
+      integratedNik: resolvedNik || null
     });
   } catch (error) {
     console.error('Error /api/pengajuan/status:', error);
@@ -1008,7 +1168,7 @@ app.put('/api/pengajuan/status', async (req, res) => {
 
 /**
  * PUT /api/pengajuan
- * Body: { rowIndex, role, tipeFormulir, namaKaryawan, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, status }
+ * Body: { rowIndex, role, tipeFormulir, namaKaryawan, nik, unitKerja, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, status }
  * Khusus Admin: Edit data pengajuan
  */
 app.put('/api/pengajuan', async (req, res) => {
@@ -1018,6 +1178,8 @@ app.put('/api/pengajuan', async (req, res) => {
       role,
       tipeFormulir,
       namaKaryawan,
+      nik,
+      unitKerja,
       nikUnitKerja,
       noRekening,
       atasNamaRekening,
@@ -1035,22 +1197,39 @@ app.put('/api/pengajuan', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Hanya Administrator yang memiliki akses untuk mengubah data pengajuan.' });
     }
 
+    const parsedNikUnit = splitNikAndUnitKerja(nikUnitKerja, nik, unitKerja);
+    const nominalNum = parseInt(String(totalDitransfer || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const tenorNum = parseInt(String(cicilan || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+    if (String(tipeFormulir || '').trim().toLowerCase() === 'peminjaman multiguna') {
+      if (nominalNum > 10000000) {
+        return res.status(400).json({ success: false, message: 'Plafon Pinjaman Multiguna maksimal adalah Rp 10.000.000.' });
+      }
+      if (tenorNum > 12) {
+        return res.status(400).json({ success: false, message: 'Tenor Pinjaman Multiguna maksimal adalah 12 bulan.' });
+      }
+    }
+
     const sheets = await getSheetsClient();
+    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 12);
+
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'Form Responses 1'!B${rowIndex}:J${rowIndex}`,
+      range: `'Form Responses 1'!B${rowIndex}:L${rowIndex}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [[
           tipeFormulir || '',
           namaKaryawan || '',
-          nikUnitKerja || '',
+          parsedNikUnit.combined,
           String(noRekening || ''),
           atasNamaRekening || '',
           totalDitransfer || '0',
           cicilan || '-',
           keterangan || '-',
-          status || 'Created'
+          status || 'Created',
+          parsedNikUnit.nik,
+          parsedNikUnit.unitKerja
         ]]
       }
     });
@@ -1062,6 +1241,369 @@ app.put('/api/pengajuan', async (req, res) => {
   } catch (error) {
     console.error('Error PUT /api/pengajuan:', error);
     return res.status(500).json({ success: false, message: 'Gagal memperbarui data pengajuan: ' + error.message });
+  }
+});
+
+/**
+ * GET /api/loans/monitoring
+ * Monitoring Pinjaman Anggota (Terintegrasi dengan NIK Anggota untuk Pinjaman Multiguna & Pinjaman Tunai yang berstatus Done)
+ * Query params: nik, nama, username, role, scope ('me' | 'all')
+ */
+app.get('/api/loans/monitoring', async (req, res) => {
+  try {
+    const { nik, nama, username, role, scope = 'me' } = req.query;
+    const sheets = await getSheetsClient();
+
+    // 1. Load Users untuk resolusi NIK & Unit Kerja anggota secara akurat
+    const usersRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Users'!A2:H"
+    });
+    const userRows = usersRes.data.values || [];
+    const userByName = new Map();
+    const userByUsername = new Map();
+    const userByNik = new Map();
+
+    for (const u of userRows) {
+      const uUname = String(u[0] || '').trim().toLowerCase();
+      const uNama = String(u[3] || '').trim();
+      const uNamaClean = uNama.toLowerCase().replace(/\s+/g, ' ');
+      const uSplit = splitNikAndUnitKerja(u[4] || '', '', '');
+      const uObj = {
+        username: uUname,
+        nama: uNama,
+        nik: uSplit.nik !== '-' ? uSplit.nik : String(u[4] || '').trim(),
+        unitKerja: uSplit.unitKerja !== '-' ? uSplit.unitKerja : ''
+      };
+      if (uUname) userByUsername.set(uUname, uObj);
+      if (uNamaClean) userByName.set(uNamaClean, uObj);
+      if (uObj.nik && uObj.nik !== '-') userByNik.set(uObj.nik.toLowerCase(), uObj);
+    }
+
+    // Identitas user yang sedang login
+    const reqUname = String(username || '').trim().toLowerCase();
+    const reqSplit = splitNikAndUnitKerja(nik || '', '', '');
+    let myPureNik = reqSplit.nik !== '-' ? reqSplit.nik : '';
+    let myUnitKerja = reqSplit.unitKerja !== '-' ? reqSplit.unitKerja : '';
+    let myNama = String(nama || '').trim();
+
+    if (reqUname && userByUsername.has(reqUname)) {
+      const matched = userByUsername.get(reqUname);
+      if (!myPureNik && matched.nik) myPureNik = matched.nik;
+      if (!myUnitKerja && matched.unitKerja) myUnitKerja = matched.unitKerja;
+      if (!myNama && matched.nama) myNama = matched.nama;
+    }
+    if (myPureNik && userByNik.has(myPureNik.toLowerCase())) {
+      const matched = userByNik.get(myPureNik.toLowerCase());
+      if (!myUnitKerja && matched.unitKerja) myUnitKerja = matched.unitKerja;
+      if (!myNama && matched.nama) myNama = matched.nama;
+    }
+
+    const canViewAll = (scope === 'all') && (isRoleAdmin(role) || isRoleKetua(role) || isRoleFinancial(role) || isRolePicSimpin(role));
+    const myNamaClean = myNama.toLowerCase().replace(/\s+/g, ' ');
+    const myNikClean = myPureNik.toLowerCase();
+
+    function isMatchedMember(itemNik, itemNama) {
+      if (canViewAll) return true;
+      const iNik = String(itemNik || '').trim().toLowerCase();
+      const iNama = String(itemNama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+      if (myNikClean && iNik && iNik !== '-' && (iNik === myNikClean || iNik.includes(myNikClean) || myNikClean.includes(iNik))) {
+        return true;
+      }
+      if (myNamaClean && iNama && (iNama === myNamaClean || iNama.includes(myNamaClean) || myNamaClean.includes(iNama))) {
+        return true;
+      }
+      if (reqUname && (iNama === reqUname || iNik === reqUname)) {
+        return true;
+      }
+      return false;
+    }
+
+    // Helper: Hitung bulan berjalan sejak tanggal pencairan / Done
+    function computeElapsedMonths(dateStr, maxTenor) {
+      if (!dateStr) return 0;
+      const s = String(dateStr).trim();
+      let d = null;
+      const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (dmy) {
+        d = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10));
+      } else if (ymd) {
+        d = new Date(parseInt(ymd[1], 10), parseInt(ymd[2], 10) - 1, parseInt(ymd[3], 10));
+      } else {
+        const parsed = new Date(s);
+        if (!isNaN(parsed.getTime())) d = parsed;
+      }
+      if (!d || isNaN(d.getTime())) return 0;
+      const now = new Date();
+      const diffMonths = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+      return Math.max(0, Math.min(maxTenor, diffMonths));
+    }
+
+    // 2. Ambil data dari 'Form Responses 1' (Pinjaman yang diinput Finance & berstatus Done)
+    const frRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Form Responses 1'!A2:L"
+    });
+    const frRows = frRes.data.values || [];
+
+    const multigunaLoans = [];
+    const tunaiLoans = [];
+    const seenNomorSurat = new Set();
+
+    frRows.forEach((r, idx) => {
+      const tipe = String(r[1] || '').trim();
+      const tipeLower = tipe.toLowerCase();
+      const status = String(r[9] || '').trim();
+      const statusLower = status.toLowerCase();
+
+      // Hanya ambil pinjaman yang statusnya telah Done (atau tervalidasi resmi)
+      const isDoneStatus = statusLower === 'done' || statusLower === 'validasi by financial' || statusLower.includes('terverifikasi e-materai');
+      if (!isDoneStatus) return;
+
+      const isMultiguna = tipeLower === 'peminjaman multiguna' || tipeLower.includes('multiguna');
+      const isTunai = tipeLower === 'peminjaman tunai' || tipeLower.includes('pinjaman tunai');
+      if (!isMultiguna && !isTunai) return;
+
+      const rowNama = String(r[2] || '').trim();
+      const parsed = splitNikAndUnitKerja(r[3] || '', r[10] || '', r[11] || '');
+      let itemNik = parsed.nik !== '-' ? parsed.nik : '';
+      let itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : '';
+
+      const rowNamaClean = rowNama.toLowerCase().replace(/\s+/g, ' ');
+      if (!itemNik && rowNamaClean && userByName.has(rowNamaClean)) {
+        itemNik = userByName.get(rowNamaClean).nik;
+        if (!itemUnit) itemUnit = userByName.get(rowNamaClean).unitKerja;
+      }
+
+      if (!isMatchedMember(itemNik, rowNama)) return;
+
+      const pokok = parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      if (pokok <= 0) return;
+
+      let tenor = parseInt(String(r[7] || '10').replace(/[^0-9]/g, ''), 10) || 10;
+      const ket = String(r[8] || '').trim();
+
+      // Cek apakah keterangan memuat nomor surat (misal 081/SK.SIMPIN/XI/2026)
+      const noSuratMatch = ket.match(/(\d{3}\/SK\.SIMPIN\/[IVX]+\/\d{4})/i);
+      const nomorRef = noSuratMatch ? noSuratMatch[1] : `FR-${idx + 2}`;
+      if (noSuratMatch) seenNomorSurat.add(noSuratMatch[1].toUpperCase());
+
+      if (isMultiguna) {
+        const calc = calculateMultigunaLoanDetails(pokok, tenor);
+        const bulanBerjalan = computeElapsedMonths(r[0], calc.tenor);
+        const sudahDibayar = Math.min(calc.totalKewajiban, bulanBerjalan * calc.cicilanNormal);
+        const sisaKewajiban = Math.max(0, calc.totalKewajiban - sudahDibayar);
+        const sisaTenor = Math.max(0, calc.tenor - bulanBerjalan);
+        const progressPersen = Math.round((bulanBerjalan / calc.tenor) * 100);
+
+        multigunaLoans.push({
+          monitoringId: `MG-FR-${idx + 2}`,
+          rowIndex: idx + 2,
+          nomorReferensi: nomorRef,
+          sumberData: 'Input Pengajuan Finance (Done)',
+          tanggalCair: r[0] || '-',
+          kategori: 'Pinjaman Multiguna',
+          namaAnggota: rowNama,
+          nik: itemNik || '-',
+          unitKerja: itemUnit || '-',
+          noRekening: r[4] || '-',
+          atasNamaRekening: r[5] || rowNama,
+          pokokPinjaman: calc.pokok,
+          plafonMaksimal: 10000000,
+          bungaPersen: '20% / Tahun',
+          totalBunga: calc.totalBiaya,
+          totalKewajiban: calc.totalKewajiban,
+          tenorBulan: calc.tenor,
+          tenorMaksimal: 12,
+          cicilanBulanan: calc.cicilanNormal,
+          bulanBerjalan,
+          sisaTenor,
+          sudahDibayar,
+          sisaKewajiban,
+          progressPersen,
+          keterangan: ket || 'Pinjaman Multiguna Koperasi',
+          status: status || 'Done',
+          jadwal: calc.jadwal
+        });
+      } else if (isTunai) {
+        const validTenors = [10, 12, 20, 24, 36, 48, 60];
+        if (!validTenors.includes(tenor)) tenor = 10;
+        const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+        const rate = rateMap[tenor] || 0.11;
+        const totalBunga = Math.round(pokok * rate);
+        const totalKewajiban = pokok + totalBunga;
+        const cicilanBulanan = Math.round(totalKewajiban / tenor);
+
+        const jadwal = [];
+        let akum = 0;
+        for (let m = 1; m <= tenor; m++) {
+          if (m === tenor) {
+            const akhir = totalKewajiban - akum;
+            jadwal.push({ bulanKe: m, cicilan: akhir });
+            akum += akhir;
+          } else {
+            jadwal.push({ bulanKe: m, cicilan: cicilanBulanan });
+            akum += cicilanBulanan;
+          }
+        }
+
+        const bulanBerjalan = computeElapsedMonths(r[0], tenor);
+        const sudahDibayar = Math.min(totalKewajiban, bulanBerjalan * cicilanBulanan);
+        const sisaKewajiban = Math.max(0, totalKewajiban - sudahDibayar);
+        const sisaTenor = Math.max(0, tenor - bulanBerjalan);
+        const progressPersen = Math.round((bulanBerjalan / tenor) * 100);
+
+        tunaiLoans.push({
+          monitoringId: `TN-FR-${idx + 2}`,
+          rowIndex: idx + 2,
+          nomorReferensi: nomorRef,
+          sumberData: 'Input Pengajuan Finance (Done)',
+          tanggalCair: r[0] || '-',
+          kategori: 'Pinjaman Tunai',
+          namaAnggota: rowNama,
+          nik: itemNik || '-',
+          unitKerja: itemUnit || '-',
+          noRekening: r[4] || '-',
+          atasNamaRekening: r[5] || rowNama,
+          pokokPinjaman: pokok,
+          plafonMaksimal: 50000000,
+          bungaPersen: Math.round(rate * 100) + '%',
+          totalBunga,
+          totalKewajiban,
+          tenorBulan: tenor,
+          tenorMaksimal: 60,
+          cicilanBulanan,
+          bulanBerjalan,
+          sisaTenor,
+          sudahDibayar,
+          sisaKewajiban,
+          progressPersen,
+          keterangan: ket || 'Pinjaman Tunai Koperasi',
+          status: status || 'Done',
+          jadwal
+        });
+      }
+    });
+
+    // 3. Ambil juga dari 'LoanRequests' untuk Pinjaman Tunai yang sudah tervalidasi/cair (jika belum ada di seenNomorSurat)
+    try {
+      const lrRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "'LoanRequests'!A2:AG"
+      });
+      const lrRows = lrRes.data.values || [];
+      lrRows.forEach(r => {
+        const noSurat = String(r[1] || '').trim();
+        const stWorkflow = String(r[24] || '').trim().toUpperCase();
+        if (!['VALIDATED_BY_FINANCE', 'VERIFIED_MATERAI', 'READY_FOR_DISBURSEMENT', 'DISBURSED'].includes(stWorkflow)) return;
+        if (noSurat && seenNomorSurat.has(noSurat.toUpperCase())) return;
+
+        const parsed = splitNikAndUnitKerja(r[5] || '', r[5] || '', r[7] || '');
+        const itemNik = parsed.nik !== '-' ? parsed.nik : String(r[5] || '').trim();
+        const itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : String(r[7] || '-').trim();
+        const itemNama = String(r[6] || '').trim();
+
+        if (!isMatchedMember(itemNik, itemNama)) return;
+
+        const pokok = parseInt(String(r[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        const tenor = parseInt(String(r[14] || '10').replace(/[^0-9]/g, ''), 10) || 10;
+        const persenStr = String(r[15] || '11%').trim();
+        const totalKewajiban = parseInt(String(r[16] || '0').replace(/[^0-9]/g, ''), 10) || pokok;
+        const totalBunga = Math.max(0, totalKewajiban - pokok);
+        const cicilanBulanan = parseInt(String(r[17] || '0').replace(/[^0-9]/g, ''), 10) || Math.round(totalKewajiban / tenor);
+
+        const jadwal = [];
+        let akum = 0;
+        for (let m = 1; m <= tenor; m++) {
+          if (m === tenor) {
+            const akhir = totalKewajiban - akum;
+            jadwal.push({ bulanKe: m, cicilan: akhir });
+            akum += akhir;
+          } else {
+            jadwal.push({ bulanKe: m, cicilan: cicilanBulanan });
+            akum += cicilanBulanan;
+          }
+        }
+
+        const bulanBerjalan = computeElapsedMonths(r[2] || r[3], tenor);
+        const sudahDibayar = Math.min(totalKewajiban, bulanBerjalan * cicilanBulanan);
+        const sisaKewajiban = Math.max(0, totalKewajiban - sudahDibayar);
+        const sisaTenor = Math.max(0, tenor - bulanBerjalan);
+        const progressPersen = Math.round((bulanBerjalan / tenor) * 100);
+
+        tunaiLoans.push({
+          monitoringId: r[0] || `TN-LR-${noSurat}`,
+          loanId: r[0] || '',
+          nomorReferensi: noSurat || r[0],
+          sumberData: 'Formulir Kredit Tunai Resmi',
+          tanggalCair: r[2] || r[3] || '-',
+          kategori: 'Pinjaman Tunai',
+          namaAnggota: itemNama,
+          nik: itemNik || '-',
+          unitKerja: itemUnit || '-',
+          noRekening: r[21] || '-',
+          atasNamaRekening: r[22] || itemNama,
+          pokokPinjaman: pokok,
+          plafonMaksimal: 50000000,
+          bungaPersen: persenStr,
+          totalBunga,
+          totalKewajiban,
+          tenorBulan: tenor,
+          tenorMaksimal: 60,
+          cicilanBulanan,
+          bulanBerjalan,
+          sisaTenor,
+          sudahDibayar,
+          sisaKewajiban,
+          progressPersen,
+          keterangan: r[12] || 'Pinjaman Tunai Koperasi',
+          status: stWorkflow === 'DISBURSED' ? 'Done (Dicairkan)' : 'Tervalidasi (Aktif)',
+          jadwal
+        });
+      });
+    } catch (eLr) {
+      console.warn('Notice reading LoanRequests in monitoring:', eLr.message);
+    }
+
+    // Urutkan terbaru di atas
+    multigunaLoans.reverse();
+    tunaiLoans.reverse();
+
+    const summary = {
+      multiguna: {
+        count: multigunaLoans.length,
+        totalPokok: multigunaLoans.reduce((acc, x) => acc + x.pokokPinjaman, 0),
+        totalBunga: multigunaLoans.reduce((acc, x) => acc + x.totalBunga, 0),
+        totalKewajiban: multigunaLoans.reduce((acc, x) => acc + x.totalKewajiban, 0),
+        totalCicilanBulanan: multigunaLoans.reduce((acc, x) => acc + x.cicilanBulanan, 0),
+        totalSisaKewajiban: multigunaLoans.reduce((acc, x) => acc + x.sisaKewajiban, 0)
+      },
+      tunai: {
+        count: tunaiLoans.length,
+        totalPokok: tunaiLoans.reduce((acc, x) => acc + x.pokokPinjaman, 0),
+        totalBunga: tunaiLoans.reduce((acc, x) => acc + x.totalBunga, 0),
+        totalKewajiban: tunaiLoans.reduce((acc, x) => acc + x.totalKewajiban, 0),
+        totalCicilanBulanan: tunaiLoans.reduce((acc, x) => acc + x.cicilanBulanan, 0),
+        totalSisaKewajiban: tunaiLoans.reduce((acc, x) => acc + x.sisaKewajiban, 0)
+      }
+    };
+
+    return res.json({
+      success: true,
+      memberProfile: {
+        nik: myPureNik || '-',
+        nama: myNama || username || '-',
+        unitKerja: myUnitKerja || '-'
+      },
+      multigunaLoans,
+      tunaiLoans,
+      summary
+    });
+  } catch (error) {
+    console.error('Error GET /api/loans/monitoring:', error);
+    return res.status(500).json({ success: false, message: 'Gagal memuat monitoring pinjaman: ' + error.message });
   }
 });
 

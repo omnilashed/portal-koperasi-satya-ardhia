@@ -400,31 +400,74 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
   return list;
 }
 
+function splitGasNikAndUnit(rawNikUnit, explicitNik, explicitUnit) {
+  var nik = String(explicitNik || '').trim();
+  var unitKerja = String(explicitUnit || '').trim();
+  var raw = String(rawNikUnit || '').trim();
+
+  if (nik && nik.indexOf(' - ') !== -1) {
+    var p = nik.split(' - ');
+    nik = p[0].trim();
+    if (!unitKerja) unitKerja = p.slice(1).join(' - ').trim();
+  }
+  if ((!nik || !unitKerja || unitKerja === '-') && raw) {
+    if (raw.indexOf(' - ') !== -1) {
+      var parts = raw.split(' - ');
+      if (!nik) nik = parts[0].trim();
+      if (!unitKerja || unitKerja === '-') unitKerja = parts.slice(1).join(' - ').trim();
+    } else if (/^\d{4,}$/.test(raw) || /^FIN\d+/i.test(raw) || /^ADM\d+/i.test(raw)) {
+      if (!nik) nik = raw;
+    } else {
+      if (!unitKerja || unitKerja === '-') unitKerja = raw;
+    }
+  }
+  var combined = (nik && unitKerja && unitKerja !== '-') ? (nik + ' - ' + unitKerja) : (nik || unitKerja || raw || '-');
+  return { nik: nik || '-', unitKerja: unitKerja || '-', combined: combined };
+}
+
 function simpanPengajuan(form) {
   try {
     const role = form.userRole || form.role;
     if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRoleFinancial(role)) {
       return { status: 'error', message: 'Akses ditolak! Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman/biaya.' };
     }
+    const parsed = splitGasNikAndUnit(form.nikUnitKerja || form.nikUnit, form.nik, form.unitKerja);
+    const nominalNum = parseInt(String(form.totalDitransfer || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const tenorNum = parseInt(String(form.cicilan || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+    if (String(form.tipeFormulir || '').trim().toLowerCase() === 'peminjaman multiguna') {
+      if (nominalNum <= 0 || nominalNum > 10000000) {
+        return { status: 'error', success: false, message: 'Plafon Pinjaman Multiguna maksimal adalah Rp 10.000.000 (bunga 20% per tahun).' };
+      }
+      if (tenorNum < 1 || tenorNum > 12) {
+        return { status: 'error', success: false, message: 'Tenor Pinjaman Multiguna maksimal adalah 12 bulan (1 s/d 12 kali cicilan).' };
+      }
+    }
+
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    if (sheet.getMaxColumns() < 12) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+    }
     const timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm:ss");
     
     sheet.appendRow([
       timestamp,
       form.tipeFormulir,
       form.namaKaryawan,
-      form.nikUnit,
+      parsed.combined,
       form.noRekening,
       form.atasNamaRekening,
       Number(form.totalDitransfer),
       form.cicilan,
       form.keterangan,
-      'Created'
+      'Created',
+      parsed.nik,
+      parsed.unitKerja
     ]);
     
-    return { status: 'success', message: 'Pengajuan berhasil disimpan!' };
+    return { status: 'success', success: true, message: 'Pengajuan berhasil disimpan!' };
   } catch (err) {
-    return { status: 'error', message: err.toString() };
+    return { status: 'error', success: false, message: err.toString() };
   }
 }
 
@@ -444,18 +487,23 @@ function updateStatusPengajuan(userRole, rowIndex, newStatus) {
   }
 
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-    // Kolom 10 adalah kolom J (Status)
-    sheet.getRange(Number(rowIndex), 10).setValue(newStatus);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Form Responses 1') || ss.getSheets()[0];
+    if (sheet.getMaxColumns() < 12) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+    }
+    const r = sheet.getRange(Number(rowIndex), 1, 1, 12).getValues()[0];
+    const parsed = splitGasNikAndUnit(r[3] || '', r[10] || '', r[11] || '');
+    sheet.getRange(Number(rowIndex), 10, 1, 3).setValues([[newStatus, parsed.nik, parsed.unitKerja]]);
     
     let msg = 'Status pengajuan berhasil diubah menjadi ' + newStatus;
     if (newStatus === 'On Process') msg = 'Pengajuan disetujui (Approved) & siap diproses transfer oleh Finance.';
     if (newStatus === 'Rejected') msg = 'Pengajuan telah ditolak oleh Pengurus.';
-    if (newStatus === 'Done') msg = 'Pengajuan selesai (Dana berhasil ditransfer).';
+    if (newStatus === 'Done') msg = 'Pengajuan selesai (Done) & otomatis terintegrasi dengan NIK anggota pada Monitoring Pinjaman.';
 
-    return { status: 'success', message: msg };
+    return { status: 'success', success: true, message: msg };
   } catch (err) {
-    return { status: 'error', message: 'Gagal update status: ' + err.toString() };
+    return { status: 'error', success: false, message: 'Gagal update status: ' + err.toString() };
   }
 }
 
@@ -467,23 +515,29 @@ function editPengajuan(userRole, rowIndex, form) {
 
   try {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    if (sheet.getMaxColumns() < 12) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+    }
     const row = Number(rowIndex);
+    const parsed = splitGasNikAndUnit(form.nikUnitKerja || form.nikUnit, form.nik, form.unitKerja);
 
-    sheet.getRange(row, 2, 1, 9).setValues([[
+    sheet.getRange(row, 2, 1, 11).setValues([[
       form.tipeFormulir || '',
       form.namaKaryawan || '',
-      form.nikUnitKerja || form.nikUnit || '',
+      parsed.combined,
       String(form.noRekening || ''),
       form.atasNamaRekening || '',
       Number(form.totalDitransfer) || 0,
       form.cicilan || '-',
       form.keterangan || '-',
-      form.status || 'Created'
+      form.status || 'Created',
+      parsed.nik,
+      parsed.unitKerja
     ]]);
 
-    return { status: 'success', message: 'Data pengajuan baris ke-' + row + ' berhasil diperbarui!' };
+    return { status: 'success', success: true, message: 'Data pengajuan baris ke-' + row + ' berhasil diperbarui!' };
   } catch (err) {
-    return { status: 'error', message: 'Gagal mengedit pengajuan: ' + err.toString() };
+    return { status: 'error', success: false, message: 'Gagal mengedit pengajuan: ' + err.toString() };
   }
 }
 
@@ -3438,5 +3492,219 @@ function uploadEmateraiLoan(payload) {
     };
   } catch (err) {
     return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+
+function getMemberLoanMonitoring(params) {
+  try {
+    var p = params || {};
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var uSheet = ss.getSheetByName('Users');
+    var userByName = {};
+    var userByUsername = {};
+    var userByNik = {};
+
+    if (uSheet) {
+      var uData = uSheet.getDataRange().getValues();
+      for (var i = 1; i < uData.length; i++) {
+        var uUname = String(uData[i][0] || '').trim().toLowerCase();
+        var uNama = String(uData[i][3] || '').trim();
+        var uNamaClean = uNama.toLowerCase().replace(/\s+/g, ' ');
+        var uSplit = splitGasNikAndUnit(uData[i][4] || '', '', '');
+        var uObj = {
+          username: uUname,
+          nama: uNama,
+          nik: uSplit.nik !== '-' ? uSplit.nik : String(uData[i][4] || '').trim(),
+          unitKerja: uSplit.unitKerja !== '-' ? uSplit.unitKerja : ''
+        };
+        if (uUname) userByUsername[uUname] = uObj;
+        if (uNamaClean) userByName[uNamaClean] = uObj;
+        if (uObj.nik && uObj.nik !== '-') userByNik[uObj.nik.toLowerCase()] = uObj;
+      }
+    }
+
+    var reqUname = String(p.username || '').trim().toLowerCase();
+    var reqSplit = splitGasNikAndUnit(p.nik || '', '', '');
+    var myPureNik = reqSplit.nik !== '-' ? reqSplit.nik : '';
+    var myUnitKerja = reqSplit.unitKerja !== '-' ? reqSplit.unitKerja : '';
+    var myNama = String(p.nama || '').trim();
+
+    if (reqUname && userByUsername[reqUname]) {
+      var m = userByUsername[reqUname];
+      if (!myPureNik && m.nik) myPureNik = m.nik;
+      if (!myUnitKerja && m.unitKerja) myUnitKerja = m.unitKerja;
+      if (!myNama && m.nama) myNama = m.nama;
+    }
+    if (myPureNik && userByNik[myPureNik.toLowerCase()]) {
+      var mNik = userByNik[myPureNik.toLowerCase()];
+      if (!myUnitKerja && mNik.unitKerja) myUnitKerja = mNik.unitKerja;
+      if (!myNama && mNik.nama) myNama = mNik.nama;
+    }
+
+    var canViewAll = (p.scope === 'all') && (isRoleAdmin(p.role) || isRoleKetua(p.role) || isRoleFinancial(p.role) || isRolePicSimpin(p.role));
+    var myNamaClean = myNama.toLowerCase().replace(/\s+/g, ' ');
+    var myNikClean = myPureNik.toLowerCase();
+
+    function isMatched(iNik, iNama) {
+      if (canViewAll) return true;
+      var cNik = String(iNik || '').trim().toLowerCase();
+      var cNama = String(iNama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (myNikClean && cNik && cNik !== '-' && (cNik === myNikClean || cNik.indexOf(myNikClean) !== -1 || myNikClean.indexOf(cNik) !== -1)) return true;
+      if (myNamaClean && cNama && (cNama === myNamaClean || cNama.indexOf(myNamaClean) !== -1 || myNamaClean.indexOf(cNama) !== -1)) return true;
+      if (reqUname && (cNama === reqUname || cNik === reqUname)) return true;
+      return false;
+    }
+
+    var frSheet = ss.getSheetByName('Form Responses 1');
+    var multigunaLoans = [];
+    var tunaiLoans = [];
+
+    if (frSheet) {
+      var frData = frSheet.getDataRange().getValues();
+      for (var f = 1; f < frData.length; f++) {
+        var r = frData[f];
+        var tipe = String(r[1] || '').trim();
+        var tipeLower = tipe.toLowerCase();
+        var st = String(r[9] || '').trim();
+        var stLower = st.toLowerCase();
+        if (stLower !== 'done' && stLower !== 'validasi by financial' && stLower.indexOf('terverifikasi e-materai') === -1) continue;
+
+        var isMg = tipeLower === 'peminjaman multiguna' || tipeLower.indexOf('multiguna') !== -1;
+        var isTn = tipeLower === 'peminjaman tunai' || tipeLower.indexOf('pinjaman tunai') !== -1;
+        if (!isMg && !isTn) continue;
+
+        var rowNama = String(r[2] || '').trim();
+        var parsed = splitGasNikAndUnit(r[3] || '', r[10] || '', r[11] || '');
+        var itemNik = parsed.nik !== '-' ? parsed.nik : '';
+        var itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : '';
+        var rNamaClean = rowNama.toLowerCase().replace(/\s+/g, ' ');
+        if (!itemNik && rNamaClean && userByName[rNamaClean]) {
+          itemNik = userByName[rNamaClean].nik;
+          if (!itemUnit) itemUnit = userByName[rNamaClean].unitKerja;
+        }
+        if (!isMatched(itemNik, rowNama)) continue;
+
+        var pokok = parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        if (pokok <= 0) continue;
+        var tenor = parseInt(String(r[7] || '10').replace(/[^0-9]/g, ''), 10) || 10;
+
+        if (isMg) {
+          if (tenor > 12) tenor = 12;
+          if (tenor < 1) tenor = 1;
+          var totalBunga = Math.round(pokok * 0.20);
+          var totalKewajiban = pokok + totalBunga;
+          var cicilanBulanan = Math.round(totalKewajiban / tenor);
+          var jadwal = [];
+          var akum = 0;
+          for (var m = 1; m <= tenor; m++) {
+            var angs = (m === tenor) ? (totalKewajiban - akum) : cicilanBulanan;
+            jadwal.push({ bulanKe: m, cicilan: angs });
+            akum += angs;
+          }
+          multigunaLoans.push({
+            monitoringId: 'MG-FR-' + (f + 1),
+            rowIndex: f + 1,
+            nomorReferensi: 'FR-' + (f + 1),
+            sumberData: 'Input Pengajuan Finance (Done)',
+            tanggalCair: String(r[0] || '-'),
+            kategori: 'Pinjaman Multiguna',
+            namaAnggota: rowNama,
+            nik: itemNik || '-',
+            unitKerja: itemUnit || '-',
+            noRekening: String(r[4] || '-'),
+            atasNamaRekening: String(r[5] || rowNama),
+            pokokPinjaman: pokok,
+            plafonMaksimal: 10000000,
+            bungaPersen: '20% / Tahun',
+            totalBunga: totalBunga,
+            totalKewajiban: totalKewajiban,
+            tenorBulan: tenor,
+            tenorMaksimal: 12,
+            cicilanBulanan: cicilanBulanan,
+            bulanBerjalan: 0,
+            sisaTenor: tenor,
+            sudahDibayar: 0,
+            sisaKewajiban: totalKewajiban,
+            progressPersen: 0,
+            keterangan: String(r[8] || 'Pinjaman Multiguna Koperasi'),
+            status: st || 'Done',
+            jadwal: jadwal
+          });
+        } else {
+          var rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+          var rate = rateMap[tenor] || 0.11;
+          var totalBungaTn = Math.round(pokok * rate);
+          var totalKewajibanTn = pokok + totalBungaTn;
+          var cicilanBulananTn = Math.round(totalKewajibanTn / tenor);
+          var jadwalTn = [];
+          var akumTn = 0;
+          for (var mt = 1; mt <= tenor; mt++) {
+            var angsTn = (mt === tenor) ? (totalKewajibanTn - akumTn) : cicilanBulananTn;
+            jadwalTn.push({ bulanKe: mt, cicilan: angsTn });
+            akumTn += angsTn;
+          }
+          tunaiLoans.push({
+            monitoringId: 'TN-FR-' + (f + 1),
+            rowIndex: f + 1,
+            nomorReferensi: 'FR-' + (f + 1),
+            sumberData: 'Input Pengajuan Finance (Done)',
+            tanggalCair: String(r[0] || '-'),
+            kategori: 'Pinjaman Tunai',
+            namaAnggota: rowNama,
+            nik: itemNik || '-',
+            unitKerja: itemUnit || '-',
+            noRekening: String(r[4] || '-'),
+            atasNamaRekening: String(r[5] || rowNama),
+            pokokPinjaman: pokok,
+            plafonMaksimal: 50000000,
+            bungaPersen: Math.round(rate * 100) + '%',
+            totalBunga: totalBungaTn,
+            totalKewajiban: totalKewajibanTn,
+            tenorBulan: tenor,
+            tenorMaksimal: 60,
+            cicilanBulanan: cicilanBulananTn,
+            bulanBerjalan: 0,
+            sisaTenor: tenor,
+            sudahDibayar: 0,
+            sisaKewajiban: totalKewajibanTn,
+            progressPersen: 0,
+            keterangan: String(r[8] || 'Pinjaman Tunai Koperasi'),
+            status: st || 'Done',
+            jadwal: jadwalTn
+          });
+        }
+      }
+    }
+
+    multigunaLoans.reverse();
+    tunaiLoans.reverse();
+
+    return {
+      success: true,
+      memberProfile: { nik: myPureNik || '-', nama: myNama || '-', unitKerja: myUnitKerja || '-' },
+      multigunaLoans: multigunaLoans,
+      tunaiLoans: tunaiLoans,
+      summary: {
+        multiguna: {
+          count: multigunaLoans.length,
+          totalPokok: multigunaLoans.reduce(function(a, x) { return a + x.pokokPinjaman; }, 0),
+          totalBunga: multigunaLoans.reduce(function(a, x) { return a + x.totalBunga; }, 0),
+          totalKewajiban: multigunaLoans.reduce(function(a, x) { return a + x.totalKewajiban; }, 0),
+          totalCicilanBulanan: multigunaLoans.reduce(function(a, x) { return a + x.cicilanBulanan; }, 0),
+          totalSisaKewajiban: multigunaLoans.reduce(function(a, x) { return a + x.sisaKewajiban; }, 0)
+        },
+        tunai: {
+          count: tunaiLoans.length,
+          totalPokok: tunaiLoans.reduce(function(a, x) { return a + x.pokokPinjaman; }, 0),
+          totalBunga: tunaiLoans.reduce(function(a, x) { return a + x.totalBunga; }, 0),
+          totalKewajiban: tunaiLoans.reduce(function(a, x) { return a + x.totalKewajiban; }, 0),
+          totalCicilanBulanan: tunaiLoans.reduce(function(a, x) { return a + x.cicilanBulanan; }, 0),
+          totalSisaKewajiban: tunaiLoans.reduce(function(a, x) { return a + x.sisaKewajiban; }, 0)
+        }
+      }
+    };
+  } catch (err) {
+    return { success: false, message: err.toString() };
   }
 }
