@@ -296,13 +296,21 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
   const lastRow = sheet.getLastRow();
   
   if (lastRow <= 1) return [];
+  if (sheet.getMaxColumns() < 16) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
+  }
   
-  const values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  const values = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
   
   let list = values.map((row, index) => {
     let formattedDate = row[0];
     if (row[0] instanceof Date) {
       formattedDate = Utilities.formatDate(row[0], "GMT+7", "dd/MM/yyyy HH:mm");
+    }
+    const parsed = splitGasNikAndUnit(row[3] || '', row[10] || '', row[11] || '');
+    let meta = null;
+    if (row[15]) {
+      try { meta = JSON.parse(row[15]); } catch (e) {}
     }
     
     return {
@@ -311,14 +319,20 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
       timestamp: formattedDate || '-',
       tipeFormulir: row[1] || 'Pengajuan Biaya',
       namaKaryawan: row[2] || '-',
-      nikUnit: row[3] || '-',
-      nikUnitKerja: row[3] || '-',
+      nikUnit: row[3] || parsed.combined,
+      nikUnitKerja: row[3] || parsed.combined,
+      nik: parsed.nik,
+      unitKerja: parsed.unitKerja,
       noRekening: row[4] ? String(row[4]) : '-',
       atasNamaRekening: row[5] || '-',
       totalDitransfer: Number(row[6]) || 0,
       cicilan: row[7] || '1',
       keterangan: row[8] || '-',
-      status: row[9] ? String(row[9]).trim() : 'Created'
+      status: row[9] ? String(row[9]).trim() : 'Created',
+      oldLoanRef: row[12] || (meta && meta.oldLoanRef) || '',
+      plafonTopupBaru: row[13] ? Number(row[13]) : (meta && meta.plafonTopupBaru) || 0,
+      jumlahHarusDilunasi: row[14] ? Number(row[14]) : (meta && meta.jumlahHarusDilunasi) || 0,
+      topupPelunasanMeta: meta
     };
   }).reverse();
 
@@ -425,6 +439,59 @@ function splitGasNikAndUnit(rawNikUnit, explicitNik, explicitUnit) {
   return { nik: nik || '-', unitKerja: unitKerja || '-', combined: combined };
 }
 
+function calculateGasTopupOrPelunasan(params) {
+  var tipeLower = String(params.tipeFormulir || '').trim().toLowerCase();
+  var sisaAngsuran = Math.max(0, parseInt(String(params.sisaAngsuran || params.sisaTenor || '0').replace(/[^0-9]/g, ''), 10) || 0);
+  var pokokPinjaman = Math.max(0, parseInt(String(params.pokokPinjaman || '0').replace(/[^0-9]/g, ''), 10) || 0);
+  var plafonTopupBaru = Math.max(0, parseInt(String(params.plafonTopupBaru || '0').replace(/[^0-9]/g, ''), 10) || 0);
+
+  var isMultiguna = tipeLower.indexOf('multiguna') !== -1;
+  var isTopup = tipeLower.indexOf('topup') !== -1;
+  var isPelunasan = tipeLower.indexOf('pelunasan') !== -1;
+
+  if (isMultiguna) {
+    var bunga20Persen = Math.round(pokokPinjaman * 0.20);
+    var pokokPlusBunga = pokokPinjaman + bunga20Persen;
+    var hasilKali = Math.round(sisaAngsuran * pokokPlusBunga);
+    var biayaAdmin = 0;
+    var jumlahHarusDilunasi = hasilKali;
+    var sisaDiterima = isTopup ? (plafonTopupBaru - jumlahHarusDilunasi) : 0;
+    return {
+      isMultiguna: true,
+      isTopup: isTopup,
+      isPelunasan: isPelunasan,
+      sisaAngsuran: sisaAngsuran,
+      pokokPinjaman: pokokPinjaman,
+      bunga20Persen: bunga20Persen,
+      pokokPlusBunga: pokokPlusBunga,
+      hasilKali: hasilKali,
+      biayaAdmin: biayaAdmin,
+      jumlahHarusDilunasi: jumlahHarusDilunasi,
+      plafonTopupBaru: plafonTopupBaru,
+      sisaDiterima: sisaDiterima
+    };
+  } else {
+    var hasilKaliTn = Math.round(sisaAngsuran * pokokPinjaman);
+    var biayaAdminTn = Math.round(hasilKaliTn * 0.025);
+    var jumlahHarusDilunasiTn = hasilKaliTn + biayaAdminTn;
+    var sisaDiterimaTn = isTopup ? (plafonTopupBaru - jumlahHarusDilunasiTn) : 0;
+    return {
+      isMultiguna: false,
+      isTopup: isTopup,
+      isPelunasan: isPelunasan,
+      sisaAngsuran: sisaAngsuran,
+      pokokPinjaman: pokokPinjaman,
+      bunga20Persen: 0,
+      pokokPlusBunga: pokokPinjaman,
+      hasilKali: hasilKaliTn,
+      biayaAdmin: biayaAdminTn,
+      jumlahHarusDilunasi: jumlahHarusDilunasiTn,
+      plafonTopupBaru: plafonTopupBaru,
+      sisaDiterima: sisaDiterimaTn
+    };
+  }
+}
+
 function simpanPengajuan(form) {
   try {
     const role = form.userRole || form.role;
@@ -432,10 +499,18 @@ function simpanPengajuan(form) {
       return { status: 'error', message: 'Akses ditolak! Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman/biaya.' };
     }
     const parsed = splitGasNikAndUnit(form.nikUnitKerja || form.nikUnit, form.nik, form.unitKerja);
-    const nominalNum = parseInt(String(form.totalDitransfer || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const nominalNum = parseInt(String(form.totalDitransfer || '0').replace(/[^0-9-]/g, ''), 10) || 0;
     const tenorNum = parseInt(String(form.cicilan || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const tipeLower = String(form.tipeFormulir || '').trim().toLowerCase();
 
-    if (String(form.tipeFormulir || '').trim().toLowerCase() === 'peminjaman multiguna') {
+    const isTopupTunai = tipeLower === 'topup pinjaman tunai';
+    const isTopupMulti = tipeLower === 'topup pinjaman multiguna';
+    const isPelunasanTunai = tipeLower === 'pelunasan pinjaman tunai anggota';
+    const isPelunasanMulti = tipeLower === 'pelunasan pinjaman multiguna anggota';
+    const isTopup = isTopupTunai || isTopupMulti;
+    const isPelunasan = isPelunasanTunai || isPelunasanMulti;
+
+    if (tipeLower === 'peminjaman multiguna') {
       if (nominalNum <= 0 || nominalNum > 10000000) {
         return { status: 'error', success: false, message: 'Plafon Pinjaman Multiguna maksimal adalah Rp 10.000.000 (bunga 20% per tahun).' };
       }
@@ -444,9 +519,57 @@ function simpanPengajuan(form) {
       }
     }
 
+    var calcMeta = null;
+    var finalTotalDitransfer = nominalNum;
+    var finalKeterangan = String(form.keterangan || '').trim();
+
+    if (isTopup || isPelunasan) {
+      var calc = calculateGasTopupOrPelunasan({
+        tipeFormulir: form.tipeFormulir,
+        sisaAngsuran: form.sisaAngsuranLama !== undefined ? form.sisaAngsuranLama : tenorNum,
+        pokokPinjaman: form.pokokPinjamanLama,
+        plafonTopupBaru: form.plafonTopupBaru !== undefined ? form.plafonTopupBaru : nominalNum
+      });
+
+      if (calc.sisaAngsuran <= 0 || calc.pokokPinjaman <= 0) {
+        return { status: 'error', success: false, message: 'Sisa Angsuran (Sisa Tenor) dan Pokok Pinjaman wajib lebih dari 0.' };
+      }
+      if (isTopupMulti && (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 10000000 || tenorNum < 1 || tenorNum > 12)) {
+        return { status: 'error', success: false, message: 'Topup Pinjaman Multiguna maksimal plafon Rp 10.000.000 dan tenor 1-12 bulan.' };
+      }
+      if (isTopup) {
+        if (calc.sisaDiterima < 0) {
+          return { status: 'error', success: false, message: 'Plafon Topup baru tidak mencukupi untuk melunasi sisa kewajiban pinjaman lama.' };
+        }
+        finalTotalDitransfer = calc.sisaDiterima;
+      } else if (isPelunasan) {
+        var expectedPelunasan = calc.jumlahHarusDilunasi;
+        var isModified = Math.abs(nominalNum - expectedPelunasan) > 1;
+        if (isModified && (!finalKeterangan || finalKeterangan === '-' || finalKeterangan.length < 5)) {
+          return { status: 'error', success: false, message: 'Nominal pelunasan berbeda dari hitungan sistem. Financial wajib mengisi keterangan perubahan!' };
+        }
+        finalTotalDitransfer = nominalNum > 0 ? nominalNum : expectedPelunasan;
+      }
+
+      calcMeta = {
+        tipe: form.tipeFormulir,
+        oldLoanRef: form.oldLoanRef || '',
+        sisaAngsuran: calc.sisaAngsuran,
+        pokokPinjaman: calc.pokokPinjaman,
+        bunga20Persen: calc.bunga20Persen,
+        hasilKali: calc.hasilKali,
+        biayaAdmin: calc.biayaAdmin,
+        jumlahHarusDilunasi: calc.jumlahHarusDilunasi,
+        plafonTopupBaru: isTopup ? calc.plafonTopupBaru : 0,
+        tenorTopupBaru: isTopup ? tenorNum : 0,
+        sisaDiterima: isTopup ? calc.sisaDiterima : finalTotalDitransfer,
+        isModified: isPelunasan ? (Math.abs(finalTotalDitransfer - calc.jumlahHarusDilunasi) > 1) : false
+      };
+    }
+
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Form Responses 1') || SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-    if (sheet.getMaxColumns() < 12) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+    if (sheet.getMaxColumns() < 16) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
     }
     const timestamp = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm:ss");
     
@@ -457,12 +580,16 @@ function simpanPengajuan(form) {
       parsed.combined,
       form.noRekening,
       form.atasNamaRekening,
-      Number(form.totalDitransfer),
+      Number(finalTotalDitransfer),
       form.cicilan,
-      form.keterangan,
+      finalKeterangan || '-',
       'Created',
       parsed.nik,
-      parsed.unitKerja
+      parsed.unitKerja,
+      calcMeta ? (calcMeta.oldLoanRef || '-') : '-',
+      calcMeta ? String(calcMeta.plafonTopupBaru || calcMeta.jumlahHarusDilunasi || 0) : '-',
+      calcMeta ? String(calcMeta.jumlahHarusDilunasi || 0) : '-',
+      calcMeta ? JSON.stringify(calcMeta) : ''
     ]);
     
     return { status: 'success', success: true, message: 'Pengajuan berhasil disimpan!' };
@@ -475,33 +602,114 @@ function updateStatusPengajuan(userRole, rowIndex, newStatus) {
   if (isRoleAnggota(userRole) || isRolePegawai(userRole)) {
     return { status: 'error', message: 'Akses ditolak! Anggota dan Pegawai tidak memiliki wewenang mengubah status pengajuan.' };
   }
-  if (isRolePengurus(userRole) || isRoleKetua(userRole)) {
-    if (!['On Process', 'Rejected'].includes(newStatus)) {
-      return { status: 'error', message: 'Pengurus dan Ketua Koperasi hanya memiliki otoritas untuk Persetujuan (On Process) atau Penolakan (Rejected).' };
-    }
-  }
-  if (isRoleFinancial(userRole)) {
-    if (!['Done', 'On Process'].includes(newStatus)) {
-      return { status: 'error', message: 'Financial hanya dapat memproses pembayaran (Done) atau status diproses (On Process).' };
-    }
-  }
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Form Responses 1') || ss.getSheets()[0];
-    if (sheet.getMaxColumns() < 12) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+    if (sheet.getMaxColumns() < 16) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
     }
-    const r = sheet.getRange(Number(rowIndex), 1, 1, 12).getValues()[0];
+    const allValues = sheet.getDataRange().getValues();
+    const r = allValues[Number(rowIndex) - 1] || [];
+    const tipeForm = String(r[1] || '').trim();
+    const tipeLower = tipeForm.toLowerCase();
+    const namaKaryawan = String(r[2] || '').trim();
+    const currentStatus = String(r[9] || 'Created').trim();
     const parsed = splitGasNikAndUnit(r[3] || '', r[10] || '', r[11] || '');
-    sheet.getRange(Number(rowIndex), 10, 1, 3).setValues([[newStatus, parsed.nik, parsed.unitKerja]]);
-    
-    let msg = 'Status pengajuan berhasil diubah menjadi ' + newStatus;
-    if (newStatus === 'On Process') msg = 'Pengajuan disetujui (Approved) & siap diproses transfer oleh Finance.';
-    if (newStatus === 'Rejected') msg = 'Pengajuan telah ditolak oleh Pengurus.';
-    if (newStatus === 'Done') msg = 'Pengajuan selesai (Done) & otomatis terintegrasi dengan NIK anggota pada Monitoring Pinjaman.';
+    const isTopup = tipeLower.indexOf('topup') !== -1;
+    const isPelunasan = tipeLower.indexOf('pelunasan') !== -1;
+    const isTargetMultiguna = tipeLower.indexOf('multiguna') !== -1;
 
-    return { status: 'success', success: true, message: msg };
+    if (isPelunasan && currentStatus === 'Created' && ['On Process', 'Done', 'Lunas'].indexOf(newStatus) !== -1) {
+      if (!isRoleAdmin(userRole) && !isRoleKetua(userRole)) {
+        return { status: 'error', success: false, message: 'Semua proses Pelunasan Pinjaman Anggota wajib di-approval oleh Admin atau Ketua Koperasi!' };
+      }
+    }
+    if (isRolePengurus(userRole) || isRoleKetua(userRole)) {
+      if (['On Process', 'Done', 'Lunas', 'Rejected'].indexOf(newStatus) === -1) {
+        return { status: 'error', message: 'Pengurus dan Ketua Koperasi hanya memiliki otoritas untuk Persetujuan atau Penolakan.' };
+      }
+    }
+    if (isRoleFinancial(userRole)) {
+      if (currentStatus === 'Created' && (isPelunasan || isTopup)) {
+        return { status: 'error', success: false, message: 'Pengajuan Topup / Pelunasan berstatus Created wajib disetujui Admin atau Ketua Koperasi terlebih dahulu.' };
+      }
+      if (['Done', 'Lunas', 'On Process'].indexOf(newStatus) === -1) {
+        return { status: 'error', message: 'Financial hanya dapat memproses pembayaran (Done/Lunas) atau status diproses (On Process).' };
+      }
+    }
+
+    var oldLoanRef = String(r[12] || '').trim();
+    var plafonTopupBaru = parseInt(String(r[13] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    var jumlahDilunasi = parseInt(String(r[14] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    var tenorBaru = parseInt(String(r[7] || '12').replace(/[^0-9]/g, ''), 10) || 12;
+
+    function findOldRow() {
+      var refMatch = oldLoanRef.match(/^(?:FR-|MG-FR-|TN-FR-)?(\d+)$/i);
+      if (refMatch) {
+        var idx = parseInt(refMatch[1], 10);
+        if (idx >= 2 && idx !== Number(rowIndex)) return idx;
+      }
+      var targetName = namaKaryawan.toLowerCase().replace(/\s+/g, ' ');
+      var targetNik = parsed.nik !== '-' ? parsed.nik.toLowerCase() : '';
+      for (var i = allValues.length - 1; i >= 1; i--) {
+        var candIdx = i + 1;
+        if (candIdx === Number(rowIndex)) continue;
+        var cr = allValues[i];
+        var cTipe = String(cr[1] || '').toLowerCase();
+        var cSt = String(cr[9] || '').toLowerCase();
+        if (cSt !== 'done' && cSt !== 'validasi by financial' && cSt.indexOf('terverifikasi') === -1) continue;
+        var cIsMg = cTipe === 'peminjaman multiguna' || (cTipe.indexOf('multiguna') !== -1 && cTipe.indexOf('pelunasan') === -1);
+        var cIsTn = cTipe === 'peminjaman tunai' || (cTipe.indexOf('pinjaman tunai') !== -1 && cTipe.indexOf('pelunasan') === -1);
+        if (isTargetMultiguna && !cIsMg) continue;
+        if (!isTargetMultiguna && !cIsTn) continue;
+        var cSplit = splitGasNikAndUnit(cr[3] || '', cr[10] || '', cr[11] || '');
+        var cNik = cSplit.nik !== '-' ? cSplit.nik.toLowerCase() : '';
+        var cNama = String(cr[2] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        if ((targetNik && cNik && cNik === targetNik) || (targetName && cNama === targetName)) {
+          return candIdx;
+        }
+      }
+      return -1;
+    }
+
+    var effectiveStatus = newStatus;
+    if (isTopup && (newStatus === 'Done' || newStatus === 'Lunas')) {
+      effectiveStatus = 'Done';
+      var oldRow = findOldRow();
+      var baseType = isTargetMultiguna ? 'Peminjaman Multiguna' : 'Peminjaman Tunai';
+      var updPlafon = plafonTopupBaru > 0 ? plafonTopupBaru : (Number(r[6]) || 0);
+      var nowStr = Utilities.formatDate(new Date(), "GMT+7", "yyyy-MM-dd HH:mm:ss");
+      if (oldRow >= 2) {
+        var updKet = '[TOPUP BARU] Plafon Baru: Rp ' + updPlafon + ' | Tenor Baru: ' + tenorBaru + ' Bln | Dilunasi: Rp ' + jumlahDilunasi + '. ' + (r[8] || '');
+        sheet.getRange(oldRow, 1, 1, 12).setValues([[
+          nowStr, baseType, namaKaryawan, parsed.combined, String(r[4] || ''), String(r[5] || namaKaryawan),
+          updPlafon, tenorBaru, updKet, 'Done', parsed.nik, parsed.unitKerja
+        ]]);
+      }
+    }
+
+    if (isPelunasan && (newStatus === 'On Process' || newStatus === 'Done' || newStatus === 'Lunas')) {
+      if (newStatus === 'Done' || newStatus === 'Lunas') effectiveStatus = 'Lunas';
+      if (newStatus === 'Done' || newStatus === 'Lunas' || isRoleAdmin(userRole) || isRoleKetua(userRole)) {
+        var oldRowPel = findOldRow();
+        if (oldRowPel >= 2) {
+          var oldKet = String(allValues[oldRowPel - 1][8] || '');
+          var newOldKet = oldKet.indexOf('[LUNAS') !== -1 ? oldKet : (oldKet + ' [LUNAS]').trim();
+          sheet.getRange(oldRowPel, 9, 1, 4).setValues([[newOldKet, 'Lunas', parsed.nik, parsed.unitKerja]]);
+        }
+      }
+    }
+
+    sheet.getRange(Number(rowIndex), 10, 1, 3).setValues([[effectiveStatus, parsed.nik, parsed.unitKerja]]);
+    
+    let msg = 'Status pengajuan berhasil diubah menjadi ' + effectiveStatus;
+    if (effectiveStatus === 'On Process') msg = 'Pengajuan disetujui (Approved) & siap diproses oleh Finance.';
+    if (effectiveStatus === 'Rejected') msg = 'Pengajuan telah ditolak.';
+    if (effectiveStatus === 'Done') msg = 'Pengajuan selesai (Done) & otomatis terintegrasi dengan NIK anggota pada Monitoring Pinjaman.';
+    if (effectiveStatus === 'Lunas') msg = 'Pinjaman dinyatakan LUNAS & riwayat pinjaman tetap tersimpan.';
+
+    return { status: 'success', success: true, newStatus: effectiveStatus, message: msg };
   } catch (err) {
     return { status: 'error', success: false, message: 'Gagal update status: ' + err.toString() };
   }
@@ -3568,7 +3776,10 @@ function getMemberLoanMonitoring(params) {
         var tipeLower = tipe.toLowerCase();
         var st = String(r[9] || '').trim();
         var stLower = st.toLowerCase();
-        if (stLower !== 'done' && stLower !== 'validasi by financial' && stLower.indexOf('terverifikasi e-materai') === -1) continue;
+        if (tipeLower.indexOf('pelunasan') !== -1) continue;
+        if (tipeLower.indexOf('topup') !== -1 && r[12] && r[12] !== '-') continue;
+        var isPaidOff = stLower === 'lunas' || stLower.indexOf('lunas') !== -1;
+        if (!isPaidOff && stLower !== 'done' && stLower !== 'validasi by financial' && stLower.indexOf('terverifikasi e-materai') === -1) continue;
 
         var isMg = tipeLower === 'peminjaman multiguna' || tipeLower.indexOf('multiguna') !== -1;
         var isTn = tipeLower === 'peminjaman tunai' || tipeLower.indexOf('pinjaman tunai') !== -1;
@@ -3586,6 +3797,10 @@ function getMemberLoanMonitoring(params) {
         if (!isMatched(itemNik, rowNama)) continue;
 
         var pokok = parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        if (tipeLower.indexOf('topup') !== -1 && r[13]) {
+          var pBaru = parseInt(String(r[13]).replace(/[^0-9]/g, ''), 10) || 0;
+          if (pBaru > 0) pokok = pBaru;
+        }
         if (pokok <= 0) continue;
         var tenor = parseInt(String(r[7] || '10').replace(/[^0-9]/g, ''), 10) || 10;
 
@@ -3595,6 +3810,7 @@ function getMemberLoanMonitoring(params) {
           var totalBunga = Math.round(pokok * 0.20);
           var totalKewajiban = pokok + totalBunga;
           var cicilanBulanan = Math.round(totalKewajiban / tenor);
+          var pokokPerBulan = Math.round(pokok / tenor);
           var jadwal = [];
           var akum = 0;
           for (var m = 1; m <= tenor; m++) {
@@ -3606,7 +3822,7 @@ function getMemberLoanMonitoring(params) {
             monitoringId: 'MG-FR-' + (f + 1),
             rowIndex: f + 1,
             nomorReferensi: 'FR-' + (f + 1),
-            sumberData: 'Input Pengajuan Finance (Done)',
+            sumberData: isPaidOff ? 'Riwayat Pinjaman (Lunas)' : 'Input Pengajuan Finance (Done)',
             tanggalCair: String(r[0] || '-'),
             kategori: 'Pinjaman Multiguna',
             namaAnggota: rowNama,
@@ -3615,6 +3831,7 @@ function getMemberLoanMonitoring(params) {
             noRekening: String(r[4] || '-'),
             atasNamaRekening: String(r[5] || rowNama),
             pokokPinjaman: pokok,
+            pokokPerBulan: pokokPerBulan,
             plafonMaksimal: 10000000,
             bungaPersen: '20% / Tahun',
             totalBunga: totalBunga,
@@ -3622,13 +3839,14 @@ function getMemberLoanMonitoring(params) {
             tenorBulan: tenor,
             tenorMaksimal: 12,
             cicilanBulanan: cicilanBulanan,
-            bulanBerjalan: 0,
-            sisaTenor: tenor,
-            sudahDibayar: 0,
-            sisaKewajiban: totalKewajiban,
-            progressPersen: 0,
+            bulanBerjalan: isPaidOff ? tenor : 0,
+            sisaTenor: isPaidOff ? 0 : tenor,
+            sudahDibayar: isPaidOff ? totalKewajiban : 0,
+            sisaKewajiban: isPaidOff ? 0 : totalKewajiban,
+            progressPersen: isPaidOff ? 100 : 0,
+            isLunas: isPaidOff,
             keterangan: String(r[8] || 'Pinjaman Multiguna Koperasi'),
-            status: st || 'Done',
+            status: isPaidOff ? 'Lunas' : (st || 'Done'),
             jadwal: jadwal
           });
         } else {
@@ -3637,6 +3855,7 @@ function getMemberLoanMonitoring(params) {
           var totalBungaTn = Math.round(pokok * rate);
           var totalKewajibanTn = pokok + totalBungaTn;
           var cicilanBulananTn = Math.round(totalKewajibanTn / tenor);
+          var pokokPerBulanTn = Math.round(pokok / tenor);
           var jadwalTn = [];
           var akumTn = 0;
           for (var mt = 1; mt <= tenor; mt++) {
@@ -3648,7 +3867,7 @@ function getMemberLoanMonitoring(params) {
             monitoringId: 'TN-FR-' + (f + 1),
             rowIndex: f + 1,
             nomorReferensi: 'FR-' + (f + 1),
-            sumberData: 'Input Pengajuan Finance (Done)',
+            sumberData: isPaidOff ? 'Riwayat Pinjaman (Lunas)' : 'Input Pengajuan Finance (Done)',
             tanggalCair: String(r[0] || '-'),
             kategori: 'Pinjaman Tunai',
             namaAnggota: rowNama,
@@ -3657,6 +3876,7 @@ function getMemberLoanMonitoring(params) {
             noRekening: String(r[4] || '-'),
             atasNamaRekening: String(r[5] || rowNama),
             pokokPinjaman: pokok,
+            pokokPerBulan: pokokPerBulanTn,
             plafonMaksimal: 50000000,
             bungaPersen: Math.round(rate * 100) + '%',
             totalBunga: totalBungaTn,
@@ -3664,13 +3884,14 @@ function getMemberLoanMonitoring(params) {
             tenorBulan: tenor,
             tenorMaksimal: 60,
             cicilanBulanan: cicilanBulananTn,
-            bulanBerjalan: 0,
-            sisaTenor: tenor,
-            sudahDibayar: 0,
-            sisaKewajiban: totalKewajibanTn,
-            progressPersen: 0,
+            bulanBerjalan: isPaidOff ? tenor : 0,
+            sisaTenor: isPaidOff ? 0 : tenor,
+            sudahDibayar: isPaidOff ? totalKewajibanTn : 0,
+            sisaKewajiban: isPaidOff ? 0 : totalKewajibanTn,
+            progressPersen: isPaidOff ? 100 : 0,
+            isLunas: isPaidOff,
             keterangan: String(r[8] || 'Pinjaman Tunai Koperasi'),
-            status: st || 'Done',
+            status: isPaidOff ? 'Lunas' : (st || 'Done'),
             jadwal: jadwalTn
           });
         }
@@ -3680,6 +3901,9 @@ function getMemberLoanMonitoring(params) {
     multigunaLoans.reverse();
     tunaiLoans.reverse();
 
+    var activeMg = multigunaLoans.filter(function(x) { return !x.isLunas; });
+    var activeTn = tunaiLoans.filter(function(x) { return !x.isLunas; });
+
     return {
       success: true,
       memberProfile: { nik: myPureNik || '-', nama: myNama || '-', unitKerja: myUnitKerja || '-' },
@@ -3687,20 +3911,24 @@ function getMemberLoanMonitoring(params) {
       tunaiLoans: tunaiLoans,
       summary: {
         multiguna: {
-          count: multigunaLoans.length,
-          totalPokok: multigunaLoans.reduce(function(a, x) { return a + x.pokokPinjaman; }, 0),
-          totalBunga: multigunaLoans.reduce(function(a, x) { return a + x.totalBunga; }, 0),
-          totalKewajiban: multigunaLoans.reduce(function(a, x) { return a + x.totalKewajiban; }, 0),
-          totalCicilanBulanan: multigunaLoans.reduce(function(a, x) { return a + x.cicilanBulanan; }, 0),
-          totalSisaKewajiban: multigunaLoans.reduce(function(a, x) { return a + x.sisaKewajiban; }, 0)
+          count: activeMg.length,
+          totalHistoryCount: multigunaLoans.length,
+          lunasCount: multigunaLoans.length - activeMg.length,
+          totalPokok: activeMg.reduce(function(a, x) { return a + x.pokokPinjaman; }, 0),
+          totalBunga: activeMg.reduce(function(a, x) { return a + x.totalBunga; }, 0),
+          totalKewajiban: activeMg.reduce(function(a, x) { return a + x.totalKewajiban; }, 0),
+          totalCicilanBulanan: activeMg.reduce(function(a, x) { return a + x.cicilanBulanan; }, 0),
+          totalSisaKewajiban: activeMg.reduce(function(a, x) { return a + x.sisaKewajiban; }, 0)
         },
         tunai: {
-          count: tunaiLoans.length,
-          totalPokok: tunaiLoans.reduce(function(a, x) { return a + x.pokokPinjaman; }, 0),
-          totalBunga: tunaiLoans.reduce(function(a, x) { return a + x.totalBunga; }, 0),
-          totalKewajiban: tunaiLoans.reduce(function(a, x) { return a + x.totalKewajiban; }, 0),
-          totalCicilanBulanan: tunaiLoans.reduce(function(a, x) { return a + x.cicilanBulanan; }, 0),
-          totalSisaKewajiban: tunaiLoans.reduce(function(a, x) { return a + x.sisaKewajiban; }, 0)
+          count: activeTn.length,
+          totalHistoryCount: tunaiLoans.length,
+          lunasCount: tunaiLoans.length - activeTn.length,
+          totalPokok: activeTn.reduce(function(a, x) { return a + x.pokokPinjaman; }, 0),
+          totalBunga: activeTn.reduce(function(a, x) { return a + x.totalBunga; }, 0),
+          totalKewajiban: activeTn.reduce(function(a, x) { return a + x.totalKewajiban; }, 0),
+          totalCicilanBulanan: activeTn.reduce(function(a, x) { return a + x.cicilanBulanan; }, 0),
+          totalSisaKewajiban: activeTn.reduce(function(a, x) { return a + x.sisaKewajiban; }, 0)
         }
       }
     };

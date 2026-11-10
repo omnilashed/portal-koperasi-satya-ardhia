@@ -789,6 +789,82 @@ function calculateMultigunaLoanDetails(pokokInput, tenorInput) {
 }
 
 /**
+ * Helper: Kalkulasi Resmi Topup & Pelunasan Pinjaman (Tunai & Multiguna)
+ * 1. Topup Pinjaman Tunai:
+ *    - Hasil Kali = Sisa Angsuran x Pokok Pinjaman
+ *    - Biaya Admin 2,5% = 2,5% x Hasil Kali
+ *    - Jumlah Harus Dilunasi = Hasil Kali + Biaya Admin 2,5%
+ *    - Sisa Diterima (Total Ditransfer) = Topup Baru - Jumlah Harus Dilunasi
+ * 2. Topup Pinjaman Multiguna (Tanpa Biaya Admin 2,5%):
+ *    - Bunga 20% = 20% x Pokok Pinjaman
+ *    - Jumlah Harus Dilunasi = Sisa Angsuran x (Pokok Pinjaman + 20% dari Pokok Pinjaman)
+ *    - Sisa Diterima (Total Ditransfer) = Topup Baru - Jumlah Harus Dilunasi
+ * 3. Pelunasan Pinjaman Tunai Anggota:
+ *    - Hasil Kali = Pokok Pinjaman x Sisa Tenor
+ *    - Biaya Admin 2,5% = 2,5% x Hasil Kali
+ *    - Hasil Pelunasan Sistem = Hasil Kali + Biaya Admin 2,5%
+ * 4. Pelunasan Pinjaman Multiguna Anggota (Tanpa Biaya Admin 2,5%):
+ *    - Pokok + 20% = Pokok Pinjaman + (20% x Pokok Pinjaman)
+ *    - Hasil Pelunasan Sistem = (Pokok + 20%) x Sisa Tenor
+ */
+function calculateTopupOrPelunasanDetails(params = {}) {
+  const tipeLower = String(params.tipeFormulir || '').trim().toLowerCase();
+  const sisaAngsuran = Math.max(0, parseInt(String(params.sisaAngsuran || params.sisaTenor || '0').replace(/[^0-9]/g, ''), 10) || 0);
+  const pokokPinjaman = Math.max(0, parseInt(String(params.pokokPinjaman || '0').replace(/[^0-9]/g, ''), 10) || 0);
+  const plafonTopupBaru = Math.max(0, parseInt(String(params.plafonTopupBaru || '0').replace(/[^0-9]/g, ''), 10) || 0);
+
+  const isMultiguna = tipeLower.includes('multiguna');
+  const isTopup = tipeLower.includes('topup');
+  const isPelunasan = tipeLower.includes('pelunasan');
+
+  if (isMultiguna) {
+    // Multiguna: Sisa Angsuran x (Pokok Pinjaman + 20% dari Pokok Pinjaman), TANPA Biaya Admin 2,5%
+    const bunga20Persen = Math.round(pokokPinjaman * 0.20);
+    const pokokPlusBunga = pokokPinjaman + bunga20Persen;
+    const hasilKali = Math.round(sisaAngsuran * pokokPlusBunga);
+    const biayaAdmin = 0;
+    const jumlahHarusDilunasi = hasilKali;
+    const sisaDiterima = isTopup ? (plafonTopupBaru - jumlahHarusDilunasi) : 0;
+
+    return {
+      isMultiguna: true,
+      isTopup,
+      isPelunasan,
+      sisaAngsuran,
+      pokokPinjaman,
+      bunga20Persen,
+      pokokPlusBunga,
+      hasilKali,
+      biayaAdmin,
+      jumlahHarusDilunasi,
+      plafonTopupBaru,
+      sisaDiterima
+    };
+  } else {
+    // Tunai: (Sisa Angsuran x Pokok Pinjaman) + (2,5% x Sisa Angsuran x Pokok Pinjaman)
+    const hasilKali = Math.round(sisaAngsuran * pokokPinjaman);
+    const biayaAdmin = Math.round(hasilKali * 0.025);
+    const jumlahHarusDilunasi = hasilKali + biayaAdmin;
+    const sisaDiterima = isTopup ? (plafonTopupBaru - jumlahHarusDilunasi) : 0;
+
+    return {
+      isMultiguna: false,
+      isTopup,
+      isPelunasan,
+      sisaAngsuran,
+      pokokPinjaman,
+      bunga20Persen: 0,
+      pokokPlusBunga: pokokPinjaman,
+      hasilKali,
+      biayaAdmin,
+      jumlahHarusDilunasi,
+      plafonTopupBaru,
+      sisaDiterima
+    };
+  }
+}
+
+/**
  * GET /api/pengajuan
  * Query params: role, nik, nama, username
  */
@@ -797,14 +873,19 @@ app.get('/api/pengajuan', async (req, res) => {
     const { role, nik, nama, username } = req.query;
 
     const sheets = await getSheetsClient();
+    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 16);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!A2:L"
+      range: "'Form Responses 1'!A2:P"
     });
 
     const rows = response.data.values || [];
     let list = rows.map((r, idx) => {
       const parsed = splitNikAndUnitKerja(r[3] || '', r[10] || '', r[11] || '');
+      let meta = null;
+      if (r[15]) {
+        try { meta = JSON.parse(r[15]); } catch (e) {}
+      }
       return {
         rowIndex: idx + 2,
         timestamp: r[0] || '',
@@ -820,7 +901,11 @@ app.get('/api/pengajuan', async (req, res) => {
         totalDitransfer: r[6] || '0',
         cicilan: r[7] || '-',
         keterangan: r[8] || '',
-        status: r[9] || 'Created'
+        status: r[9] || 'Created',
+        oldLoanRef: r[12] || (meta && meta.oldLoanRef) || '',
+        plafonTopupBaru: r[13] ? Number(r[13]) : (meta && meta.plafonTopupBaru) || 0,
+        jumlahHarusDilunasi: r[14] ? Number(r[14]) : (meta && meta.jumlahHarusDilunasi) || 0,
+        topupPelunasanMeta: meta
       };
     });
 
@@ -958,7 +1043,11 @@ app.get('/api/pengajuan', async (req, res) => {
 
 /**
  * POST /api/pengajuan
- * Body: { tipeFormulir, namaKaryawan, nik, unitKerja, nikUnitKerja, noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, userRole }
+ * Body: {
+ *   tipeFormulir, namaKaryawan, nik, unitKerja, nikUnitKerja,
+ *   noRekening, atasNamaRekening, totalDitransfer, cicilan, keterangan, userRole,
+ *   oldLoanRef, sisaAngsuranLama, pokokPinjamanLama, plafonTopupBaru, jumlahHarusDilunasi, nominalPelunasanSistem
+ * }
  */
 app.post('/api/pengajuan', async (req, res) => {
   try {
@@ -973,7 +1062,13 @@ app.post('/api/pengajuan', async (req, res) => {
       totalDitransfer,
       cicilan,
       keterangan,
-      userRole
+      userRole,
+      oldLoanRef,
+      sisaAngsuranLama,
+      pokokPinjamanLama,
+      plafonTopupBaru,
+      jumlahHarusDilunasi,
+      nominalPelunasanSistem
     } = req.body;
 
     // Role Guard: Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman
@@ -989,13 +1084,20 @@ app.post('/api/pengajuan', async (req, res) => {
     const cleanUnit = parsedNikUnit.unitKerja !== '-' ? parsedNikUnit.unitKerja : '';
     const combinedNikUnit = parsedNikUnit.combined;
 
-    if (!tipeFormulir || !namaKaryawan || (!cleanNik && !cleanUnit) || !noRekening || !atasNamaRekening || !totalDitransfer) {
+    if (!tipeFormulir || !namaKaryawan || (!cleanNik && !cleanUnit) || !noRekening || !atasNamaRekening || totalDitransfer === undefined || totalDitransfer === '') {
       return res.status(400).json({ success: false, message: 'Lengkapi semua field wajib (termasuk NIK dan Unit Kerja) pada formulir pengajuan.' });
     }
 
-    const nominalNum = parseInt(String(totalDitransfer).replace(/[^0-9]/g, ''), 10) || 0;
+    const nominalNum = parseInt(String(totalDitransfer).replace(/[^0-9-]/g, ''), 10) || 0;
     const tenorNum = parseInt(String(cicilan || '0').replace(/[^0-9]/g, ''), 10) || 0;
     const tipeLower = String(tipeFormulir).trim().toLowerCase();
+
+    const isTopupTunai = tipeLower === 'topup pinjaman tunai';
+    const isTopupMulti = tipeLower === 'topup pinjaman multiguna';
+    const isPelunasanTunai = tipeLower === 'pelunasan pinjaman tunai anggota';
+    const isPelunasanMulti = tipeLower === 'pelunasan pinjaman multiguna anggota';
+    const isTopup = isTopupTunai || isTopupMulti;
+    const isPelunasan = isPelunasanTunai || isPelunasanMulti;
 
     // Validasi Aturan Resmi Pinjaman Multiguna (Maks Rp 10 Juta, Bunga 20%/Thn, Maks Tenor 12 Bulan)
     if (tipeLower === 'peminjaman multiguna') {
@@ -1013,11 +1115,95 @@ app.post('/api/pengajuan', async (req, res) => {
       }
     }
 
+    let calcMeta = null;
+    let finalTotalDitransfer = nominalNum;
+    let finalKeterangan = String(keterangan || '').trim();
+
+    if (isTopup || isPelunasan) {
+      const calc = calculateTopupOrPelunasanDetails({
+        tipeFormulir,
+        sisaAngsuran: sisaAngsuranLama !== undefined ? sisaAngsuranLama : tenorNum,
+        pokokPinjaman: pokokPinjamanLama,
+        plafonTopupBaru: plafonTopupBaru !== undefined ? plafonTopupBaru : nominalNum
+      });
+
+      if (calc.sisaAngsuran <= 0 || calc.pokokPinjaman <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Untuk proses Topup / Pelunasan, Sisa Angsuran (Sisa Tenor) dan Pokok Pinjaman wajib lebih dari 0.'
+        });
+      }
+
+      if (isTopupMulti) {
+        if (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 10000000) {
+          return res.status(400).json({
+            success: false,
+            message: 'Plafon Topup Pinjaman Multiguna maksimal adalah Rp 10.000.000.'
+          });
+        }
+        if (tenorNum < 1 || tenorNum > 12) {
+          return res.status(400).json({
+            success: false,
+            message: 'Tenor baru Topup Pinjaman Multiguna maksimal adalah 12 bulan (1 s/d 12 kali cicilan).'
+          });
+        }
+      } else if (isTopupTunai) {
+        if (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 50000000) {
+          return res.status(400).json({
+            success: false,
+            message: 'Plafon Topup Pinjaman Tunai harus di antara Rp 1 s/d Rp 50.000.000.'
+          });
+        }
+        if (tenorNum < 1 || tenorNum > 60) {
+          return res.status(400).json({
+            success: false,
+            message: 'Tenor baru Topup Pinjaman Tunai wajib diisi (maksimal 60 bulan).'
+          });
+        }
+      }
+
+      if (isTopup) {
+        if (calc.sisaDiterima < 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Plafon Topup baru (Rp ${calc.plafonTopupBaru.toLocaleString('id-ID')}) tidak mencukupi untuk melunasi sisa kewajiban pinjaman lama (Rp ${calc.jumlahHarusDilunasi.toLocaleString('id-ID')}).`
+          });
+        }
+        finalTotalDitransfer = calc.sisaDiterima;
+      } else if (isPelunasan) {
+        const expectedPelunasan = calc.jumlahHarusDilunasi;
+        const isModified = Math.abs(nominalNum - expectedPelunasan) > 1;
+        // Jika ada perubahan dari hasil hitungan otomatis, Financial wajib menambahkan keterangan
+        if (isModified && (!finalKeterangan || finalKeterangan === '-' || finalKeterangan.length < 5)) {
+          return res.status(400).json({
+            success: false,
+            message: `Nominal pelunasan yang diinput (Rp ${nominalNum.toLocaleString('id-ID')}) berbeda dari perhitungan sistem (Rp ${expectedPelunasan.toLocaleString('id-ID')}). Financial WAJIB mengisi alasan/keterangan perubahan pada kolom Keterangan!`
+          });
+        }
+        finalTotalDitransfer = nominalNum > 0 ? nominalNum : expectedPelunasan;
+      }
+
+      calcMeta = {
+        tipe: tipeFormulir,
+        oldLoanRef: oldLoanRef || '',
+        sisaAngsuran: calc.sisaAngsuran,
+        pokokPinjaman: calc.pokokPinjaman,
+        bunga20Persen: calc.bunga20Persen,
+        hasilKali: calc.hasilKali,
+        biayaAdmin: calc.biayaAdmin,
+        jumlahHarusDilunasi: calc.jumlahHarusDilunasi,
+        plafonTopupBaru: isTopup ? calc.plafonTopupBaru : 0,
+        tenorTopupBaru: isTopup ? tenorNum : 0,
+        sisaDiterima: isTopup ? calc.sisaDiterima : finalTotalDitransfer,
+        isModified: isPelunasan ? (Math.abs(finalTotalDitransfer - calc.jumlahHarusDilunasi) > 1) : false
+      };
+    }
+
     const timestamp = getCurrentTimestamp();
     const defaultStatus = 'Created';
 
     const sheets = await getSheetsClient();
-    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 12);
+    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 16);
 
     const newRow = [
       timestamp,
@@ -1026,17 +1212,21 @@ app.post('/api/pengajuan', async (req, res) => {
       combinedNikUnit,
       String(noRekening),
       atasNamaRekening,
-      totalDitransfer,
+      finalTotalDitransfer,
       cicilan || '-',
-      keterangan || '-',
+      finalKeterangan || '-',
       defaultStatus,
       cleanNik || '-',
-      cleanUnit || '-'
+      cleanUnit || '-',
+      calcMeta ? (calcMeta.oldLoanRef || '-') : '-',
+      calcMeta ? String(calcMeta.plafonTopupBaru || calcMeta.jumlahHarusDilunasi || 0) : '-',
+      calcMeta ? String(calcMeta.jumlahHarusDilunasi || 0) : '-',
+      calcMeta ? JSON.stringify(calcMeta) : ''
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!A:L",
+      range: "'Form Responses 1'!A:P",
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: {
@@ -1046,7 +1236,11 @@ app.post('/api/pengajuan', async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Pengajuan pinjaman/biaya berhasil disimpan dengan status Created.',
+      message: isPelunasan
+        ? 'Pengajuan Pelunasan Pinjaman berhasil disimpan (Status: Created) dan wajib menunggu Approval Admin atau Ketua Koperasi.'
+        : (isTopup
+          ? 'Pengajuan Topup Pinjaman berhasil disimpan (Status: Created) dan menunggu Approval Admin / Ketua Koperasi.'
+          : 'Pengajuan pinjaman/biaya berhasil disimpan dengan status Created.'),
       data: {
         timestamp,
         tipeFormulir,
@@ -1054,6 +1248,8 @@ app.post('/api/pengajuan', async (req, res) => {
         nik: cleanNik,
         unitKerja: cleanUnit,
         nikUnitKerja: combinedNikUnit,
+        totalDitransfer: finalTotalDitransfer,
+        topupPelunasanMeta: calcMeta,
         status: defaultStatus
       }
     });
@@ -1066,7 +1262,8 @@ app.post('/api/pengajuan', async (req, res) => {
 /**
  * PUT /api/pengajuan/status
  * Body: { rowIndex, newStatus, userRole }
- * Otomatis mengintegrasikan data pinjaman ke NIK anggota ketika status menjadi 'Done'
+ * Otomatis mengintegrasikan data pinjaman ke NIK anggota ketika status menjadi 'Done',
+ * meniban data pinjaman lama saat Topup selesai, atau menandai pinjaman lama menjadi 'Lunas' (tanpa dihapus) saat Pelunasan disetujui.
  */
 app.put('/api/pengajuan/status', async (req, res) => {
   try {
@@ -1076,7 +1273,7 @@ app.put('/api/pengajuan/status', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Index baris (rowIndex) dan status baru wajib disediakan.' });
     }
 
-    const validStatuses = ['Created', 'On Process', 'Done', 'Rejected'];
+    const validStatuses = ['Created', 'On Process', 'Done', 'Lunas', 'Rejected'];
     if (!validStatuses.includes(newStatus)) {
       return res.status(400).json({ success: false, message: 'Status tidak valid. Pilihan: ' + validStatuses.join(', ') });
     }
@@ -1085,38 +1282,68 @@ app.put('/api/pengajuan/status', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Akses ditolak: Anggota dan Pegawai tidak memiliki hak untuk mengubah status pengajuan.' });
     }
 
-    if (isRolePengurus(userRole) || isRoleKetua(userRole)) {
-      if (!['On Process', 'Rejected'].includes(newStatus)) {
+    const sheets = await getSheetsClient();
+    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 16);
+
+    // Ambil data seluruh baris untuk pencarian pinjaman lama yang akurat bila Topup / Pelunasan
+    const allFrRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'Form Responses 1'!A2:P"
+    });
+    const allFrRows = allFrRes.data.values || [];
+    const r = allFrRows[Number(rowIndex) - 2] || [];
+
+    const tipeForm = String(r[1] || '').trim();
+    const tipeLower = tipeForm.toLowerCase();
+    const namaKaryawan = String(r[2] || '').trim();
+    const currentStatus = String(r[9] || 'Created').trim();
+    const parsedNikUnit = splitNikAndUnitKerja(r[3] || '', r[10] || '', r[11] || '');
+    let resolvedNik = parsedNikUnit.nik !== '-' ? parsedNikUnit.nik : '';
+    let resolvedUnit = parsedNikUnit.unitKerja !== '-' ? parsedNikUnit.unitKerja : '';
+
+    const isTopup = tipeLower.includes('topup');
+    const isPelunasan = tipeLower.includes('pelunasan');
+    const isTargetMultiguna = tipeLower.includes('multiguna');
+
+    // Validasi Role: Semua proses Pelunasan & Topup dari status Created wajib di-approve oleh Admin atau Ketua Koperasi (atau Pengurus untuk pengajuan biasa)
+    if (isPelunasan && currentStatus === 'Created' && ['On Process', 'Done', 'Lunas'].includes(newStatus)) {
+      if (!isRoleAdmin(userRole) && !isRoleKetua(userRole)) {
         return res.status(403).json({
           success: false,
-          message: 'Role Pengurus dan Ketua Koperasi hanya memiliki otoritas untuk Persetujuan (On Process) atau Penolakan (Rejected).'
+          message: 'Semua proses Pelunasan Pinjaman Anggota wajib di-approval terlebih dahulu oleh Admin atau Ketua Koperasi!'
+        });
+      }
+    }
+
+    if (isRolePengurus(userRole) || isRoleKetua(userRole)) {
+      if (!['On Process', 'Done', 'Lunas', 'Rejected'].includes(newStatus)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Role Pengurus dan Ketua Koperasi hanya memiliki otoritas untuk Persetujuan (On Process / Lunas) atau Penolakan (Rejected).'
+        });
+      }
+      if (isRolePengurus(userRole) && !isRoleKetua(userRole) && ['Done', 'Lunas'].includes(newStatus)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Role Pengurus hanya dapat mengubah status menjadi On Process (Disetujui) atau Rejected.'
         });
       }
     }
 
     if (isRoleFinancial(userRole)) {
-      if (!['Done', 'On Process'].includes(newStatus)) {
+      if (currentStatus === 'Created' && (isPelunasan || isTopup)) {
         return res.status(403).json({
           success: false,
-          message: 'Role Financial hanya dapat memproses pembayaran (Done) atau pengajuan diproses (On Process).'
+          message: 'Pengajuan Topup / Pelunasan berstatus Created wajib disetujui (Approve) oleh Admin atau Ketua Koperasi terlebih dahulu.'
+        });
+      }
+      if (!['Done', 'Lunas', 'On Process'].includes(newStatus)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Role Financial hanya dapat memproses penyelesaian (Done / Lunas) atau pengajuan diproses (On Process).'
         });
       }
     }
-
-    const sheets = await getSheetsClient();
-    await ensureSheetGridCapacity(sheets, 'Form Responses 1', 12);
-
-    // Ambil data baris pengajuan untuk integrasi otomatis NIK saat status Done
-    const rowRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `'Form Responses 1'!A${rowIndex}:L${rowIndex}`
-    });
-    const r = (rowRes.data.values && rowRes.data.values[0]) ? rowRes.data.values[0] : [];
-    const tipeForm = String(r[1] || '').trim();
-    const namaKaryawan = String(r[2] || '').trim();
-    const parsedNikUnit = splitNikAndUnitKerja(r[3] || '', r[10] || '', r[11] || '');
-    let resolvedNik = parsedNikUnit.nik !== '-' ? parsedNikUnit.nik : '';
-    let resolvedUnit = parsedNikUnit.unitKerja !== '-' ? parsedNikUnit.unitKerja : '';
 
     // Jika NIK belum terisi murni, cari otomatis di sheet Users berdasarkan Nama Lengkap
     if (!resolvedNik && namaKaryawan) {
@@ -1140,24 +1367,168 @@ app.put('/api/pengajuan/status', async (req, res) => {
       } catch (eLookup) {}
     }
 
+    // Parse metadata Topup / Pelunasan jika ada
+    let meta = null;
+    if (r[15]) {
+      try { meta = JSON.parse(r[15]); } catch (e) {}
+    }
+    const oldLoanRef = String(r[12] || (meta && meta.oldLoanRef) || '').trim();
+    const plafonTopupBaru = parseInt(String(r[13] || (meta && meta.plafonTopupBaru) || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const jumlahDilunasi = parseInt(String(r[14] || (meta && meta.jumlahHarusDilunasi) || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const tenorBaru = parseInt(String(r[7] || (meta && meta.tenorTopupBaru) || '12').replace(/[^0-9]/g, ''), 10) || 12;
+
+    // Helper untuk mencari baris pinjaman aktif terakhir milik anggota ini di 'Form Responses 1'
+    function findTargetOldLoanRowIndex() {
+      if (oldLoanRef) {
+        const refMatch = oldLoanRef.match(/^(?:FR-|MG-FR-|TN-FR-)?(\d+)$/i);
+        if (refMatch) {
+          const idx = parseInt(refMatch[1], 10);
+          if (idx >= 2 && idx !== Number(rowIndex)) return idx;
+        }
+      }
+      // Cari dari bawah (pinjaman aktif terakhir dengan kategori yang sama)
+      const targetNameClean = namaKaryawan.toLowerCase().replace(/\s+/g, ' ');
+      const targetNikClean = resolvedNik.toLowerCase();
+      for (let i = allFrRows.length - 1; i >= 0; i--) {
+        const candidateRowIdx = i + 2;
+        if (candidateRowIdx === Number(rowIndex)) continue;
+        const cr = allFrRows[i];
+        const cTipe = String(cr[1] || '').toLowerCase();
+        const cSt = String(cr[9] || '').toLowerCase();
+        if (cSt !== 'done' && cSt !== 'validasi by financial' && !cSt.includes('terverifikasi')) continue;
+
+        const cIsMulti = cTipe === 'peminjaman multiguna' || (cTipe.includes('multiguna') && !cTipe.includes('pelunasan'));
+        const cIsTunai = cTipe === 'peminjaman tunai' || (cTipe.includes('pinjaman tunai') && !cTipe.includes('pelunasan'));
+        if (isTargetMultiguna && !cIsMulti) continue;
+        if (!isTargetMultiguna && !cIsTunai) continue;
+
+        const cSplit = splitNikAndUnitKerja(cr[3] || '', cr[10] || '', cr[11] || '');
+        const cNik = cSplit.nik !== '-' ? cSplit.nik.toLowerCase() : '';
+        const cNama = String(cr[2] || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+        if ((targetNikClean && cNik && cNik === targetNikClean) || (targetNameClean && cNama === targetNameClean)) {
+          return candidateRowIdx;
+        }
+      }
+      return -1;
+    }
+
+    let extraActionNote = '';
+    let effectiveNewStatus = newStatus;
+
+    // 1. LOGIKA OTOMATIS SAAT TOPUP PINJAMAN DISETUJUI / SELESAI (DONE):
+    // Data pinjaman lama otomatis tertiban / terupdate dengan pengajuan baru dan tenor baru!
+    if (isTopup && (newStatus === 'Done' || newStatus === 'Lunas')) {
+      effectiveNewStatus = 'Done';
+      const targetOldRow = findTargetOldLoanRowIndex();
+      const baseLoanType = isTargetMultiguna ? 'Peminjaman Multiguna' : 'Peminjaman Tunai';
+      const updatedPlafon = plafonTopupBaru > 0 ? plafonTopupBaru : (parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0);
+      const sisaTransfer = parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      const nowTs = getCurrentTimestamp();
+
+      if (targetOldRow >= 2) {
+        const oldRowData = allFrRows[targetOldRow - 2] || [];
+        const oldPlafon = oldRowData[6] || '0';
+        const oldTenor = oldRowData[7] || '-';
+        const updatedKet = `[TOPUP DARI PINJAMAN LAMA Rp ${Number(String(oldPlafon).replace(/[^0-9]/g, '') || 0).toLocaleString('id-ID')} (${oldTenor} Bln)] Plafon Baru: Rp ${updatedPlafon.toLocaleString('id-ID')} | Tenor Baru: ${tenorBaru} Bln | Pelunasan Sisa Lama: Rp ${jumlahDilunasi.toLocaleString('id-ID')} | Sisa Diterima: Rp ${sisaTransfer.toLocaleString('id-ID')}. ${r[8] || ''}`.trim();
+
+        // Tertiban / Overwrite baris pinjaman lama dengan plafon baru & tenor baru
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `'Form Responses 1'!A${targetOldRow}:L${targetOldRow}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: {
+            values: [[
+              nowTs,
+              baseLoanType,
+              namaKaryawan,
+              parsedNikUnit.combined,
+              String(r[4] || oldRowData[4] || ''),
+              String(r[5] || oldRowData[5] || namaKaryawan),
+              updatedPlafon,
+              tenorBaru,
+              updatedKet,
+              'Done',
+              resolvedNik || '-',
+              resolvedUnit || '-'
+            ]]
+          }
+        });
+        // Tandai baris transaksi Topup sebagai 'Done (Topup Applied)' agar tidak terhitung ganda di Monitoring Pinjaman Aktif
+        effectiveNewStatus = 'Done';
+        extraActionNote = ` Data pinjaman lama (Baris #${targetOldRow}) telah otomatis tertiban/terupdate dengan Plafon Baru Rp ${updatedPlafon.toLocaleString('id-ID')} dan Tenor Baru ${tenorBaru} Bulan.`;
+      } else {
+        extraActionNote = ` Topup Pinjaman aktif dengan Plafon Baru Rp ${updatedPlafon.toLocaleString('id-ID')} dan Tenor Baru ${tenorBaru} Bulan.`;
+      }
+    }
+
+    // 2. LOGIKA OTOMATIS SAAT PELUNASAN PINJAMAN DISETUJUI OLEH ADMIN / KETUA KOPERASI / SELESAI:
+    // Data pinjaman lama dinyatakan LUNAS dan TIDAK DIHAPUS untuk riwayat pinjaman!
+    if (isPelunasan && (newStatus === 'On Process' || newStatus === 'Done' || newStatus === 'Lunas')) {
+      // Jika Admin atau Ketua Koperasi langsung meng-approve Pelunasan, atau Finance menandai selesai, tandai pinjaman lama sebagai 'Lunas'
+      const shouldMarkOldLunas = (newStatus === 'Done' || newStatus === 'Lunas' || isRoleAdmin(userRole) || isRoleKetua(userRole));
+      if (newStatus === 'Done' || newStatus === 'Lunas') {
+        effectiveNewStatus = 'Lunas';
+      }
+      if (shouldMarkOldLunas) {
+        const targetOldRow = findTargetOldLoanRowIndex();
+        if (targetOldRow >= 2) {
+          const oldRowData = allFrRows[targetOldRow - 2] || [];
+          const oldKet = String(oldRowData[8] || '').trim();
+          const lunasStamp = `[LUNAS PER ${getCurrentTimestamp()} - Pelunasan Rp ${Number(String(r[6] || '0').replace(/[^0-9]/g, '') || 0).toLocaleString('id-ID')}]`;
+          const newOldKet = oldKet.includes('[LUNAS') ? oldKet : `${oldKet} ${lunasStamp}`.trim();
+
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'Form Responses 1'!I${targetOldRow}:L${targetOldRow}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+              values: [[newOldKet, 'Lunas', resolvedNik || '-', resolvedUnit || '-']]
+            }
+          });
+          extraActionNote = ` Data pinjaman lama anggota (Baris #${targetOldRow}) telah dinyatakan LUNAS dan tetap tersimpan di Riwayat Pinjaman.`;
+        } else if (oldLoanRef) {
+          // Cek apakah pinjaman berasal dari sheet LoanRequests
+          try {
+            const lrRes = await sheets.spreadsheets.values.get({
+              spreadsheetId: SPREADSHEET_ID,
+              range: "'LoanRequests'!A2:Z"
+            });
+            const lrRows = lrRes.data.values || [];
+            const lrIdx = lrRows.findIndex(lr => String(lr[0] || '') === oldLoanRef || String(lr[1] || '') === oldLoanRef);
+            if (lrIdx !== -1) {
+              await sheets.spreadsheets.values.update({
+                spreadsheetId: SPREADSHEET_ID,
+                range: `'LoanRequests'!Y${lrIdx + 2}`,
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: [['LUNAS']] }
+              });
+              extraActionNote = ` Kontrak pinjaman (${oldLoanRef}) telah dinyatakan LUNAS dan tetap tersimpan di Riwayat Pinjaman.`;
+            }
+          } catch (eLrUpdate) {}
+        }
+      }
+    }
+
     // Update Status (Col J) dan pastikan NIK & Unit Kerja (Col K:L) terintegrasi
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'Form Responses 1'!J${rowIndex}:L${rowIndex}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [[newStatus, resolvedNik || '-', resolvedUnit || '-']]
+        values: [[effectiveNewStatus, resolvedNik || '-', resolvedUnit || '-']]
       }
     });
 
-    const isLoan = tipeForm.toLowerCase().includes('peminjaman') || tipeForm.toLowerCase().includes('pinjaman');
-    const integrationNote = (newStatus === 'Done' && isLoan)
+    const isLoan = tipeLower.includes('peminjaman') || tipeLower.includes('pinjaman');
+    const integrationNote = (effectiveNewStatus === 'Done' && isLoan && !extraActionNote)
       ? ` Data pinjaman telah otomatis terintegrasi dengan NIK anggota (${resolvedNik || namaKaryawan}) pada Monitoring Pinjaman.`
-      : '';
+      : extraActionNote;
 
     return res.json({
       success: true,
-      message: 'Status pengajuan baris ke-' + rowIndex + ' berhasil diperbarui menjadi ' + newStatus + '.' + integrationNote,
+      message: 'Status pengajuan baris ke-' + rowIndex + ' berhasil diperbarui menjadi ' + effectiveNewStatus + '.' + integrationNote,
+      newStatus: effectiveNewStatus,
       integratedNik: resolvedNik || null
     });
   } catch (error) {
@@ -1341,10 +1712,10 @@ app.get('/api/loans/monitoring', async (req, res) => {
       return Math.max(0, Math.min(maxTenor, diffMonths));
     }
 
-    // 2. Ambil data dari 'Form Responses 1' (Pinjaman yang diinput Finance & berstatus Done)
+    // 2. Ambil data dari 'Form Responses 1' (Pinjaman yang diinput Finance & berstatus Done atau Lunas)
     const frRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "'Form Responses 1'!A2:L"
+      range: "'Form Responses 1'!A2:P"
     });
     const frRows = frRes.data.values || [];
 
@@ -1358,8 +1729,13 @@ app.get('/api/loans/monitoring', async (req, res) => {
       const status = String(r[9] || '').trim();
       const statusLower = status.toLowerCase();
 
-      // Hanya ambil pinjaman yang statusnya telah Done (atau tervalidasi resmi)
-      const isDoneStatus = statusLower === 'done' || statusLower === 'validasi by financial' || statusLower.includes('terverifikasi e-materai');
+      // Abaikan baris log pengajuan Pelunasan atau Topup yang sudah meniban baris pinjaman lama (agar tidak duplikat dengan pinjaman induknya)
+      if (tipeLower.includes('pelunasan')) return;
+      if (tipeLower.includes('topup') && r[12] && r[12] !== '-') return;
+
+      // Ambil pinjaman yang statusnya telah Done, Lunas (riwayat pinjaman), atau tervalidasi resmi
+      const isPaidOff = statusLower === 'lunas' || statusLower.includes('lunas');
+      const isDoneStatus = isPaidOff || statusLower === 'done' || statusLower === 'validasi by financial' || statusLower.includes('terverifikasi e-materai');
       if (!isDoneStatus) return;
 
       const isMultiguna = tipeLower === 'peminjaman multiguna' || tipeLower.includes('multiguna');
@@ -1379,7 +1755,11 @@ app.get('/api/loans/monitoring', async (req, res) => {
 
       if (!isMatchedMember(itemNik, rowNama)) return;
 
-      const pokok = parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      let pokok = parseInt(String(r[6] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      if (tipeLower.includes('topup') && r[13]) {
+        const pBaru = parseInt(String(r[13]).replace(/[^0-9]/g, ''), 10) || 0;
+        if (pBaru > 0) pokok = pBaru;
+      }
       if (pokok <= 0) return;
 
       let tenor = parseInt(String(r[7] || '10').replace(/[^0-9]/g, ''), 10) || 10;
@@ -1392,17 +1772,18 @@ app.get('/api/loans/monitoring', async (req, res) => {
 
       if (isMultiguna) {
         const calc = calculateMultigunaLoanDetails(pokok, tenor);
-        const bulanBerjalan = computeElapsedMonths(r[0], calc.tenor);
-        const sudahDibayar = Math.min(calc.totalKewajiban, bulanBerjalan * calc.cicilanNormal);
-        const sisaKewajiban = Math.max(0, calc.totalKewajiban - sudahDibayar);
-        const sisaTenor = Math.max(0, calc.tenor - bulanBerjalan);
-        const progressPersen = Math.round((bulanBerjalan / calc.tenor) * 100);
+        const bulanBerjalan = isPaidOff ? calc.tenor : computeElapsedMonths(r[0], calc.tenor);
+        const sudahDibayar = isPaidOff ? calc.totalKewajiban : Math.min(calc.totalKewajiban, bulanBerjalan * calc.cicilanNormal);
+        const sisaKewajiban = isPaidOff ? 0 : Math.max(0, calc.totalKewajiban - sudahDibayar);
+        const sisaTenor = isPaidOff ? 0 : Math.max(0, calc.tenor - bulanBerjalan);
+        const progressPersen = isPaidOff ? 100 : Math.round((bulanBerjalan / calc.tenor) * 100);
+        const pokokPerBulan = Math.round(calc.pokok / calc.tenor);
 
         multigunaLoans.push({
           monitoringId: `MG-FR-${idx + 2}`,
           rowIndex: idx + 2,
           nomorReferensi: nomorRef,
-          sumberData: 'Input Pengajuan Finance (Done)',
+          sumberData: isPaidOff ? 'Riwayat Pinjaman (Lunas)' : 'Input Pengajuan Finance (Done)',
           tanggalCair: r[0] || '-',
           kategori: 'Pinjaman Multiguna',
           namaAnggota: rowNama,
@@ -1411,6 +1792,7 @@ app.get('/api/loans/monitoring', async (req, res) => {
           noRekening: r[4] || '-',
           atasNamaRekening: r[5] || rowNama,
           pokokPinjaman: calc.pokok,
+          pokokPerBulan,
           plafonMaksimal: 10000000,
           bungaPersen: '20% / Tahun',
           totalBunga: calc.totalBiaya,
@@ -1423,8 +1805,9 @@ app.get('/api/loans/monitoring', async (req, res) => {
           sudahDibayar,
           sisaKewajiban,
           progressPersen,
+          isLunas: isPaidOff || sisaKewajiban <= 0,
           keterangan: ket || 'Pinjaman Multiguna Koperasi',
-          status: status || 'Done',
+          status: isPaidOff ? 'Lunas' : (status || 'Done'),
           jadwal: calc.jadwal
         });
       } else if (isTunai) {
@@ -1435,6 +1818,7 @@ app.get('/api/loans/monitoring', async (req, res) => {
         const totalBunga = Math.round(pokok * rate);
         const totalKewajiban = pokok + totalBunga;
         const cicilanBulanan = Math.round(totalKewajiban / tenor);
+        const pokokPerBulan = Math.round(pokok / tenor);
 
         const jadwal = [];
         let akum = 0;
@@ -1449,17 +1833,17 @@ app.get('/api/loans/monitoring', async (req, res) => {
           }
         }
 
-        const bulanBerjalan = computeElapsedMonths(r[0], tenor);
-        const sudahDibayar = Math.min(totalKewajiban, bulanBerjalan * cicilanBulanan);
-        const sisaKewajiban = Math.max(0, totalKewajiban - sudahDibayar);
-        const sisaTenor = Math.max(0, tenor - bulanBerjalan);
-        const progressPersen = Math.round((bulanBerjalan / tenor) * 100);
+        const bulanBerjalan = isPaidOff ? tenor : computeElapsedMonths(r[0], tenor);
+        const sudahDibayar = isPaidOff ? totalKewajiban : Math.min(totalKewajiban, bulanBerjalan * cicilanBulanan);
+        const sisaKewajiban = isPaidOff ? 0 : Math.max(0, totalKewajiban - sudahDibayar);
+        const sisaTenor = isPaidOff ? 0 : Math.max(0, tenor - bulanBerjalan);
+        const progressPersen = isPaidOff ? 100 : Math.round((bulanBerjalan / tenor) * 100);
 
         tunaiLoans.push({
           monitoringId: `TN-FR-${idx + 2}`,
           rowIndex: idx + 2,
           nomorReferensi: nomorRef,
-          sumberData: 'Input Pengajuan Finance (Done)',
+          sumberData: isPaidOff ? 'Riwayat Pinjaman (Lunas)' : 'Input Pengajuan Finance (Done)',
           tanggalCair: r[0] || '-',
           kategori: 'Pinjaman Tunai',
           namaAnggota: rowNama,
@@ -1468,6 +1852,7 @@ app.get('/api/loans/monitoring', async (req, res) => {
           noRekening: r[4] || '-',
           atasNamaRekening: r[5] || rowNama,
           pokokPinjaman: pokok,
+          pokokPerBulan,
           plafonMaksimal: 50000000,
           bungaPersen: Math.round(rate * 100) + '%',
           totalBunga,
@@ -1480,14 +1865,15 @@ app.get('/api/loans/monitoring', async (req, res) => {
           sudahDibayar,
           sisaKewajiban,
           progressPersen,
+          isLunas: isPaidOff || sisaKewajiban <= 0,
           keterangan: ket || 'Pinjaman Tunai Koperasi',
-          status: status || 'Done',
+          status: isPaidOff ? 'Lunas' : (status || 'Done'),
           jadwal
         });
       }
     });
 
-    // 3. Ambil juga dari 'LoanRequests' untuk Pinjaman Tunai yang sudah tervalidasi/cair (jika belum ada di seenNomorSurat)
+    // 3. Ambil juga dari 'LoanRequests' untuk Pinjaman Tunai yang sudah tervalidasi/cair/lunas (jika belum ada di seenNomorSurat)
     try {
       const lrRes = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -1497,8 +1883,10 @@ app.get('/api/loans/monitoring', async (req, res) => {
       lrRows.forEach(r => {
         const noSurat = String(r[1] || '').trim();
         const stWorkflow = String(r[24] || '').trim().toUpperCase();
-        if (!['VALIDATED_BY_FINANCE', 'VERIFIED_MATERAI', 'READY_FOR_DISBURSEMENT', 'DISBURSED'].includes(stWorkflow)) return;
+        if (!['VALIDATED_BY_FINANCE', 'VERIFIED_MATERAI', 'READY_FOR_DISBURSEMENT', 'DISBURSED', 'LUNAS', 'PAID_OFF'].includes(stWorkflow)) return;
         if (noSurat && seenNomorSurat.has(noSurat.toUpperCase())) return;
+
+        const isPaidOffLr = stWorkflow === 'LUNAS' || stWorkflow === 'PAID_OFF';
 
         const parsed = splitNikAndUnitKerja(r[5] || '', r[5] || '', r[7] || '');
         const itemNik = parsed.nik !== '-' ? parsed.nik : String(r[5] || '').trim();
@@ -1513,6 +1901,7 @@ app.get('/api/loans/monitoring', async (req, res) => {
         const totalKewajiban = parseInt(String(r[16] || '0').replace(/[^0-9]/g, ''), 10) || pokok;
         const totalBunga = Math.max(0, totalKewajiban - pokok);
         const cicilanBulanan = parseInt(String(r[17] || '0').replace(/[^0-9]/g, ''), 10) || Math.round(totalKewajiban / tenor);
+        const pokokPerBulan = Math.round(pokok / tenor);
 
         const jadwal = [];
         let akum = 0;
@@ -1527,17 +1916,17 @@ app.get('/api/loans/monitoring', async (req, res) => {
           }
         }
 
-        const bulanBerjalan = computeElapsedMonths(r[2] || r[3], tenor);
-        const sudahDibayar = Math.min(totalKewajiban, bulanBerjalan * cicilanBulanan);
-        const sisaKewajiban = Math.max(0, totalKewajiban - sudahDibayar);
-        const sisaTenor = Math.max(0, tenor - bulanBerjalan);
-        const progressPersen = Math.round((bulanBerjalan / tenor) * 100);
+        const bulanBerjalan = isPaidOffLr ? tenor : computeElapsedMonths(r[2] || r[3], tenor);
+        const sudahDibayar = isPaidOffLr ? totalKewajiban : Math.min(totalKewajiban, bulanBerjalan * cicilanBulanan);
+        const sisaKewajiban = isPaidOffLr ? 0 : Math.max(0, totalKewajiban - sudahDibayar);
+        const sisaTenor = isPaidOffLr ? 0 : Math.max(0, tenor - bulanBerjalan);
+        const progressPersen = isPaidOffLr ? 100 : Math.round((bulanBerjalan / tenor) * 100);
 
         tunaiLoans.push({
           monitoringId: r[0] || `TN-LR-${noSurat}`,
           loanId: r[0] || '',
           nomorReferensi: noSurat || r[0],
-          sumberData: 'Formulir Kredit Tunai Resmi',
+          sumberData: isPaidOffLr ? 'Formulir Kredit Tunai Resmi (Lunas)' : 'Formulir Kredit Tunai Resmi',
           tanggalCair: r[2] || r[3] || '-',
           kategori: 'Pinjaman Tunai',
           namaAnggota: itemNama,
@@ -1546,6 +1935,7 @@ app.get('/api/loans/monitoring', async (req, res) => {
           noRekening: r[21] || '-',
           atasNamaRekening: r[22] || itemNama,
           pokokPinjaman: pokok,
+          pokokPerBulan,
           plafonMaksimal: 50000000,
           bungaPersen: persenStr,
           totalBunga,
@@ -1558,8 +1948,9 @@ app.get('/api/loans/monitoring', async (req, res) => {
           sudahDibayar,
           sisaKewajiban,
           progressPersen,
+          isLunas: isPaidOffLr || sisaKewajiban <= 0,
           keterangan: r[12] || 'Pinjaman Tunai Koperasi',
-          status: stWorkflow === 'DISBURSED' ? 'Done (Dicairkan)' : 'Tervalidasi (Aktif)',
+          status: isPaidOffLr ? 'Lunas' : (stWorkflow === 'DISBURSED' ? 'Done (Dicairkan)' : 'Tervalidasi (Aktif)'),
           jadwal
         });
       });
@@ -1571,22 +1962,29 @@ app.get('/api/loans/monitoring', async (req, res) => {
     multigunaLoans.reverse();
     tunaiLoans.reverse();
 
+    const activeMulti = multigunaLoans.filter(x => !x.isLunas && String(x.status || '').toLowerCase() !== 'lunas');
+    const activeTunai = tunaiLoans.filter(x => !x.isLunas && String(x.status || '').toLowerCase() !== 'lunas');
+
     const summary = {
       multiguna: {
-        count: multigunaLoans.length,
-        totalPokok: multigunaLoans.reduce((acc, x) => acc + x.pokokPinjaman, 0),
-        totalBunga: multigunaLoans.reduce((acc, x) => acc + x.totalBunga, 0),
-        totalKewajiban: multigunaLoans.reduce((acc, x) => acc + x.totalKewajiban, 0),
-        totalCicilanBulanan: multigunaLoans.reduce((acc, x) => acc + x.cicilanBulanan, 0),
-        totalSisaKewajiban: multigunaLoans.reduce((acc, x) => acc + x.sisaKewajiban, 0)
+        count: activeMulti.length,
+        totalHistoryCount: multigunaLoans.length,
+        lunasCount: multigunaLoans.length - activeMulti.length,
+        totalPokok: activeMulti.reduce((acc, x) => acc + x.pokokPinjaman, 0),
+        totalBunga: activeMulti.reduce((acc, x) => acc + x.totalBunga, 0),
+        totalKewajiban: activeMulti.reduce((acc, x) => acc + x.totalKewajiban, 0),
+        totalCicilanBulanan: activeMulti.reduce((acc, x) => acc + x.cicilanBulanan, 0),
+        totalSisaKewajiban: activeMulti.reduce((acc, x) => acc + x.sisaKewajiban, 0)
       },
       tunai: {
-        count: tunaiLoans.length,
-        totalPokok: tunaiLoans.reduce((acc, x) => acc + x.pokokPinjaman, 0),
-        totalBunga: tunaiLoans.reduce((acc, x) => acc + x.totalBunga, 0),
-        totalKewajiban: tunaiLoans.reduce((acc, x) => acc + x.totalKewajiban, 0),
-        totalCicilanBulanan: tunaiLoans.reduce((acc, x) => acc + x.cicilanBulanan, 0),
-        totalSisaKewajiban: tunaiLoans.reduce((acc, x) => acc + x.sisaKewajiban, 0)
+        count: activeTunai.length,
+        totalHistoryCount: tunaiLoans.length,
+        lunasCount: tunaiLoans.length - activeTunai.length,
+        totalPokok: activeTunai.reduce((acc, x) => acc + x.pokokPinjaman, 0),
+        totalBunga: activeTunai.reduce((acc, x) => acc + x.totalBunga, 0),
+        totalKewajiban: activeTunai.reduce((acc, x) => acc + x.totalKewajiban, 0),
+        totalCicilanBulanan: activeTunai.reduce((acc, x) => acc + x.cicilanBulanan, 0),
+        totalSisaKewajiban: activeTunai.reduce((acc, x) => acc + x.sisaKewajiban, 0)
       }
     };
 
