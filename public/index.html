@@ -2525,9 +2525,19 @@
               </button>
             </div>
 
-            <div class="relative w-full sm:w-64">
-              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-              <input type="text" id="searchLoanMonitoringInput" oninput="renderLoanMonitoringActiveTab()" placeholder="Cari NIK, Nama, Unit, Keperluan..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 w-full sm:w-auto">
+              <div class="flex items-center gap-2">
+                <label for="selectLoanMonitoringPageSizeTop" class="text-[11px] font-bold text-slate-500 whitespace-nowrap">Tampilkan:</label>
+                <select id="selectLoanMonitoringPageSizeTop" onchange="setLoanMonitoringPageSize(this.value)" class="px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="20" selected>20 Data</option>
+                  <option value="30">30 Data</option>
+                  <option value="50">50 Data</option>
+                </select>
+              </div>
+              <div class="relative w-full sm:w-64">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                <input type="text" id="searchLoanMonitoringInput" oninput="onSearchLoanMonitoringInput()" placeholder="Cari NIK, Nama, Unit, Keperluan..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
             </div>
           </div>
 
@@ -2567,6 +2577,22 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination Monitoring Pinjaman (Muncul otomatis jika list pinjaman > 20) -->
+          <div id="loanMonitoringPaginationBar" class="hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 px-1">
+            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+              <span id="loanMonitoringPageInfo" class="font-semibold text-slate-700">Menampilkan 1–20 dari 0 pinjaman</span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] text-slate-500">Baris per halaman:</span>
+                <select id="selectLoanMonitoringPageSizeBottom" onchange="setLoanMonitoringPageSize(this.value)" class="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="20" selected>20</option>
+                  <option value="30">30</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+            </div>
+            <div id="loanMonitoringPageButtons" class="flex flex-wrap items-center gap-1.5"></div>
           </div>
         </div>
 
@@ -9766,6 +9792,8 @@ async function triggerRunAutoInputScheduler() {
 let currentSimCategory = 'TUNAI'; // 'TUNAI' | 'MULTIGUNA'
 let currentMonitoringTab = 'MULTIGUNA'; // 'MULTIGUNA' | 'TUNAI'
 let currentMonitoringScope = 'self'; // 'self' | 'all'
+let currentMonitoringPage = 1;
+let currentMonitoringPageSize = 20; // Default 20 data, pilihan: 20, 30, 50
 let loanMonitoringData = {
   multigunaLoans: [],
   tunaiLoans: [],
@@ -9818,6 +9846,7 @@ function refreshLoanData() {
 
 function setLoanMonitoringScope(scope) {
   currentMonitoringScope = scope === 'all' ? 'all' : 'self';
+  currentMonitoringPage = 1;
   const btnSelf = document.getElementById('btnScopeSelf');
   const btnAll = document.getElementById('btnScopeAll');
   if (btnSelf && btnAll) {
@@ -9830,6 +9859,27 @@ function setLoanMonitoringScope(scope) {
     }
   }
   fetchLoanMonitoringData();
+}
+
+function onSearchLoanMonitoringInput() {
+  currentMonitoringPage = 1;
+  renderLoanMonitoringActiveTab();
+}
+
+function setLoanMonitoringPageSize(sizeVal) {
+  const parsed = parseInt(sizeVal, 10);
+  currentMonitoringPageSize = [20, 30, 50].includes(parsed) ? parsed : 20;
+  currentMonitoringPage = 1;
+  const selTop = document.getElementById('selectLoanMonitoringPageSizeTop');
+  const selBottom = document.getElementById('selectLoanMonitoringPageSizeBottom');
+  if (selTop) selTop.value = String(currentMonitoringPageSize);
+  if (selBottom) selBottom.value = String(currentMonitoringPageSize);
+  renderLoanMonitoringActiveTab();
+}
+
+function goToLoanMonitoringPage(page) {
+  currentMonitoringPage = Math.max(1, parseInt(page, 10) || 1);
+  renderLoanMonitoringActiveTab();
 }
 
 async function fetchLoanMonitoringData() {
@@ -9916,6 +9966,7 @@ function updateLoanMonitoringSummaryCards() {
 
 function switchLoanMonitoringTab(tab) {
   currentMonitoringTab = tab === 'TUNAI' ? 'TUNAI' : 'MULTIGUNA';
+  currentMonitoringPage = 1;
 
   const btnM = document.getElementById('tabBtnMonMultiguna');
   const btnT = document.getElementById('tabBtnMonTunai');
@@ -9939,11 +9990,15 @@ function switchLoanMonitoringTab(tab) {
 
 function renderLoanMonitoringActiveTab() {
   const tbody = document.getElementById('tbodyLoanMonitoring');
+  const paginationBar = document.getElementById('loanMonitoringPaginationBar');
+  const pageInfoEl = document.getElementById('loanMonitoringPageInfo');
+  const pageButtonsEl = document.getElementById('loanMonitoringPageButtons');
   if (!tbody) return;
 
   const sourceList = currentMonitoringTab === 'MULTIGUNA'
     ? (loanMonitoringData.multigunaLoans || [])
     : (loanMonitoringData.tunaiLoans || []);
+  const labelKat = currentMonitoringTab === 'MULTIGUNA' ? 'Pinjaman Multiguna' : 'Pinjaman Tunai';
 
   const q = String(document.getElementById('searchLoanMonitoringInput')?.value || '').trim().toLowerCase();
   const filtered = sourceList.filter(item => {
@@ -9959,7 +10014,7 @@ function renderLoanMonitoringActiveTab() {
   });
 
   if (filtered.length === 0) {
-    const labelKat = currentMonitoringTab === 'MULTIGUNA' ? 'Pinjaman Multiguna' : 'Pinjaman Tunai';
+    if (paginationBar) paginationBar.classList.add('hidden');
     tbody.innerHTML = `
       <tr>
         <td colspan="8" class="py-10 text-center text-slate-400">
@@ -9975,7 +10030,18 @@ function renderLoanMonitoringActiveTab() {
     return;
   }
 
-  tbody.innerHTML = filtered.map(item => {
+  // Kalkulasi Pagination (Default 20 data, pilihan 20, 30, 50)
+  const pageSize = [20, 30, 50].includes(Number(currentMonitoringPageSize)) ? Number(currentMonitoringPageSize) : 20;
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  if (currentMonitoringPage > totalPages) currentMonitoringPage = totalPages;
+  if (currentMonitoringPage < 1) currentMonitoringPage = 1;
+
+  const startIdx = (currentMonitoringPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, totalItems);
+  const paginatedList = filtered.slice(startIdx, endIdx);
+
+  tbody.innerHTML = paginatedList.map(item => {
     const itemNama = item.namaAnggota || item.nama || '-';
     const itemTanggal = item.tanggalCair || item.tanggalPengajuan || '-';
     const itemBungaPct = item.bungaPersen || item.bungaPersenTotal || '';
@@ -10042,6 +10108,61 @@ function renderLoanMonitoringActiveTab() {
       </tr>
     `;
   }).join('');
+
+  // Tampilkan bar pagination jika list pinjaman lebih dari 20 data
+  if (paginationBar) {
+    if (totalItems > 20) {
+      paginationBar.classList.remove('hidden');
+      if (pageInfoEl) {
+        pageInfoEl.innerText = `Menampilkan ${startIdx + 1}–${endIdx} dari ${totalItems} data ${labelKat}`;
+      }
+      if (pageButtonsEl) {
+        const pages = [];
+        for (let p = 1; p <= totalPages; p++) {
+          if (p === 1 || p === totalPages || (p >= currentMonitoringPage - 2 && p <= currentMonitoringPage + 2)) {
+            pages.push(p);
+          } else if (pages[pages.length - 1] !== '...') {
+            pages.push('...');
+          }
+        }
+
+        const prevDisabled = currentMonitoringPage <= 1;
+        const nextDisabled = currentMonitoringPage >= totalPages;
+        const activeThemeClass = currentMonitoringTab === 'MULTIGUNA'
+          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+          : 'bg-indigo-600 text-white border-indigo-600 shadow-sm';
+
+        let btnsHtml = `
+          <button type="button" onclick="goToLoanMonitoringPage(${currentMonitoringPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border text-xs font-bold transition ${prevDisabled ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}">
+            &laquo; Prev
+          </button>
+        `;
+
+        pages.forEach(p => {
+          if (p === '...') {
+            btnsHtml += `<span class="px-2 py-1 text-xs font-bold text-slate-400">...</span>`;
+          } else {
+            const isActive = p === currentMonitoringPage;
+            btnsHtml += `
+              <button type="button" onclick="goToLoanMonitoringPage(${p})" class="min-w-[32px] px-2.5 py-1.5 rounded-lg border text-xs font-extrabold transition ${isActive ? activeThemeClass : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}">
+                ${p}
+              </button>
+            `;
+          }
+        });
+
+        btnsHtml += `
+          <button type="button" onclick="goToLoanMonitoringPage(${currentMonitoringPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg border text-xs font-bold transition ${nextDisabled ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}">
+            Next &raquo;
+          </button>
+        `;
+
+        pageButtonsEl.innerHTML = btnsHtml;
+      }
+    } else {
+      paginationBar.classList.add('hidden');
+    }
+  }
 
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
