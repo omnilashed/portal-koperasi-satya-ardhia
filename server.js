@@ -755,7 +755,7 @@ function calculateMultigunaLoanDetails(pokokInput, tenorInput) {
   const pokok = parseInt(String(pokokInput || '0').replace(/[^0-9]/g, ''), 10) || 0;
   let tenor = parseInt(String(tenorInput || '10').replace(/[^0-9]/g, ''), 10) || 10;
   if (tenor < 1) tenor = 1;
-  if (tenor > 12) tenor = 12;
+  if (tenor > 10) tenor = 10;
 
   const rateTahunan = 0.20; // 20% per tahun
   const totalBiaya = Math.round(pokok * rateTahunan);
@@ -1107,10 +1107,10 @@ app.post('/api/pengajuan', async (req, res) => {
           message: 'Plafon Pinjaman Multiguna maksimal adalah Rp 10.000.000 (dengan bunga 20% per tahun).'
         });
       }
-      if (tenorNum < 1 || tenorNum > 12) {
+      if (tenorNum < 1 || tenorNum > 10) {
         return res.status(400).json({
           success: false,
-          message: 'Tenor Pinjaman Multiguna maksimal adalah 12 bulan (1 s/d 12 kali cicilan).'
+          message: 'Tenor Pinjaman Multiguna maksimal adalah 10 bulan (1 s/d 10 kali cicilan).'
         });
       }
     }
@@ -1141,23 +1141,23 @@ app.post('/api/pengajuan', async (req, res) => {
             message: 'Plafon Topup Pinjaman Multiguna maksimal adalah Rp 10.000.000.'
           });
         }
-        if (tenorNum < 1 || tenorNum > 12) {
+        if (tenorNum < 1 || tenorNum > 10) {
           return res.status(400).json({
             success: false,
-            message: 'Tenor baru Topup Pinjaman Multiguna maksimal adalah 12 bulan (1 s/d 12 kali cicilan).'
+            message: 'Tenor baru Topup Pinjaman Multiguna maksimal adalah 10 bulan (1 s/d 10 kali cicilan).'
           });
         }
       } else if (isTopupTunai) {
-        if (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 50000000) {
+        if (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 70000000) {
           return res.status(400).json({
             success: false,
-            message: 'Plafon Topup Pinjaman Tunai harus di antara Rp 1 s/d Rp 50.000.000.'
+            message: 'Plafon Topup Pinjaman Tunai harus di antara Rp 1 s/d Rp 70.000.000.'
           });
         }
-        if (tenorNum < 1 || tenorNum > 60) {
+        if (tenorNum < 1 || tenorNum > 120) {
           return res.status(400).json({
             success: false,
-            message: 'Tenor baru Topup Pinjaman Tunai wajib diisi (maksimal 60 bulan).'
+            message: 'Tenor baru Topup Pinjaman Tunai wajib diisi (maksimal 120 bulan).'
           });
         }
       }
@@ -1798,7 +1798,7 @@ app.get('/api/loans/monitoring', async (req, res) => {
           totalBunga: calc.totalBiaya,
           totalKewajiban: calc.totalKewajiban,
           tenorBulan: calc.tenor,
-          tenorMaksimal: 12,
+          tenorMaksimal: 10,
           cicilanBulanan: calc.cicilanNormal,
           bulanBerjalan,
           sisaTenor,
@@ -1853,12 +1853,12 @@ app.get('/api/loans/monitoring', async (req, res) => {
           atasNamaRekening: r[5] || rowNama,
           pokokPinjaman: pokok,
           pokokPerBulan,
-          plafonMaksimal: 50000000,
+          plafonMaksimal: 70000000,
           bungaPersen: Math.round(rate * 100) + '%',
           totalBunga,
           totalKewajiban,
           tenorBulan: tenor,
-          tenorMaksimal: 60,
+          tenorMaksimal: 120,
           cicilanBulanan,
           bulanBerjalan,
           sisaTenor,
@@ -1936,12 +1936,12 @@ app.get('/api/loans/monitoring', async (req, res) => {
           atasNamaRekening: r[22] || itemNama,
           pokokPinjaman: pokok,
           pokokPerBulan,
-          plafonMaksimal: 50000000,
+          plafonMaksimal: 70000000,
           bungaPersen: persenStr,
           totalBunga,
           totalKewajiban,
           tenorBulan: tenor,
-          tenorMaksimal: 60,
+          tenorMaksimal: 120,
           cicilanBulanan,
           bulanBerjalan,
           sisaTenor,
@@ -3737,17 +3737,17 @@ function calculateLoanSchedule(plafon, tenor) {
   const p = parseInt(plafon, 10);
   const t = parseInt(tenor, 10);
 
-  if (isNaN(p) || p < 10000000 || p > 50000000 || p % 1000000 !== 0) {
-    throw new Error('Plafon pinjaman harus antara Rp 10.000.000 s/d Rp 50.000.000 dengan kelipatan Rp 1.000.000');
+  if (isNaN(p) || p < 10000000 || p > 70000000 || p % 1000000 !== 0) {
+    throw new Error('Plafon pinjaman harus antara Rp 10.000.000 s/d Rp 70.000.000 dengan kelipatan Rp 1.000.000');
   }
 
-  const validTenors = p <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
+  const validTenors = p <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60, 72, 84, 96, 120];
   if (!validTenors.includes(t)) {
     throw new Error('Tenor ' + t + ' bulan tidak tersedia untuk plafon Rp ' + p.toLocaleString('id-ID'));
   }
 
-  const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
-  const rate = rateMap[t];
+  const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70, 72: 0.84, 84: 0.98, 96: 1.12, 108: 1.26, 120: 1.40 };
+  const rate = rateMap[t] !== undefined ? rateMap[t] : (0.14 * (t / 12));
   const totalBiaya = Math.round(p * rate);
   const totalKewajiban = p + totalBiaya;
   const cicilanNormal = Math.round(totalKewajiban / t);

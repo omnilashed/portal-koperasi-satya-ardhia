@@ -575,10 +575,10 @@
                 <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Tipe Formulir <span class="text-red-500">*</span></label>
                 <select name="tipeFormulir" id="formTipeSelect" onchange="toggleCustomTipe(this.value)" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
                   <option value="Pencairan Simpanan Sukarela">Pencairan Simpanan Sukarela</option>
-                  <option value="Peminjaman Multiguna">Peminjaman Multiguna (Maks. 10 Jt · Bunga 20%/Thn · Maks. 12 Bln)</option>
-                  <option value="Peminjaman Tunai">Peminjaman Tunai (Plafon s/d 50 Jt · Bunga Tabel SA)</option>
-                  <option value="Topup Pinjaman Multiguna">Topup Pinjaman Multiguna (Maks. 10 Jt · Bunga 20% · Tanpa Admin 2,5%)</option>
-                  <option value="Topup Pinjaman Tunai">Topup Pinjaman Tunai (Sisa x Pokok + Admin 2,5%)</option>
+                  <option value="Peminjaman Multiguna">Peminjaman Multiguna (Maks. 10 Jt · Bunga 20%/Thn · Maks. 10 Bln)</option>
+                  <option value="Peminjaman Tunai">Peminjaman Tunai (Plafon s/d 70 Jt · Bunga Tabel SA · Tenor s/d 120 Bln)</option>
+                  <option value="Topup Pinjaman Multiguna">Topup Pinjaman Multiguna (Maks. 10 Jt · Bunga 20% · Maks. 10 Bln · Tanpa Admin 2,5%)</option>
+                  <option value="Topup Pinjaman Tunai">Topup Pinjaman Tunai (Plafon s/d 70 Jt · Tenor s/d 120 Bln · Admin 2,5%)</option>
                   <option value="Pelunasan Pinjaman Tunai Anggota">Pelunasan Pinjaman Tunai Anggota (Pokok x Sisa Tenor + Admin 2,5%)</option>
                   <option value="Pelunasan Pinjaman Multiguna Anggota">Pelunasan Pinjaman Multiguna Anggota ((Pokok + 20%) x Sisa Tenor)</option>
                   <option value="Pengajuan Anggaran Unit">Pengajuan Anggaran Unit</option>
@@ -635,99 +635,123 @@
                       <h4 id="tpPanelTitle" class="font-extrabold text-slate-900 text-sm">Kalkulasi Otomatis Topup Pinjaman Tunai</h4>
                       <span id="tpPanelBadgeRule" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">Biaya Admin 2,5%</span>
                     </div>
-                    <p id="tpPanelSubtitle" class="text-[11px] text-slate-500">Otomatis mengambil data pinjaman terakhir anggota &amp; menghitung jumlah yang harus dilunasi.</p>
+                    <p id="tpPanelSubtitle" class="text-[11px] text-slate-500">Perhitungan simulasi otomatis dari sistem (Opsional · Bisa disembunyikan / ditampilkan).</p>
                   </div>
                 </div>
-                <button type="button" onclick="autoLookupLastLoanForForm(true)" class="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition inline-flex items-center gap-1.5 self-start sm:self-auto shadow-2xs">
-                  <i data-lucide="search-check" class="w-3.5 h-3.5"></i>
-                  <span>Ambil Pinjaman Terakhir</span>
-                </button>
-              </div>
-
-              <!-- Info Pinjaman Terakhir yang Terdeteksi -->
-              <div id="tpLastLoanInfoBanner" class="p-3 rounded-xl bg-slate-100/90 border border-slate-200 text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                  <i data-lucide="history" class="w-4 h-4 text-indigo-600 shrink-0"></i>
-                  <span id="tpLastLoanInfoText">Pilih anggota atau ketik NIK/Nama untuk mengambil data pinjaman terakhir secara otomatis, atau isi angka di bawah.</span>
-                </div>
-                <input type="hidden" id="inputTpOldLoanRef" value="">
-              </div>
-
-              <!-- Input Parameter Perhitungan (Sisa Angsuran, Pokok Pinjaman, & Plafon Topup Baru) -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div>
-                  <label class="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">
-                    Sisa Angsuran / Sisa Tenor <span class="text-red-500">*</span>
-                  </label>
-                  <div class="relative">
-                    <input type="number" id="inputTpSisaAngsuran" min="1" max="180" step="1" placeholder="Contoh: 27 atau 8" oninput="recalculateTopupOrPelunasanForm()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-extrabold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <span class="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">Bulan</span>
-                  </div>
-                  <p class="text-[10px] text-slate-500 mt-1">Sisa kali angsuran dari pinjaman sebelumnya.</p>
-                </div>
-
-                <div>
-                  <label class="block text-[11px] font-extrabold text-slate-700 uppercase mb-1">
-                    Pokok Pinjaman (Per Bln) <span class="text-red-500">*</span>
-                  </label>
-                  <input type="number" id="inputTpPokokPinjaman" min="0" step="any" placeholder="Contoh: 833400 / 1000000" oninput="recalculateTopupOrPelunasanForm()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-extrabold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <p id="hintTpPokokPinjaman" class="text-[10px] text-slate-500 mt-1">Pokok angsuran pinjaman lama (Rp).</p>
-                </div>
-
-                <div id="wrapTpPlafonBaru">
-                  <label class="block text-[11px] font-extrabold text-indigo-800 uppercase mb-1">
-                    Topup / Pinjaman Baru (Rp) <span class="text-red-500">*</span>
-                  </label>
-                  <input type="number" id="inputTpPlafonBaru" min="0" step="any" placeholder="Contoh: 30000000 / 10000000" oninput="recalculateTopupOrPelunasanForm()" class="w-full px-3 py-2 rounded-xl border-2 border-indigo-300 text-sm font-black text-indigo-900 bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-                  <p id="hintTpPlafonBaru" class="text-[10px] text-indigo-600 font-semibold mt-1">Jumlah pengajuan Topup baru yang diinginkan.</p>
+                <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                  <button type="button" onclick="toggleFormSimulasiBox()" id="btnToggleFormSimulasi" class="px-3 py-1.5 rounded-xl bg-indigo-100/90 hover:bg-indigo-200 text-indigo-800 border border-indigo-200 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-2xs">
+                    <i id="iconToggleFormSimulasi" data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+                    <span id="textToggleFormSimulasi">Sembunyikan Simulasi</span>
+                  </button>
+                  <button type="button" onclick="autoLookupLastLoanForForm(true)" class="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-2xs">
+                    <i data-lucide="search-check" class="w-3.5 h-3.5"></i>
+                    <span>Cari Otomatis Pinjaman</span>
+                  </button>
                 </div>
               </div>
 
-              <!-- Tabel Rincian Perhitungan Persis Format Excel Koperasi -->
-              <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-                <div class="bg-slate-800 text-white px-4 py-2 text-xs font-extrabold flex items-center justify-between">
-                  <span id="tpTableHeaderTitle">RINCIAN HITUNGAN TOP UP / PELUNASAN</span>
-                  <span id="tpTableHeaderFormula" class="text-[10px] font-mono text-emerald-300 font-normal">Sisa Angsuran × Pokok + Admin 2,5%</span>
-                </div>
-                <div class="divide-y divide-slate-100 text-xs">
-                  <div class="px-4 py-2 flex items-center justify-between">
-                    <span class="text-slate-600 font-medium">Sisa Angsuran (Sisa Tenor)</span>
-                    <span id="tpRowSisaAngsuran" class="font-mono font-bold text-slate-900">0 Bulan</span>
+              <!-- WRAPPER CONTENT PERHITUNGAN SIMULASI (BISA DI-HIDE / SHOW) -->
+              <div id="wrapFormSimulasiContent" class="space-y-4">
+                <!-- Info Pinjaman Terakhir yang Terdeteksi / Input Manual -->
+                <div id="tpLastLoanInfoBanner" class="p-3.5 rounded-xl bg-slate-100/90 border border-slate-200 text-xs text-slate-700 space-y-2.5">
+                  <div class="flex items-start gap-2">
+                    <i data-lucide="history" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+                    <span id="tpLastLoanInfoText">Ketik NIK/Nama di atas atau isi langsung angka pinjaman terakhir anggota di bawah ini secara manual:</span>
                   </div>
-                  <div class="px-4 py-2 flex items-center justify-between">
-                    <span class="text-slate-600 font-medium">Pokok Pinjaman</span>
-                    <span id="tpRowPokokPinjaman" class="font-mono font-bold text-slate-900">Rp 0</span>
-                  </div>
-                  <!-- Khusus Multiguna: Baris 20% dari Pokok Pinjaman -->
-                  <div id="tpRowWrapBunga20Multi" class="hidden px-4 py-2 flex items-center justify-between bg-amber-50/60">
-                    <span class="text-amber-900 font-semibold">Tambahan Bunga 20% dari Pokok Pinjaman</span>
-                    <span id="tpRowBunga20Multi" class="font-mono font-bold text-amber-800">Rp 0</span>
-                  </div>
-                  <!-- Khusus Tunai: Baris Hasil Kali & Biaya Admin 2,5% -->
-                  <div id="tpRowWrapHasilKaliTunai" class="px-4 py-2 flex items-center justify-between bg-slate-50/70">
-                    <span class="text-slate-700 font-semibold">Hasil Kali (Sisa Angsuran × Pokok Pinjaman)</span>
-                    <span id="tpRowHasilKali" class="font-mono font-bold text-slate-900">Rp 0</span>
-                  </div>
-                  <div id="tpRowWrapAdminTunai" class="px-4 py-2 flex items-center justify-between bg-slate-50/70">
-                    <span class="text-slate-700 font-semibold">Biaya Admin 2,5% (2,5% × Hasil Kali)</span>
-                    <span id="tpRowBiayaAdmin" class="font-mono font-bold text-amber-700">Rp 0</span>
-                  </div>
-                  <!-- Jumlah Harus Dilunasi -->
-                  <div class="px-4 py-2.5 flex items-center justify-between bg-rose-50/70 border-t border-rose-200">
-                    <span class="font-extrabold text-rose-900 uppercase" id="tpLabelJumlahDilunasi">Jumlah yang Harus Dilunasi</span>
-                    <span id="tpRowJumlahDilunasi" class="font-mono font-black text-sm text-rose-700">Rp 0</span>
-                  </div>
-                  <!-- Khusus Topup: Baris Topup Baru & Sisa Diterima -->
-                  <div id="tpRowWrapTopupBaru" class="px-4 py-2 flex items-center justify-between bg-indigo-50/50">
-                    <span class="font-bold text-indigo-900">Top Up / Pinjaman Baru yang Diajukan</span>
-                    <span id="tpRowTopupBaru" class="font-mono font-extrabold text-indigo-800">Rp 0</span>
-                  </div>
-                  <div id="tpRowWrapSisaDiterima" class="px-4 py-3 flex items-center justify-between bg-emerald-100/80 border-t-2 border-emerald-300">
-                    <div>
-                      <span class="font-black text-emerald-950 uppercase block">Sisa Diterima / Biaya yang Ditransfer</span>
-                      <span class="text-[10px] text-emerald-800 font-semibold">Otomatis meniban data pinjaman lama dengan plafon &amp; tenor baru saat Done</span>
+
+                  <!-- Baris Input Manual Data Pinjaman Terakhir -->
+                  <div class="pt-2 border-t border-slate-200/80">
+                    <p class="text-[11px] font-bold text-slate-800 mb-2">Input Manual Data Pinjaman Terakhir (Jika Tidak Ditemukan Otomatis):</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                      <div>
+                        <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Total Pinjaman Lama (Rp)</label>
+                        <input type="number" id="inputTpPinjamanTerakhir" min="0" step="any" placeholder="Misal: 30000000" oninput="onManualPinjamanTerakhirChange()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      </div>
+                      <div>
+                        <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Tenor Lama (Bulan)</label>
+                        <input type="number" id="inputTpTenorTerakhir" min="1" max="180" step="1" placeholder="Misal: 36" oninput="onManualPinjamanTerakhirChange()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      </div>
+                      <div>
+                        <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Pokok Pinjaman/Bln (Rp) <span class="text-red-500">*</span></label>
+                        <input type="number" id="inputTpPokokPinjaman" min="0" step="any" placeholder="Misal: 833333" oninput="recalculateTopupOrPelunasanForm()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      </div>
+                      <div>
+                        <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Sisa Angsuran (Bulan) <span class="text-red-500">*</span></label>
+                        <input type="number" id="inputTpSisaAngsuran" min="1" max="180" step="1" placeholder="Misal: 27" oninput="recalculateTopupOrPelunasanForm()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      </div>
                     </div>
-                    <span id="tpRowSisaDiterima" class="font-mono font-black text-base text-emerald-800">Rp 0</span>
+                    <div class="mt-2">
+                      <label class="block text-[10px] font-bold text-slate-700 uppercase mb-0.5">Nomor Referensi / Kontrak Pinjaman Lama (Opsional)</label>
+                      <input type="text" id="inputTpOldLoanRef" placeholder="Contoh: 085/SK.SIMPIN/X/2026 atau FR-12 (opsional)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Input Parameter Pengajuan Topup Baru -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div id="wrapTpPlafonBaru">
+                    <label class="block text-[11px] font-extrabold text-indigo-800 uppercase mb-1">
+                      Topup / Pinjaman Baru yang Diajukan (Rp) <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" id="inputTpPlafonBaru" min="0" step="any" placeholder="Contoh: 30000000 / 10000000" oninput="recalculateTopupOrPelunasanForm()" class="w-full px-3 py-2 rounded-xl border-2 border-indigo-300 text-sm font-black text-indigo-900 bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+                    <p id="hintTpPlafonBaru" class="text-[10px] text-indigo-600 font-semibold mt-1">Jumlah pengajuan Topup baru yang diinginkan.</p>
+                  </div>
+                  <div class="flex items-center text-xs text-slate-600 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                    <span>💡 Nilai sisa yang diterima dihitung otomatis dari sistem sebagai panduan simulasi. Finance <b>tetap bebas menginput/mengubah nominal transfer manual di bawah</b>.</span>
+                  </div>
+                </div>
+
+                <!-- Tabel Rincian Perhitungan Persis Format Excel Koperasi -->
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                  <div class="bg-slate-800 text-white px-4 py-2 text-xs font-extrabold flex items-center justify-between">
+                    <span id="tpTableHeaderTitle">RINCIAN HITUNGAN TOP UP / PELUNASAN</span>
+                    <span id="tpTableHeaderFormula" class="text-[10px] font-mono text-emerald-300 font-normal">Sisa Angsuran × Pokok + Admin 2,5%</span>
+                  </div>
+                  <div class="divide-y divide-slate-100 text-xs">
+                    <div class="px-4 py-2 flex items-center justify-between">
+                      <span class="text-slate-600 font-medium">Sisa Angsuran (Sisa Tenor)</span>
+                      <span id="tpRowSisaAngsuran" class="font-mono font-bold text-slate-900">0 Bulan</span>
+                    </div>
+                    <div class="px-4 py-2 flex items-center justify-between">
+                      <span class="text-slate-600 font-medium">Pokok Pinjaman</span>
+                      <span id="tpRowPokokPinjaman" class="font-mono font-bold text-slate-900">Rp 0</span>
+                    </div>
+                    <!-- Khusus Multiguna: Baris 20% dari Pokok Pinjaman -->
+                    <div id="tpRowWrapBunga20Multi" class="hidden px-4 py-2 flex items-center justify-between bg-amber-50/60">
+                      <span class="text-amber-900 font-semibold">Tambahan Bunga 20% dari Pokok Pinjaman</span>
+                      <span id="tpRowBunga20Multi" class="font-mono font-bold text-amber-800">Rp 0</span>
+                    </div>
+                    <!-- Khusus Tunai: Baris Hasil Kali & Biaya Admin 2,5% -->
+                    <div id="tpRowWrapHasilKaliTunai" class="px-4 py-2 flex items-center justify-between bg-slate-50/70">
+                      <span class="text-slate-700 font-semibold">Hasil Kali (Sisa Angsuran × Pokok Pinjaman)</span>
+                      <span id="tpRowHasilKali" class="font-mono font-bold text-slate-900">Rp 0</span>
+                    </div>
+                    <div id="tpRowWrapAdminTunai" class="px-4 py-2 flex items-center justify-between bg-slate-50/70">
+                      <span class="text-slate-700 font-semibold">Biaya Admin 2,5% (2,5% × Hasil Kali)</span>
+                      <span id="tpRowBiayaAdmin" class="font-mono font-bold text-amber-700">Rp 0</span>
+                    </div>
+                    <!-- Jumlah Harus Dilunasi -->
+                    <div class="px-4 py-2.5 flex items-center justify-between bg-rose-50/70 border-t border-rose-200">
+                      <span class="font-extrabold text-rose-900 uppercase" id="tpLabelJumlahDilunasi">Jumlah yang Harus Dilunasi</span>
+                      <span id="tpRowJumlahDilunasi" class="font-mono font-black text-sm text-rose-700">Rp 0</span>
+                    </div>
+                    <!-- Khusus Topup: Baris Topup Baru & Sisa Diterima -->
+                    <div id="tpRowWrapTopupBaru" class="px-4 py-2 flex items-center justify-between bg-indigo-50/50">
+                      <span class="font-bold text-indigo-900">Top Up / Pinjaman Baru yang Diajukan</span>
+                      <span id="tpRowTopupBaru" class="font-mono font-extrabold text-indigo-800">Rp 0</span>
+                    </div>
+                    <div id="tpRowWrapSisaDiterima" class="px-4 py-3 flex items-center justify-between bg-emerald-100/80 border-t-2 border-emerald-300 flex-wrap gap-2">
+                      <div>
+                        <span class="font-black text-emerald-950 uppercase block">Sisa Diterima / Biaya yang Ditransfer</span>
+                        <span class="text-[10px] text-emerald-800 font-semibold">Estimasi hitungan sistem (bisa diedit manual pada form di bawah)</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span id="tpRowSisaDiterima" class="font-mono font-black text-base text-emerald-800">Rp 0</span>
+                        <button type="button" onclick="salinSisaDiterimaKeInput()" class="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition shadow-xs">
+                          Gunakan Angka Ini
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -749,14 +773,14 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label id="labelInputTotalDitransfer" class="block text-xs font-semibold text-slate-700 uppercase mb-1">Total Ditransfer / Pokok Pinjaman (Rp) <span class="text-red-500">*</span></label>
-                <input type="number" id="inputTotalDitransfer" name="totalDitransfer" step="any" min="0" required placeholder="Contoh: 5000000" oninput="onFormLoanAmountOrTenorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900">
+                <input type="number" id="inputTotalDitransfer" name="totalDitransfer" step="any" min="0" required placeholder="Contoh: 5000000" oninput="window.isTotalDitransferManual = true; onFormLoanAmountOrTenorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900">
                 <p id="hintMaxPlafonForm" class="text-[11px] text-slate-400 mt-1">Masukkan jumlah pokok dana yang dicairkan.</p>
               </div>
 
               <div>
                 <label id="labelInputCicilan" class="block text-xs font-semibold text-slate-700 uppercase mb-1">Berapa Kali Cicilan (Tenor Bulan) <span class="text-red-500">*</span></label>
                 <div class="relative">
-                  <input type="number" id="inputCicilan" name="cicilan" min="0" max="180" step="1" required placeholder="0 untuk non-cicil / maks. 12 bln (Multiguna)" oninput="onFormLoanAmountOrTenorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                  <input type="number" id="inputCicilan" name="cicilan" min="0" max="180" step="1" required placeholder="0 untuk non-cicil / maks. 10 bln (Multiguna) / s/d 120 bln (Tunai)" oninput="onFormLoanAmountOrTenorChange()" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
                   <span class="absolute right-3.5 top-2.5 text-xs text-slate-400 pointer-events-none">Kali (Bln)</span>
                 </div>
                 <p id="hintMaxCicilanForm" class="text-[11px] text-slate-400 mt-1">Isi <b>0</b> jika tanpa cicilan (misal: Simpanan Sukarela/Anggaran Unit).</p>
@@ -2479,7 +2503,7 @@
                 <span class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px]" id="monCountMultiguna">0 Aktif</span>
               </div>
               <p id="monTotalPokokMultiguna" class="text-xl font-black text-slate-900 mt-2">Rp 0</p>
-              <p class="text-[11px] text-amber-700 font-medium mt-1">Maks. Plafon 10 Jt · Bunga 20%/Thn · Maks. 12 Bln</p>
+              <p class="text-[11px] text-amber-700 font-medium mt-1">Maks. Plafon 10 Jt · Bunga 20%/Thn · Maks. 10 Bln</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-teal-50/50 border border-emerald-200/80">
@@ -2497,7 +2521,7 @@
                 <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-bold text-[10px]" id="monCountTunai">0 Aktif</span>
               </div>
               <p id="monTotalPokokTunai" class="text-xl font-black text-slate-900 mt-2">Rp 0</p>
-              <p class="text-[11px] text-indigo-700 font-medium mt-1">Plafon s/d 50 Jt · Bunga Tabel SA · Tenor s/d 60 Bln</p>
+              <p class="text-[11px] text-indigo-700 font-medium mt-1">Plafon s/d 70 Jt · Bunga Tabel SA · Tenor s/d 120 Bln</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-gradient-to-br from-purple-50/90 to-indigo-50/50 border border-purple-200/80">
@@ -2545,14 +2569,14 @@
           <div id="bannerRuleMultiguna" class="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div class="flex items-center gap-2.5 text-amber-900">
               <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0"></i>
-              <span><strong>Ketentuan Pinjaman Multiguna:</strong> Plafon maksimal <b>Rp 10.000.000</b> · Bunga tetap <b>20% per tahun</b> (proporsional tenor) · Maksimal tenor <b>12 bulan</b>. Otomatis tampil saat pengajuan diinput Finance &amp; berstatus <b>Done</b>.</span>
+              <span><strong>Ketentuan Pinjaman Multiguna:</strong> Plafon maksimal <b>Rp 10.000.000</b> · Bunga tetap <b>20% per tahun</b> (proporsional tenor) · Maksimal tenor <b>10 bulan</b>. Otomatis tampil saat pengajuan diinput Finance &amp; berstatus <b>Done</b>.</span>
             </div>
           </div>
 
           <div id="bannerRuleTunai" class="hidden bg-indigo-50/80 border border-indigo-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div class="flex items-center gap-2.5 text-indigo-900">
               <i data-lucide="info" class="w-4 h-4 text-indigo-600 shrink-0"></i>
-              <span><strong>Ketentuan Pinjaman Tunai:</strong> Plafon s/d <b>Rp 50.000.000</b> · Suku bunga sesuai Tabel Resmi Koperasi SA (10 bln: 11%, 12 bln: 14%, 20 bln: 22%, 24 bln: 28%, 36 bln: 42%, 48 bln: 56%, 60 bln: 70%). Mencakup pengajuan Finance berstatus <b>Done</b> &amp; Kontrak Kredit Tunai.</span>
+              <span><strong>Ketentuan Pinjaman Tunai:</strong> Plafon s/d <b>Rp 50.000.000</b> · Suku bunga sesuai Tabel Resmi Koperasi SA (10 bln: 11%, 12 bln: 14%, 20 bln: 22%, 24 bln: 28%, 36 bln: 42%, 48 bln: 56%, 60 bln: 70%, 72 bln: 84%, 84 bln: 98%, 96 bln: 112%, 108 bln: 126%, 120 bln: 140%). Mencakup pengajuan Finance berstatus <b>Done</b> &amp; Kontrak Kredit Tunai.</span>
             </div>
           </div>
 
@@ -2600,7 +2624,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           <!-- SIMULATOR KIRI (7 Kolom) -->
-          <div class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-6">
+          <div id="simCardCol" class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -2608,7 +2632,7 @@
                 </div>
                 <div>
                   <h3 class="font-extrabold text-slate-900 text-base">Simulator Cicilan Resmi</h3>
-                  <p id="simSubtitleDesc" class="text-xs text-slate-500">Plafon Rp 10jt - Rp 50jt sesuai tabel potongan SA</p>
+                  <p id="simSubtitleDesc" class="text-xs text-slate-500">Plafon Rp 10jt - Rp 70jt sesuai tabel potongan SA</p>
                 </div>
               </div>
               <!-- Pilihan Mode Simulator: Pinjaman Tunai vs Pinjaman Multiguna -->
@@ -2628,7 +2652,7 @@
                 <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Jumlah Pinjaman (Plafon)</label>
                 <span id="displaySimPlafon" class="text-lg font-black text-indigo-600 font-mono">Rp 10.000.000</span>
               </div>
-              <input type="range" id="rangePlafon" min="10000000" max="50000000" step="1000000" value="10000000" oninput="onSimulatorPlafonChange(this.value)" class="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+              <input type="range" id="rangePlafon" min="10000000" max="70000000" step="1000000" value="10000000" oninput="onSimulatorPlafonChange(this.value)" class="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
               
               <!-- Quick Select Plafon Pills -->
               <div class="flex flex-wrap gap-1.5 pt-1">
@@ -2639,6 +2663,8 @@
                 <button type="button" onclick="setSimulatorPlafon(30000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">30 Jt</button>
                 <button type="button" onclick="setSimulatorPlafon(40000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">40 Jt</button>
                 <button type="button" onclick="setSimulatorPlafon(50000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">50 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(60000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">60 Jt</button>
+                <button type="button" onclick="setSimulatorPlafon(70000000)" class="btn-plafon-pill px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition">70 Jt</button>
               </div>
             </div>
 
@@ -2648,7 +2674,7 @@
               <div id="containerTenorButtons" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <!-- Dynamically generated via JS -->
               </div>
-              <p id="tenorNotice" class="text-[11px] text-slate-500 italic">*Tenor 48 & 60 bulan hanya tersedia untuk pinjaman Rp 31jt - Rp 50jt.</p>
+              <p id="tenorNotice" class="text-[11px] text-slate-500 italic">*Tenor 48 s/d 120 bulan tersedia untuk pinjaman di atas Rp 30jt (s/d Rp 70jt).</p>
             </div>
 
             <!-- Hasil Perhitungan Simulator Card -->
@@ -2703,7 +2729,7 @@
           </div>
 
           <!-- FORM PENGAJUAN KANAN (5 Kolom) -->
-          <div class="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
+          <div id="formCardCol" class="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5">
             <div class="flex items-center space-x-3 border-b border-slate-100 pb-4">
               <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <i data-lucide="file-signature" class="w-5 h-5"></i>
@@ -5989,6 +6015,10 @@
         if (oldRefEl) oldRefEl.value = refCode;
         if (sisaEl) sisaEl.value = sisaTenor > 0 ? sisaTenor : (lastLoan.tenorBulan || 1);
         if (pokokEl) pokokEl.value = pokokPerBulan;
+        const pLamaEl = document.getElementById('inputTpPinjamanTerakhir');
+        const tLamaEl = document.getElementById('inputTpTenorTerakhir');
+        if (pLamaEl && lastLoan.pokokPinjaman) pLamaEl.value = lastLoan.pokokPinjaman;
+        if (tLamaEl && lastLoan.tenorBulan) tLamaEl.value = lastLoan.tenorBulan;
 
         // Auto-fill rekening & unit kerja jika masih kosong
         const unitEl = document.getElementById('inputUnitKerja');
@@ -6053,6 +6083,7 @@
       }
 
       const sisaDiterima = isTopup ? (plafonBaru - jumlahHarusDilunasi) : 0;
+      window.currentCalculatedSisaDiterima = sisaDiterima;
       window.currentCalculatedPelunasanSistem = jumlahHarusDilunasi;
 
       // Update baris tabel rincian
@@ -6079,13 +6110,17 @@
           : 'py-2 px-3 text-right font-mono font-black text-red-600 text-sm';
       }
 
-      // Sinkronkan ke inputTotalDitransfer
+      // Sinkronkan ke inputTotalDitransfer (TIDAK MENGUNCI: Biarkan Finance bisa mengisi/mengubah manual)
       const nominalInput = document.getElementById('inputTotalDitransfer');
       if (nominalInput) {
         if (isTopup) {
-          nominalInput.value = sisaDiterima > 0 ? sisaDiterima : 0;
+          if (!window.isTotalDitransferManual || !nominalInput.value || nominalInput.value === '0') {
+            nominalInput.value = sisaDiterima > 0 ? sisaDiterima : 0;
+          }
         } else if (isPelunasan && document.activeElement !== nominalInput) {
-          nominalInput.value = jumlahHarusDilunasi;
+          if (!window.isTotalDitransferManual || !nominalInput.value || nominalInput.value === '0') {
+            nominalInput.value = jumlahHarusDilunasi;
+          }
         }
       }
 
@@ -6150,7 +6185,7 @@
           if (wrapBunga20) wrapBunga20.classList.add('hidden');
           if (wrapHasilKali) wrapHasilKali.classList.remove('hidden');
           if (wrapAdmin) wrapAdmin.classList.remove('hidden');
-          if (inputPlafonBaru) inputPlafonBaru.max = '50000000';
+          if (inputPlafonBaru) inputPlafonBaru.max = '70000000';
         }
 
         if (isTopup) {
@@ -6164,18 +6199,18 @@
 
           if (isMultiguna) {
             if (cicilanInput) {
-              cicilanInput.max = '12';
-              if (!cicilanInput.value || parseInt(cicilanInput.value, 10) <= 0 || parseInt(cicilanInput.value, 10) > 12) cicilanInput.value = '12';
+              cicilanInput.max = '10';
+              if (!cicilanInput.value || parseInt(cicilanInput.value, 10) <= 0 || parseInt(cicilanInput.value, 10) > 10) cicilanInput.value = '10';
             }
-            if (hintPlafon) hintPlafon.innerHTML = '<span class="text-emerald-700 font-semibold">Otomatis dihitung dari: <b>Topup Baru − Jumlah yang Harus Dilunasi</b>. Data lama otomatis terupdate saat status Done.</span>';
-            if (hintCicilan) hintCicilan.innerHTML = '<span class="text-amber-700 font-semibold">Tenor Baru Topup Multiguna: <b>1 s/d 12 Bulan</b> (Maks. Plafon Baru Rp 10.000.000).</span>';
+            if (hintPlafon) hintPlafon.innerHTML = '<span class="text-emerald-700 font-semibold">Simulasi sisa dana diterima dihitung otomatis. Finance <b>bebas menginput nominal manual</b> pada kolom di bawah.</span>';
+            if (hintCicilan) hintCicilan.innerHTML = '<span class="text-amber-700 font-semibold">Tenor Baru Topup Multiguna: <b>1 s/d 10 Bulan</b> (Maks. Plafon Baru Rp 10.000.000).</span>';
           } else {
             if (cicilanInput) {
-              cicilanInput.max = '60';
+              cicilanInput.max = '120';
               if (!cicilanInput.value || parseInt(cicilanInput.value, 10) <= 0) cicilanInput.value = '12';
             }
-            if (hintPlafon) hintPlafon.innerHTML = '<span class="text-emerald-700 font-semibold">Otomatis dihitung dari: <b>Topup Baru − Jumlah yang Harus Dilunasi</b>. Data lama otomatis tertiban saat status Done.</span>';
-            if (hintCicilan) hintCicilan.innerHTML = '<span class="text-indigo-700 font-semibold">Tenor Baru Topup Tunai: 10, 12, 20, 24, 36, 48, atau 60 Bulan.</span>';
+            if (hintPlafon) hintPlafon.innerHTML = '<span class="text-emerald-700 font-semibold">Simulasi sisa dana diterima dihitung otomatis. Finance <b>bebas menginput nominal manual</b> pada kolom di bawah.</span>';
+            if (hintCicilan) hintCicilan.innerHTML = '<span class="text-indigo-700 font-semibold">Tenor Baru Topup Tunai: s/d 120 Bulan (Plafon s/d Rp 70.000.000).</span>';
           }
         } else {
           // Pelunasan Pinjaman Tunai / Multiguna Anggota
@@ -6212,24 +6247,24 @@
         if (hintCicilan) hintCicilan.innerHTML = 'Isi <b>0</b> karena non-cicilan.';
       } else if (val === 'Peminjaman Multiguna') {
         if (cicilanInput) {
-          cicilanInput.max = '12';
-          if (!cicilanInput.value || parseInt(cicilanInput.value, 10) === 0 || parseInt(cicilanInput.value, 10) > 12) {
-            cicilanInput.value = '12';
+          cicilanInput.max = '10';
+          if (!cicilanInput.value || parseInt(cicilanInput.value, 10) === 0 || parseInt(cicilanInput.value, 10) > 10) {
+            cicilanInput.value = '10';
           }
         }
         if (nominalInput) nominalInput.max = '10000000';
         if (hintPlafon) hintPlafon.innerHTML = '<span class="text-amber-700 font-semibold">Maksimal Plafon Pinjaman Multiguna: <b>Rp 10.000.000</b> (Bunga 20%/Tahun).</span>';
-        if (hintCicilan) hintCicilan.innerHTML = '<span class="text-amber-700 font-semibold">Tenor Pinjaman Multiguna: <b>1 s/d 12 Bulan</b> (Maks. 12 kali cicilan).</span>';
+        if (hintCicilan) hintCicilan.innerHTML = '<span class="text-amber-700 font-semibold">Tenor Pinjaman Multiguna: <b>1 s/d 10 Bulan</b> (Maks. 10 kali cicilan).</span>';
       } else if (val === 'Peminjaman Tunai') {
         if (cicilanInput) {
-          cicilanInput.max = '60';
+          cicilanInput.max = '120';
           if (!cicilanInput.value || parseInt(cicilanInput.value, 10) === 0) {
             cicilanInput.value = '12';
           }
         }
-        if (nominalInput) nominalInput.max = '50000000';
-        if (hintPlafon) hintPlafon.innerHTML = '<span class="text-indigo-700 font-semibold">Plafon Pinjaman Tunai s/d <b>Rp 50.000.000</b> sesuai tabel Koperasi SA.</span>';
-        if (hintCicilan) hintCicilan.innerHTML = '<span class="text-indigo-700 font-semibold">Tenor Pinjaman Tunai: 10, 12, 20, 24, 36, 48, atau 60 Bulan.</span>';
+        if (nominalInput) nominalInput.max = '70000000';
+        if (hintPlafon) hintPlafon.innerHTML = '<span class="text-indigo-700 font-semibold">Plafon Pinjaman Tunai s/d <b>Rp 70.000.000</b> sesuai tabel Koperasi SA.</span>';
+        if (hintCicilan) hintCicilan.innerHTML = '<span class="text-indigo-700 font-semibold">Tenor Pinjaman Tunai: s/d 120 Bulan (Maks. 120 kali cicilan).</span>';
       } else {
         if (cicilanInput) cicilanInput.max = '180';
         if (nominalInput) nominalInput.removeAttribute('max');
@@ -6292,9 +6327,9 @@
           badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase bg-amber-100 text-amber-800';
           badgeEl.innerText = isTopup ? 'Pinjaman Baru (Topup Multiguna)' : 'Pinjaman Multiguna';
         }
-        if (descEl) descEl.innerText = 'Maks. Rp 10.000.000 · Bunga 20% / Tahun · Maks. Tenor 12 Bulan';
+        if (descEl) descEl.innerText = 'Maks. Rp 10.000.000 · Bunga 20% / Tahun · Maks. Tenor 10 Bulan';
 
-        const effectiveTenor = Math.min(Math.max(tenor || 12, 1), 12);
+        const effectiveTenor = Math.min(Math.max(tenor || 10, 1), 10);
         const bungaRateTotal = 0.20;
         const totalBunga = Math.round(pokok * bungaRateTotal);
         const totalKewajiban = pokok + totalBunga;
@@ -6308,7 +6343,7 @@
 
         const warnings = [];
         if (pokok > 10000000) warnings.push('⚠️ Plafon Pinjaman Multiguna melebihi batas maksimal Rp 10.000.000!');
-        if (tenor > 12) warnings.push('⚠️ Tenor Pinjaman Multiguna melebihi batas maksimal 12 bulan!');
+        if (tenor > 10) warnings.push('⚠️ Tenor Pinjaman Multiguna melebihi batas maksimal 10 bulan!');
         if (warnEl) {
           if (warnings.length > 0) {
             warnEl.innerText = warnings.join(' ');
@@ -6323,10 +6358,10 @@
           badgeEl.className = 'px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase bg-indigo-100 text-indigo-800';
           badgeEl.innerText = isTopup ? 'Pinjaman Baru (Topup Tunai)' : 'Pinjaman Tunai';
         }
-        if (descEl) descEl.innerText = 'Plafon s/d Rp 50.000.000 · Suku Bunga Tabel Resmi Koperasi SA';
+        if (descEl) descEl.innerText = 'Plafon s/d Rp 70.000.000 · Suku Bunga Tabel Resmi Koperasi SA';
 
         const effectiveTenor = Math.max(tenor || 12, 1);
-        const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
+        const rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70, 72: 0.84, 84: 0.98, 96: 1.12, 108: 1.26, 120: 1.40 };
         const rate = rateMap[effectiveTenor] !== undefined ? rateMap[effectiveTenor] : (0.14 * (effectiveTenor / 12));
         const totalBunga = Math.round(pokok * rate);
         const totalKewajiban = pokok + totalBunga;
@@ -6339,8 +6374,11 @@
         document.getElementById('previewFormCicilanBulan').innerText = `${formatRupiah(cicilanBulanan)} / bln (${effectiveTenor}x)`;
 
         if (warnEl) {
-          if (pokok > 50000000) {
-            warnEl.innerText = '⚠️ Plafon Pinjaman Tunai maksimal Rp 50.000.000.';
+          if (pokok > 70000000) {
+            warnEl.innerText = '⚠️ Plafon Pinjaman Tunai maksimal Rp 70.000.000.';
+            warnEl.classList.remove('hidden');
+          } else if (tenor > 120) {
+            warnEl.innerText = '⚠️ Tenor Pinjaman Tunai maksimal 120 bulan.';
             warnEl.classList.remove('hidden');
           } else {
             warnEl.classList.add('hidden');
@@ -6398,8 +6436,16 @@
           showToast('Topup Pinjaman Multiguna maksimal plafon Rp 10.000.000!', true);
           return;
         }
-        if (isMultiguna && (cicilanVal < 1 || cicilanVal > 12)) {
-          showToast('Tenor Baru Topup Pinjaman Multiguna wajib antara 1 s/d 12 bulan!', true);
+        if (isMultiguna && (cicilanVal < 1 || cicilanVal > 10)) {
+          showToast('Tenor Baru Topup Pinjaman Multiguna wajib antara 1 s/d 10 bulan!', true);
+          return;
+        }
+        if (!isMultiguna && plafonTopupBaru > 70000000) {
+          showToast('Plafon Topup Pinjaman Tunai maksimal Rp 70.000.000!', true);
+          return;
+        }
+        if (!isMultiguna && (cicilanVal < 1 || cicilanVal > 120)) {
+          showToast('Tenor Baru Topup Pinjaman Tunai wajib antara 1 s/d 120 bulan!', true);
           return;
         }
       } else if (isPelunasan) {
@@ -6414,8 +6460,17 @@
           showToast('Pinjaman Multiguna maksimal plafon Rp 10.000.000!', true);
           return;
         }
-        if (cicilanVal < 1 || cicilanVal > 12) {
-          showToast('Tenor Pinjaman Multiguna wajib antara 1 s/d 12 bulan (bunga 20% per tahun)!', true);
+        if (cicilanVal < 1 || cicilanVal > 10) {
+          showToast('Tenor Pinjaman Multiguna wajib antara 1 s/d 10 bulan (bunga 20% per tahun)!', true);
+          return;
+        }
+      } else if (tLower === 'peminjaman tunai') {
+        if (nominalVal > 70000000) {
+          showToast('Plafon Pinjaman Tunai maksimal Rp 70.000.000!', true);
+          return;
+        }
+        if (cicilanVal < 1 || cicilanVal > 120) {
+          showToast('Tenor Pinjaman Tunai maksimal 120 bulan!', true);
           return;
         }
       }
@@ -6526,8 +6581,17 @@
           showToast('Pinjaman Multiguna maksimal plafon Rp 10.000.000!', true);
           return;
         }
-        if (cicilanVal > 12) {
-          showToast('Tenor Pinjaman Multiguna maksimal 12 bulan!', true);
+        if (cicilanVal > 10) {
+          showToast('Tenor Pinjaman Multiguna maksimal 10 bulan!', true);
+          return;
+        }
+      } else if (tipeVal.toLowerCase().includes('tunai')) {
+        if (nominalVal > 70000000) {
+          showToast('Plafon Pinjaman Tunai maksimal Rp 70.000.000!', true);
+          return;
+        }
+        if (cicilanVal > 120) {
+          showToast('Tenor Pinjaman Tunai maksimal 120 bulan!', true);
           return;
         }
       }
@@ -10299,12 +10363,77 @@ function onSimulatorPlafonChange(amount) {
   setSimulatorPlafon(amount);
 }
 
-function renderTenorButtons(plafon) {
+    // HELPER: TOGGLE TAMPILAN SIMULATOR PINJAMAN UTAMA (HIDE / SHOW)
+    function toggleMainLoanSimulator() {
+      const simCol = document.getElementById('simCardCol');
+      const formCol = document.getElementById('formCardCol');
+      const btnToggle = document.getElementById('btnToggleMainSim');
+      const icon = document.getElementById('iconToggleMainSim');
+      if (!simCol || !formCol) return;
+
+      const isHidden = simCol.classList.contains('hidden');
+      if (isHidden) {
+        simCol.classList.remove('hidden');
+        formCol.className = 'lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5';
+        if (icon) icon.setAttribute('data-lucide', 'eye-off');
+      } else {
+        simCol.classList.add('hidden');
+        formCol.className = 'lg:col-span-12 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-sm space-y-5';
+        if (icon) icon.setAttribute('data-lucide', 'eye');
+      }
+      lucide.createIcons();
+    }
+
+    // HELPER: TOGGLE SIMULASI HITUNGAN TOPUP & PELUNASAN (OPSIONAL)
+    function toggleFormSimulasiBox() {
+      const wrap = document.getElementById('wrapFormSimulasiContent');
+      const btnText = document.getElementById('textToggleFormSimulasi');
+      const btnIcon = document.getElementById('iconToggleFormSimulasi');
+      if (!wrap) return;
+
+      const isHidden = wrap.classList.contains('hidden');
+      if (isHidden) {
+        wrap.classList.remove('hidden');
+        if (btnText) btnText.innerText = 'Sembunyikan Simulasi';
+        if (btnIcon) btnIcon.setAttribute('data-lucide', 'chevron-up');
+      } else {
+        wrap.classList.add('hidden');
+        if (btnText) btnText.innerText = 'Tampilkan Simulasi (Opsional)';
+        if (btnIcon) btnIcon.setAttribute('data-lucide', 'chevron-down');
+      }
+      lucide.createIcons();
+    }
+
+    // HELPER: INPUT MANUAL PINJAMAN TERAKHIR OLEH FINANCE
+    function onManualPinjamanTerakhirChange() {
+      const pinjamanLama = parseFloat(document.getElementById('inputTpPinjamanTerakhir')?.value || '0') || 0;
+      const tenorLama = parseInt(document.getElementById('inputTpTenorTerakhir')?.value || '0', 10) || 0;
+      const pokokInput = document.getElementById('inputTpPokokPinjaman');
+      if (pinjamanLama > 0 && tenorLama > 0 && pokokInput) {
+        const pokokPerBulan = Math.round(pinjamanLama / tenorLama);
+        pokokInput.value = pokokPerBulan;
+      }
+      recalculateTopupOrPelunasanForm();
+    }
+
+    // HELPER: SALIN ESTIMASI HASIL SIMULASI SISA DITERIMA KE FORM INPUT TOTAL DITRANSFER
+    function salinSisaDiterimaKeInput() {
+      const sisa = window.currentCalculatedSisaDiterima || 0;
+      const nominalInput = document.getElementById('inputTotalDitransfer');
+      if (nominalInput) {
+        nominalInput.value = sisa > 0 ? sisa : 0;
+        window.isTotalDitransferManual = false;
+        onFormLoanAmountOrTenorChange();
+        showToast(`Hasil simulasi sisa diterima (${formatRupiah(sisa)}) disalin ke form!`);
+      }
+    }
+
+    function renderTenorButtons(plafon) {
   const container = document.getElementById('containerTenorButtons');
   if (currentSimCategory === 'MULTIGUNA') {
-    const multiTenors = [3, 6, 9, 12];
+    const multiTenors = [2, 4, 6, 8, 10];
     if (!multiTenors.includes(currentSimTenor)) {
-      currentSimTenor = 12;
+      currentSimTenor = 10;
     }
     container.innerHTML = multiTenors.map(t => {
       const isActive = t === currentSimTenor;
@@ -10321,14 +10450,14 @@ function renderTenorButtons(plafon) {
     return;
   }
 
-  const validTenors = plafon <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
+  const validTenors = plafon <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60, 72, 84, 96, 120];
 
   if (!validTenors.includes(currentSimTenor)) {
     currentSimTenor = validTenors[0];
   }
 
   const rateLabels = {
-    10: '11%', 12: '14%', 20: '22%', 24: '28%', 36: '42%', 48: '56%', 60: '70%'
+    10: '11%', 12: '14%', 20: '22%', 24: '28%', 36: '42%', 48: '56%', 60: '70%', 72: '84%', 84: '98%', 96: '112%', 108: '126%', 120: '140%'
   };
 
   container.innerHTML = validTenors.map(t => {

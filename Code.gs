@@ -514,8 +514,8 @@ function simpanPengajuan(form) {
       if (nominalNum <= 0 || nominalNum > 10000000) {
         return { status: 'error', success: false, message: 'Plafon Pinjaman Multiguna maksimal adalah Rp 10.000.000 (bunga 20% per tahun).' };
       }
-      if (tenorNum < 1 || tenorNum > 12) {
-        return { status: 'error', success: false, message: 'Tenor Pinjaman Multiguna maksimal adalah 12 bulan (1 s/d 12 kali cicilan).' };
+      if (tenorNum < 1 || tenorNum > 10) {
+        return { status: 'error', success: false, message: 'Tenor Pinjaman Multiguna maksimal adalah 10 bulan (1 s/d 10 kali cicilan).' };
       }
     }
 
@@ -534,14 +534,22 @@ function simpanPengajuan(form) {
       if (calc.sisaAngsuran <= 0 || calc.pokokPinjaman <= 0) {
         return { status: 'error', success: false, message: 'Sisa Angsuran (Sisa Tenor) dan Pokok Pinjaman wajib lebih dari 0.' };
       }
-      if (isTopupMulti && (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 10000000 || tenorNum < 1 || tenorNum > 12)) {
-        return { status: 'error', success: false, message: 'Topup Pinjaman Multiguna maksimal plafon Rp 10.000.000 dan tenor 1-12 bulan.' };
+      if (isTopupMulti && (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 10000000 || tenorNum < 1 || tenorNum > 10)) {
+        return { status: 'error', success: false, message: 'Topup Pinjaman Multiguna maksimal plafon Rp 10.000.000 dan tenor 1-10 bulan.' };
+      }
+      if (isTopupTunai && (calc.plafonTopupBaru <= 0 || calc.plafonTopupBaru > 70000000 || tenorNum < 1 || tenorNum > 120)) {
+        return { status: 'error', success: false, message: 'Topup Pinjaman Tunai maksimal plafon Rp 70.000.000 dan tenor 1-120 bulan.' };
       }
       if (isTopup) {
-        if (calc.sisaDiterima < 0) {
-          return { status: 'error', success: false, message: 'Plafon Topup baru tidak mencukupi untuk melunasi sisa kewajiban pinjaman lama.' };
+        // Biarkan Finance menginput manual nilai sisa yang diterima/ditransfer
+        if (nominalNum > 0) {
+          finalTotalDitransfer = nominalNum;
+        } else {
+          if (calc.sisaDiterima < 0) {
+            return { status: 'error', success: false, message: 'Plafon Topup baru tidak mencukupi untuk melunasi sisa kewajiban pinjaman lama.' };
+          }
+          finalTotalDitransfer = calc.sisaDiterima;
         }
-        finalTotalDitransfer = calc.sisaDiterima;
       } else if (isPelunasan) {
         var expectedPelunasan = calc.jumlahHarusDilunasi;
         var isModified = Math.abs(nominalNum - expectedPelunasan) > 1;
@@ -1898,17 +1906,17 @@ function calculateGasLoanSchedule(plafon, tenor) {
   var p = parseInt(plafon, 10);
   var t = parseInt(tenor, 10);
 
-  if (isNaN(p) || p < 10000000 || p > 50000000 || p % 1000000 !== 0) {
-    throw new Error('Plafon pinjaman harus antara Rp 10.000.000 s/d Rp 50.000.000 dengan kelipatan Rp 1.000.000');
+  if (isNaN(p) || p < 10000000 || p > 70000000 || p % 1000000 !== 0) {
+    throw new Error('Plafon pinjaman harus antara Rp 10.000.000 s/d Rp 70.000.000 dengan kelipatan Rp 1.000.000');
   }
 
-  var validTenors = p <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60];
+  var validTenors = p <= 30000000 ? [10, 12, 20, 24, 36] : [10, 12, 20, 24, 36, 48, 60, 72, 84, 96, 120];
   if (validTenors.indexOf(t) === -1) {
     throw new Error('Tenor ' + t + ' bulan tidak tersedia untuk plafon Rp ' + p);
   }
 
-  var rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70 };
-  var rate = rateMap[t];
+  var rateMap = { 10: 0.11, 12: 0.14, 20: 0.22, 24: 0.28, 36: 0.42, 48: 0.56, 60: 0.70, 72: 0.84, 84: 0.98, 96: 1.12, 108: 1.26, 120: 1.40 };
+  var rate = rateMap[t] !== undefined ? rateMap[t] : (0.14 * (t / 12));
   var totalBiaya = Math.round(p * rate);
   var totalKewajiban = p + totalBiaya;
   var cicilanNormal = Math.round(totalKewajiban / t);
@@ -3837,7 +3845,7 @@ function getMemberLoanMonitoring(params) {
             totalBunga: totalBunga,
             totalKewajiban: totalKewajiban,
             tenorBulan: tenor,
-            tenorMaksimal: 12,
+            tenorMaksimal: 10,
             cicilanBulanan: cicilanBulanan,
             bulanBerjalan: isPaidOff ? tenor : 0,
             sisaTenor: isPaidOff ? 0 : tenor,
@@ -3877,12 +3885,12 @@ function getMemberLoanMonitoring(params) {
             atasNamaRekening: String(r[5] || rowNama),
             pokokPinjaman: pokok,
             pokokPerBulan: pokokPerBulanTn,
-            plafonMaksimal: 50000000,
+            plafonMaksimal: 70000000,
             bungaPersen: Math.round(rate * 100) + '%',
             totalBunga: totalBungaTn,
             totalKewajiban: totalKewajibanTn,
             tenorBulan: tenor,
-            tenorMaksimal: 60,
+            tenorMaksimal: 120,
             cicilanBulanan: cicilanBulananTn,
             bulanBerjalan: isPaidOff ? tenor : 0,
             sisaTenor: isPaidOff ? 0 : tenor,
