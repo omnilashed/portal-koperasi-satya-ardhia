@@ -414,29 +414,74 @@ function getDataPengajuan(userRole, userNik, userName, userUsername) {
   return list;
 }
 
+function isValidNik(val) {
+  if (!val) return false;
+  var s = String(val).trim().toLowerCase();
+  if (!s || s === '-' || s === 'nik' || s === 'null' || s === 'undefined' || s === 'none') return false;
+  if (/^0+$/.test(s)) return false; // NIK tidak boleh seluruhnya 0 (misal '0', '000000')
+  var alnum = s.replace(/[^a-z0-9]/gi, '');
+  if (alnum.length < 3) return false;
+  return true;
+}
+
+function cleanNik(val) {
+  if (!isValidNik(val)) return '';
+  return String(val).trim().toLowerCase().replace(/[^a-z0-9]/gi, '');
+}
+
+function cleanNama(val) {
+  if (!val) return '';
+  return String(val).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function isSamePersonName(nameA, nameB) {
+  if (!nameA || !nameB) return false;
+  var a = cleanNama(nameA);
+  var b = cleanNama(nameB);
+  if (!a || !b || a.length < 3 || b.length < 3) return false;
+  if (a === b) return true;
+  var aNoSpace = a.replace(/\s+/g, '');
+  var bNoSpace = b.replace(/\s+/g, '');
+  if (aNoSpace.length >= 4 && aNoSpace === bNoSpace) return true;
+  return false;
+}
+
 function splitGasNikAndUnit(rawNikUnit, explicitNik, explicitUnit) {
   var nik = String(explicitNik || '').trim();
   var unitKerja = String(explicitUnit || '').trim();
   var raw = String(rawNikUnit || '').trim();
 
+  // Jika explicitNik tidak valid (misal '0', '000000', '-', 'nik'), abaikan
+  if (!isValidNik(nik)) {
+    nik = '';
+  }
+
   if (nik && nik.indexOf(' - ') !== -1) {
     var p = nik.split(' - ');
-    nik = p[0].trim();
-    if (!unitKerja) unitKerja = p.slice(1).join(' - ').trim();
+    if (isValidNik(p[0])) nik = p[0].trim();
+    if (!unitKerja || unitKerja === '-') unitKerja = p.slice(1).join(' - ').trim();
   }
+
   if ((!nik || !unitKerja || unitKerja === '-') && raw) {
     if (raw.indexOf(' - ') !== -1) {
       var parts = raw.split(' - ');
-      if (!nik) nik = parts[0].trim();
+      var candNik = parts[0].trim();
+      if (!nik && isValidNik(candNik)) nik = candNik;
       if (!unitKerja || unitKerja === '-') unitKerja = parts.slice(1).join(' - ').trim();
     } else if (/^\d{4,}$/.test(raw) || /^FIN\d+/i.test(raw) || /^ADM\d+/i.test(raw)) {
-      if (!nik) nik = raw;
+      if (!nik && isValidNik(raw)) nik = raw;
     } else {
       if (!unitKerja || unitKerja === '-') unitKerja = raw;
     }
   }
-  var combined = (nik && unitKerja && unitKerja !== '-') ? (nik + ' - ' + unitKerja) : (nik || unitKerja || raw || '-');
-  return { nik: nik || '-', unitKerja: unitKerja || '-', combined: combined };
+
+  var validNikResult = isValidNik(nik) ? nik : '-';
+  var validUnitResult = unitKerja && unitKerja !== '-' ? unitKerja : '-';
+  var combined = (validNikResult !== '-' && validUnitResult !== '-')
+    ? (validNikResult + ' - ' + validUnitResult)
+    : (validNikResult !== '-' ? validNikResult : (validUnitResult !== '-' ? validUnitResult : '-'));
+
+  return { nik: validNikResult, unitKerja: validUnitResult, combined: combined };
 }
 
 function calculateGasTopupOrPelunasan(params) {
@@ -3718,6 +3763,7 @@ function getMemberLoanMonitoring(params) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var uSheet = ss.getSheetByName('Users');
     var userByName = {};
+    var userByNameNoSpace = {};
     var userByUsername = {};
     var userByNik = {};
 
@@ -3726,17 +3772,20 @@ function getMemberLoanMonitoring(params) {
       for (var i = 1; i < uData.length; i++) {
         var uUname = String(uData[i][0] || '').trim().toLowerCase();
         var uNama = String(uData[i][3] || '').trim();
-        var uNamaClean = uNama.toLowerCase().replace(/\s+/g, ' ');
+        var uNamaClean = cleanNama(uNama);
         var uSplit = splitGasNikAndUnit(uData[i][4] || '', '', '');
         var uObj = {
           username: uUname,
           nama: uNama,
-          nik: uSplit.nik !== '-' ? uSplit.nik : String(uData[i][4] || '').trim(),
+          nik: uSplit.nik !== '-' ? uSplit.nik : '',
           unitKerja: uSplit.unitKerja !== '-' ? uSplit.unitKerja : ''
         };
         if (uUname) userByUsername[uUname] = uObj;
-        if (uNamaClean) userByName[uNamaClean] = uObj;
-        if (uObj.nik && uObj.nik !== '-') userByNik[uObj.nik.toLowerCase()] = uObj;
+        if (uNamaClean) {
+          userByName[uNamaClean] = uObj;
+          userByNameNoSpace[uNamaClean.replace(/\s+/g, '')] = uObj;
+        }
+        if (uObj.nik) userByNik[cleanNik(uObj.nik)] = uObj;
       }
     }
 
@@ -3752,23 +3801,38 @@ function getMemberLoanMonitoring(params) {
       if (!myUnitKerja && m.unitKerja) myUnitKerja = m.unitKerja;
       if (!myNama && m.nama) myNama = m.nama;
     }
-    if (myPureNik && userByNik[myPureNik.toLowerCase()]) {
-      var mNik = userByNik[myPureNik.toLowerCase()];
+    if (myPureNik && userByNik[cleanNik(myPureNik)]) {
+      var mNik = userByNik[cleanNik(myPureNik)];
       if (!myUnitKerja && mNik.unitKerja) myUnitKerja = mNik.unitKerja;
       if (!myNama && mNik.nama) myNama = mNik.nama;
     }
 
-    var canViewAll = (p.scope === 'all') && (isRoleAdmin(p.role) || isRoleKetua(p.role) || isRoleFinancial(p.role) || isRolePicSimpin(p.role));
-    var myNamaClean = myNama.toLowerCase().replace(/\s+/g, ' ');
-    var myNikClean = myPureNik.toLowerCase();
+    var canViewAll = (p.scope === 'all') && (isRoleAdmin(p.role) || isRoleKetua(p.role) || isRoleFinancial(p.role) || isRolePicSimpin(p.role) || isRolePengurus(p.role));
+    var myNamaClean = cleanNama(myNama);
+    var myNikClean = cleanNik(myPureNik);
 
     function isMatched(iNik, iNama) {
       if (canViewAll) return true;
-      var cNik = String(iNik || '').trim().toLowerCase();
-      var cNama = String(iNama || '').trim().toLowerCase().replace(/\s+/g, ' ');
-      if (myNikClean && cNik && cNik !== '-' && (cNik === myNikClean || cNik.indexOf(myNikClean) !== -1 || myNikClean.indexOf(cNik) !== -1)) return true;
-      if (myNamaClean && cNama && (cNama === myNamaClean || cNama.indexOf(myNamaClean) !== -1 || myNamaClean.indexOf(cNama) !== -1)) return true;
-      if (reqUname && (cNama === reqUname || cNik === reqUname)) return true;
+      var cNikClean = cleanNik(iNik);
+      var cNamaClean = cleanNama(iNama);
+
+      // 1. Prioritaskan pencocokan NIK resmi secara presisi (exact match)
+      if (myNikClean && cNikClean) {
+        return myNikClean === cNikClean;
+      }
+
+      // 2. Jika item pinjaman tidak memiliki NIK valid, gunakan nama lengkap resmi
+      if (!cNikClean && myNamaClean && cNamaClean) {
+        if (isSamePersonName(myNamaClean, cNamaClean)) return true;
+      }
+
+      // 3. Username match
+      if (reqUname) {
+        var uClean = cleanNik(reqUname) || reqUname.toLowerCase();
+        if (cNikClean && cNikClean === uClean) return true;
+        if (cNamaClean && cleanNama(reqUname) === cNamaClean) return true;
+      }
+
       return false;
     }
 
@@ -3797,10 +3861,13 @@ function getMemberLoanMonitoring(params) {
         var parsed = splitGasNikAndUnit(r[3] || '', r[10] || '', r[11] || '');
         var itemNik = parsed.nik !== '-' ? parsed.nik : '';
         var itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : '';
-        var rNamaClean = rowNama.toLowerCase().replace(/\s+/g, ' ');
-        if (!itemNik && rNamaClean && userByName[rNamaClean]) {
-          itemNik = userByName[rNamaClean].nik;
-          if (!itemUnit) itemUnit = userByName[rNamaClean].unitKerja;
+        var rNamaClean = cleanNama(rowNama);
+        if (!itemNik && rNamaClean) {
+          var uMatch = userByName[rNamaClean] || userByNameNoSpace[rNamaClean.replace(/\s+/g, '')];
+          if (uMatch) {
+            itemNik = uMatch.nik;
+            if (!itemUnit || itemUnit === '-') itemUnit = uMatch.unitKerja;
+          }
         }
         if (!isMatched(itemNik, rowNama)) continue;
 

@@ -4795,6 +4795,39 @@
     function isRoleAirMinumSender(r) { return normalizeRole(r) === 'air-minum-sender'; }
     function isRoleAnggota(r) { return normalizeRole(r) === 'user'; }
 
+    // ================= NIK & NAMA MATCHING HELPERS =================
+    function isValidNik(val) {
+      if (!val) return false;
+      const s = String(val).trim().toLowerCase();
+      if (!s || s === '-' || s === 'nik' || s === 'null' || s === 'undefined' || s === 'none') return false;
+      if (/^0+$/.test(s)) return false; // NIK tidak boleh seluruhnya 0 (misal '0', '000000')
+      const alnum = s.replace(/[^a-z0-9]/gi, '');
+      if (alnum.length < 3) return false;
+      return true;
+    }
+
+    function cleanNik(val) {
+      if (!isValidNik(val)) return '';
+      return String(val).trim().toLowerCase().replace(/[^a-z0-9]/gi, '');
+    }
+
+    function cleanNama(val) {
+      if (!val) return '';
+      return String(val).trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function isSamePersonName(nameA, nameB) {
+      if (!nameA || !nameB) return false;
+      const a = cleanNama(nameA);
+      const b = cleanNama(nameB);
+      if (!a || !b || a.length < 3 || b.length < 3) return false;
+      if (a === b) return true;
+      const aNoSpace = a.replace(/\s+/g, '');
+      const bNoSpace = b.replace(/\s+/g, '');
+      if (aNoSpace.length >= 4 && aNoSpace === bNoSpace) return true;
+      return false;
+    }
+
     let currentAdminAbsensiMode = 'monitoring'; // 'mandiri' | 'monitoring'
 
     // ================= APP INITIALIZATION =================
@@ -9960,10 +9993,34 @@ async function fetchLoanMonitoringData() {
     const data = await res.json();
 
     if (data.success) {
+      let mLoans = data.multigunaLoans || [];
+      let tLoans = data.tunaiLoans || [];
+      let aLoans = data.allLoans || [];
+
+      // Proteksi Client-Side: Jika scope 'self' (Pinjaman Saya), pastikan HANYA pinjaman milik user login yang tampil
+      if (currentMonitoringScope === 'self') {
+        const myNikClean = cleanNik(nik);
+        const myNamaClean = cleanNama(nama);
+        const myUname = String(username).trim().toLowerCase();
+
+        const belongsToMe = function(item) {
+          const itemNikClean = cleanNik(item.nik || '');
+          const itemNamaClean = cleanNama(item.namaAnggota || item.nama || '');
+          if (myNikClean && itemNikClean) return myNikClean === itemNikClean;
+          if (!itemNikClean && myNamaClean && itemNamaClean) return isSamePersonName(myNamaClean, itemNamaClean);
+          if (myUname && (itemNamaClean === myUname || itemNikClean === myUname)) return true;
+          return false;
+        };
+
+        mLoans = mLoans.filter(belongsToMe);
+        tLoans = tLoans.filter(belongsToMe);
+        aLoans = aLoans.filter(belongsToMe);
+      }
+
       loanMonitoringData = {
-        multigunaLoans: data.multigunaLoans || [],
-        tunaiLoans: data.tunaiLoans || [],
-        allLoans: data.allLoans || [],
+        multigunaLoans: mLoans,
+        tunaiLoans: tLoans,
+        allLoans: aLoans,
         summary: data.summary || {}
       };
 

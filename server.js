@@ -712,6 +712,41 @@ app.put('/api/users/role', async (req, res) => {
 // ==========================================
 
 /**
+ * Helper: Validasi & normalisasi NIK resmi anggota koperasi
+ */
+function isValidNik(val) {
+  if (!val) return false;
+  const s = String(val).trim().toLowerCase();
+  if (!s || s === '-' || s === 'nik' || s === 'null' || s === 'undefined' || s === 'none') return false;
+  if (/^0+$/.test(s)) return false; // NIK tidak boleh seluruhnya 0 (misal '0', '000000')
+  const alnum = s.replace(/[^a-z0-9]/gi, '');
+  if (alnum.length < 3) return false;
+  return true;
+}
+
+function cleanNik(val) {
+  if (!isValidNik(val)) return '';
+  return String(val).trim().toLowerCase().replace(/[^a-z0-9]/gi, '');
+}
+
+function cleanNama(val) {
+  if (!val) return '';
+  return String(val).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function isSamePersonName(nameA, nameB) {
+  if (!nameA || !nameB) return false;
+  const a = cleanNama(nameA);
+  const b = cleanNama(nameB);
+  if (!a || !b || a.length < 3 || b.length < 3) return false;
+  if (a === b) return true;
+  const aNoSpace = a.replace(/\s+/g, '');
+  const bNoSpace = b.replace(/\s+/g, '');
+  if (aNoSpace.length >= 4 && aNoSpace === bNoSpace) return true;
+  return false;
+}
+
+/**
  * Helper: Pisahkan NIK dan Unit Kerja dari string gabungan atau field terpisah
  */
 function splitNikAndUnitKerja(rawNikUnit, explicitNik, explicitUnit) {
@@ -719,31 +754,39 @@ function splitNikAndUnitKerja(rawNikUnit, explicitNik, explicitUnit) {
   let unitKerja = String(explicitUnit || '').trim();
   const raw = String(rawNikUnit || '').trim();
 
+  // Jika explicitNik tidak valid (misal '0', '000000', '-', 'nik'), abaikan
+  if (!isValidNik(nik)) {
+    nik = '';
+  }
+
   if (nik && nik.includes(' - ')) {
     const p = nik.split(' - ');
-    nik = p[0].trim();
-    if (!unitKerja) unitKerja = p.slice(1).join(' - ').trim();
+    if (isValidNik(p[0])) nik = p[0].trim();
+    if (!unitKerja || unitKerja === '-') unitKerja = p.slice(1).join(' - ').trim();
   }
 
   if ((!nik || !unitKerja || unitKerja === '-') && raw) {
     if (raw.includes(' - ')) {
       const parts = raw.split(' - ');
-      if (!nik) nik = parts[0].trim();
+      const candNik = parts[0].trim();
+      if (!nik && isValidNik(candNik)) nik = candNik;
       if (!unitKerja || unitKerja === '-') unitKerja = parts.slice(1).join(' - ').trim();
     } else if (/^\d{4,}$/.test(raw) || /^FIN\d+/i.test(raw) || /^ADM\d+/i.test(raw)) {
-      if (!nik) nik = raw;
+      if (!nik && isValidNik(raw)) nik = raw;
     } else {
       if (!unitKerja || unitKerja === '-') unitKerja = raw;
     }
   }
 
-  const combined = (nik && unitKerja && unitKerja !== '-')
-    ? `${nik} - ${unitKerja}`
-    : (nik || unitKerja || raw || '-');
+  const validNikResult = isValidNik(nik) ? nik : '-';
+  const validUnitResult = unitKerja && unitKerja !== '-' ? unitKerja : '-';
+  const combined = (validNikResult !== '-' && validUnitResult !== '-')
+    ? `${validNikResult} - ${validUnitResult}`
+    : (validNikResult !== '-' ? validNikResult : (validUnitResult !== '-' ? validUnitResult : '-'));
 
   return {
-    nik: nik || '-',
-    unitKerja: unitKerja || '-',
+    nik: validNikResult,
+    unitKerja: validUnitResult,
     combined
   };
 }
@@ -1632,23 +1675,27 @@ app.get('/api/loans/monitoring', async (req, res) => {
     });
     const userRows = usersRes.data.values || [];
     const userByName = new Map();
+    const userByNameNoSpace = new Map();
     const userByUsername = new Map();
     const userByNik = new Map();
 
     for (const u of userRows) {
       const uUname = String(u[0] || '').trim().toLowerCase();
       const uNama = String(u[3] || '').trim();
-      const uNamaClean = uNama.toLowerCase().replace(/\s+/g, ' ');
+      const uNamaClean = cleanNama(uNama);
       const uSplit = splitNikAndUnitKerja(u[4] || '', '', '');
       const uObj = {
         username: uUname,
         nama: uNama,
-        nik: uSplit.nik !== '-' ? uSplit.nik : String(u[4] || '').trim(),
+        nik: uSplit.nik !== '-' ? uSplit.nik : '',
         unitKerja: uSplit.unitKerja !== '-' ? uSplit.unitKerja : ''
       };
       if (uUname) userByUsername.set(uUname, uObj);
-      if (uNamaClean) userByName.set(uNamaClean, uObj);
-      if (uObj.nik && uObj.nik !== '-') userByNik.set(uObj.nik.toLowerCase(), uObj);
+      if (uNamaClean) {
+        userByName.set(uNamaClean, uObj);
+        userByNameNoSpace.set(uNamaClean.replace(/\s+/g, ''), uObj);
+      }
+      if (uObj.nik) userByNik.set(cleanNik(uObj.nik), uObj);
     }
 
     // Identitas user yang sedang login
@@ -1664,30 +1711,38 @@ app.get('/api/loans/monitoring', async (req, res) => {
       if (!myUnitKerja && matched.unitKerja) myUnitKerja = matched.unitKerja;
       if (!myNama && matched.nama) myNama = matched.nama;
     }
-    if (myPureNik && userByNik.has(myPureNik.toLowerCase())) {
-      const matched = userByNik.get(myPureNik.toLowerCase());
+    if (myPureNik && userByNik.has(cleanNik(myPureNik))) {
+      const matched = userByNik.get(cleanNik(myPureNik));
       if (!myUnitKerja && matched.unitKerja) myUnitKerja = matched.unitKerja;
       if (!myNama && matched.nama) myNama = matched.nama;
     }
 
-    const canViewAll = (scope === 'all') && (isRoleAdmin(role) || isRoleKetua(role) || isRoleFinancial(role) || isRolePicSimpin(role));
-    const myNamaClean = myNama.toLowerCase().replace(/\s+/g, ' ');
-    const myNikClean = myPureNik.toLowerCase();
+    const canViewAll = (scope === 'all') && (isRoleAdmin(role) || isRoleKetua(role) || isRoleFinancial(role) || isRolePicSimpin(role) || isRolePengurus(role));
+    const myNamaClean = cleanNama(myNama);
+    const myNikClean = cleanNik(myPureNik);
 
     function isMatchedMember(itemNik, itemNama) {
       if (canViewAll) return true;
-      const iNik = String(itemNik || '').trim().toLowerCase();
-      const iNama = String(itemNama || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const iNikClean = cleanNik(itemNik);
+      const iNamaClean = cleanNama(itemNama);
 
-      if (myNikClean && iNik && iNik !== '-' && (iNik === myNikClean || iNik.includes(myNikClean) || myNikClean.includes(iNik))) {
-        return true;
+      // 1. Prioritaskan pencocokan NIK resmi secara presisi (exact match)
+      if (myNikClean && iNikClean) {
+        return myNikClean === iNikClean;
       }
-      if (myNamaClean && iNama && (iNama === myNamaClean || iNama.includes(myNamaClean) || myNamaClean.includes(iNama))) {
-        return true;
+
+      // 2. Jika item pinjaman tidak memiliki NIK valid, gunakan nama lengkap resmi (exact atau tanpa spasi)
+      if (!iNikClean && myNamaClean && iNamaClean) {
+        if (isSamePersonName(myNamaClean, iNamaClean)) return true;
       }
-      if (reqUname && (iNama === reqUname || iNik === reqUname)) {
-        return true;
+
+      // 3. Username match sebagai alternatif
+      if (reqUname) {
+        const uClean = cleanNik(reqUname) || reqUname.toLowerCase();
+        if (iNikClean && iNikClean === uClean) return true;
+        if (iNamaClean && cleanNama(reqUname) === iNamaClean) return true;
       }
+
       return false;
     }
 
@@ -1747,10 +1802,13 @@ app.get('/api/loans/monitoring', async (req, res) => {
       let itemNik = parsed.nik !== '-' ? parsed.nik : '';
       let itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : '';
 
-      const rowNamaClean = rowNama.toLowerCase().replace(/\s+/g, ' ');
-      if (!itemNik && rowNamaClean && userByName.has(rowNamaClean)) {
-        itemNik = userByName.get(rowNamaClean).nik;
-        if (!itemUnit) itemUnit = userByName.get(rowNamaClean).unitKerja;
+      const rowNamaClean = cleanNama(rowNama);
+      if (!itemNik && rowNamaClean) {
+        const uMatch = userByName.get(rowNamaClean) || userByNameNoSpace.get(rowNamaClean.replace(/\s+/g, ''));
+        if (uMatch) {
+          itemNik = uMatch.nik;
+          if (!itemUnit || itemUnit === '-') itemUnit = uMatch.unitKerja;
+        }
       }
 
       if (!isMatchedMember(itemNik, rowNama)) return;
@@ -1889,9 +1947,18 @@ app.get('/api/loans/monitoring', async (req, res) => {
         const isPaidOffLr = stWorkflow === 'LUNAS' || stWorkflow === 'PAID_OFF';
 
         const parsed = splitNikAndUnitKerja(r[5] || '', r[5] || '', r[7] || '');
-        const itemNik = parsed.nik !== '-' ? parsed.nik : String(r[5] || '').trim();
-        const itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : String(r[7] || '-').trim();
+        let itemNik = parsed.nik !== '-' ? parsed.nik : '';
+        let itemUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : String(r[7] || '-').trim();
         const itemNama = String(r[6] || '').trim();
+        const itemNamaClean = cleanNama(itemNama);
+
+        if (!itemNik && itemNamaClean) {
+          const uMatch = userByName.get(itemNamaClean) || userByNameNoSpace.get(itemNamaClean.replace(/\s+/g, ''));
+          if (uMatch) {
+            itemNik = uMatch.nik;
+            if (!itemUnit || itemUnit === '-') itemUnit = uMatch.unitKerja;
+          }
+        }
 
         if (!isMatchedMember(itemNik, itemNama)) return;
 
