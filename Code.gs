@@ -426,7 +426,20 @@ function isValidNik(val) {
 
 function cleanNik(val) {
   if (!isValidNik(val)) return '';
-  return String(val).trim().toLowerCase().replace(/[^a-z0-9]/gi, '');
+  var s = String(val).trim();
+  if (/[\-\/\(]/.test(s)) {
+    var parts = s.split(/[\-\/\(]/);
+    var cand0 = parts[0].trim();
+    var cand1 = parts[1] ? parts[1].replace(/[\)\s]/g, '').trim() : '';
+    if (/^\d{4,}$/.test(cand0) || /^FIN\d+/i.test(cand0) || /^ADM\d+/i.test(cand0)) {
+      s = cand0;
+    } else if (/^\d{4,}$/.test(cand1) || /^FIN\d+/i.test(cand1) || /^ADM\d+/i.test(cand1)) {
+      s = cand1;
+    } else if (isValidNik(cand0)) {
+      s = cand0;
+    }
+  }
+  return s.toLowerCase().replace(/[^a-z0-9]/gi, '');
 }
 
 function cleanNama(val) {
@@ -443,6 +456,24 @@ function isSamePersonName(nameA, nameB) {
   var aNoSpace = a.replace(/\s+/g, '');
   var bNoSpace = b.replace(/\s+/g, '');
   if (aNoSpace.length >= 4 && aNoSpace === bNoSpace) return true;
+
+  // Normalisasi ejaan & variasi nama umum Indonesia
+  var normA = aNoSpace
+    .replace(/dj/g, 'j')
+    .replace(/tj/g, 'c')
+    .replace(/oe/g, 'u')
+    .replace(/y/g, 'i')
+    .replace(/barok/g, 'barak')
+    .replace(/muhammad|mochammad|mohamad|mukhammad/g, 'muhammad');
+  var normB = bNoSpace
+    .replace(/dj/g, 'j')
+    .replace(/tj/g, 'c')
+    .replace(/oe/g, 'u')
+    .replace(/y/g, 'i')
+    .replace(/barok/g, 'barak')
+    .replace(/muhammad|mochammad|mohamad|mukhammad/g, 'muhammad');
+  if (normA.length >= 4 && normA === normB) return true;
+
   return false;
 }
 
@@ -4178,13 +4209,18 @@ function getMemberLoanMonitoring(params) {
       var cNikClean = cleanNik(iNik);
       var cNamaClean = cleanNama(iNama);
 
-      // 1. Prioritaskan pencocokan NIK resmi secara presisi (exact match)
+      // 1. Prioritaskan pencocokan NIK resmi secara presisi (exact match) atau keterkaitan NIK
       if (myNikClean && cNikClean) {
-        return myNikClean === cNikClean;
+        if (myNikClean === cNikClean) return true;
+        if (myNikClean.includes(cNikClean) || cNikClean.includes(myNikClean)) {
+          var minLen = Math.min(myNikClean.length, cNikClean.length);
+          if (minLen >= 4) return true;
+        }
+        return false;
       }
 
       // 2. Jika item pinjaman tidak memiliki NIK valid, gunakan nama lengkap resmi
-      if (!cNikClean && myNamaClean && cNamaClean) {
+      if (myNamaClean && cNamaClean) {
         if (isSamePersonName(myNamaClean, cNamaClean)) return true;
       }
 

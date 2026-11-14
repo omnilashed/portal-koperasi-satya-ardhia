@@ -5295,7 +5295,20 @@
 
     function cleanNik(val) {
       if (!isValidNik(val)) return '';
-      return String(val).trim().toLowerCase().replace(/[^a-z0-9]/gi, '');
+      let s = String(val).trim();
+      if (/[\-\/\(]/.test(s)) {
+        const parts = s.split(/[\-\/\(]/);
+        const cand0 = parts[0].trim();
+        const cand1 = parts[1] ? parts[1].replace(/[\)\s]/g, '').trim() : '';
+        if (/^\d{4,}$/.test(cand0) || /^FIN\d+/i.test(cand0) || /^ADM\d+/i.test(cand0)) {
+          s = cand0;
+        } else if (/^\d{4,}$/.test(cand1) || /^FIN\d+/i.test(cand1) || /^ADM\d+/i.test(cand1)) {
+          s = cand1;
+        } else if (isValidNik(cand0)) {
+          s = cand0;
+        }
+      }
+      return s.toLowerCase().replace(/[^a-z0-9]/gi, '');
     }
 
     function cleanNama(val) {
@@ -5312,6 +5325,24 @@
       const aNoSpace = a.replace(/\s+/g, '');
       const bNoSpace = b.replace(/\s+/g, '');
       if (aNoSpace.length >= 4 && aNoSpace === bNoSpace) return true;
+
+      // Normalisasi ejaan & variasi nama umum Indonesia
+      const normA = aNoSpace
+        .replace(/dj/g, 'j')
+        .replace(/tj/g, 'c')
+        .replace(/oe/g, 'u')
+        .replace(/y/g, 'i')
+        .replace(/barok/g, 'barak')
+        .replace(/muhammad|mochammad|mohamad|mukhammad/g, 'muhammad');
+      const normB = bNoSpace
+        .replace(/dj/g, 'j')
+        .replace(/tj/g, 'c')
+        .replace(/oe/g, 'u')
+        .replace(/y/g, 'i')
+        .replace(/barok/g, 'barak')
+        .replace(/muhammad|mochammad|mohamad|mukhammad/g, 'muhammad');
+      if (normA.length >= 4 && normA === normB) return true;
+
       return false;
     }
 
@@ -11252,6 +11283,14 @@ function setLoanMonitoringScope(scope) {
       btnSelf.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
     }
   }
+  const activeNikBadge = document.getElementById('monitoringActiveNikBadge');
+  if (activeNikBadge && currentUser) {
+    if (currentMonitoringScope === 'all') {
+      activeNikBadge.innerText = 'Semua Anggota Koperasi';
+    } else {
+      activeNikBadge.innerText = `NIK: ${currentUser.nik || currentUser.username} (${currentUser.nama || currentUser.namaLengkap || currentUser.username})`;
+    }
+  }
   fetchLoanMonitoringData();
 }
 
@@ -11296,16 +11335,36 @@ async function fetchLoanMonitoringData() {
 
       // Proteksi Client-Side: Jika scope 'self' (Pinjaman Saya), pastikan HANYA pinjaman milik user login yang tampil
       if (currentMonitoringScope === 'self') {
-        const myNikClean = cleanNik(nik);
-        const myNamaClean = cleanNama(nama);
+        const myNikClean = cleanNik(data.memberProfile?.nik || nik);
+        const myNamaClean = cleanNama(data.memberProfile?.nama || nama);
         const myUname = String(username).trim().toLowerCase();
 
         const belongsToMe = function(item) {
           const itemNikClean = cleanNik(item.nik || '');
           const itemNamaClean = cleanNama(item.namaAnggota || item.nama || '');
-          if (myNikClean && itemNikClean) return myNikClean === itemNikClean;
-          if (!itemNikClean && myNamaClean && itemNamaClean) return isSamePersonName(myNamaClean, itemNamaClean);
-          if (myUname && (itemNamaClean === myUname || itemNikClean === myUname)) return true;
+
+          // 1. Jika kedua pihak memiliki NIK yang valid:
+          if (myNikClean && itemNikClean) {
+            if (myNikClean === itemNikClean) return true;
+            if (myNikClean.includes(itemNikClean) || itemNikClean.includes(myNikClean)) {
+              const minLen = Math.min(myNikClean.length, itemNikClean.length);
+              if (minLen >= 4) return true;
+            }
+            return false;
+          }
+
+          // 2. Jika salah satu tidak memiliki NIK valid, gunakan nama lengkap
+          if (myNamaClean && itemNamaClean) {
+            if (isSamePersonName(myNamaClean, itemNamaClean)) return true;
+          }
+
+          // 3. Username match
+          if (myUname) {
+            const uClean = cleanNik(myUname) || myUname;
+            if (itemNikClean && (itemNikClean === myUname || itemNikClean === uClean)) return true;
+            if (itemNamaClean && itemNamaClean === myUname) return true;
+          }
+
           return false;
         };
 
