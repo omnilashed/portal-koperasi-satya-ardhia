@@ -372,6 +372,14 @@
                 <span class="sm:hidden">Simpanan</span>
               </button>
 
+              <!-- Tab: Auto-Input Rutin (Semua Anggota & Pengurus) -->
+              <button id="tabAutoInputBtn" onclick="switchTab('autoinput')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+                <i data-lucide="repeat" class="w-4 h-4 text-purple-600"></i>
+                <span class="hidden sm:inline">Auto-Input Rutin</span>
+                <span class="sm:hidden">Auto-Input</span>
+                <span id="badgeTabAutoInputPending" class="hidden px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-600 text-white">0</span>
+              </button>
+
               <!-- Tab: Pinjaman Koperasi (Semua Anggota & Pengurus) -->
               <button id="tabPinjamanBtn" onclick="switchTab('pinjaman')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
                 <i data-lucide="hand-coins" class="w-4 h-4"></i>
@@ -2489,6 +2497,263 @@
 
           </div>
 
+        </div>
+
+      </div>
+
+
+      <!-- VIEW 6B: TAB AUTO-INPUT RUTIN SIMPANAN SUKARELA -->
+      <div id="viewAutoInput" class="hidden space-y-6">
+
+        <!-- Top Header & Banner -->
+        <div class="bg-gradient-to-r from-purple-900 via-indigo-950 to-purple-950 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
+            <i data-lucide="repeat" class="w-72 h-72"></i>
+          </div>
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="space-y-2">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 backdrop-blur-sm text-xs font-semibold text-purple-200 border border-purple-500/30">
+                <i data-lucide="calendar-clock" class="w-3.5 h-3.5"></i>
+                Potong Gaji Rutin Bulanan Anggota Satya Ardhia
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Auto-Input Rutin Simpanan Sukarela</h2>
+              <p class="text-purple-200 text-xs sm:text-sm max-w-xl">
+                Pantau daftar auto-debet simpanan sukarela anggota yang aktif berjalan, kelola penyesuaian nominal, verifikasi persetujuan dual-control, serta penonaktifan jika anggota keluar dari koperasi.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button type="button" onclick="refreshAutoInputViewData()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white text-xs sm:text-sm font-semibold transition flex items-center gap-2 shadow-sm">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>Segarkan Data</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Summary Cards (4 Cards) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aturan Aktif Berjalan</p>
+              <p id="kpiAiTotalActive" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Pemotongan Gaji Aktif</p>
+            </div>
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Potongan / Bulan</p>
+              <p id="kpiAiTotalNominal" class="text-xl sm:text-2xl font-bold text-purple-700 mt-1 font-mono">Rp 0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Akumulasi Tiap Bulan</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="wallet" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Menunggu Approval</p>
+              <p id="kpiAiTotalPending" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Usulan Baru / Edit</p>
+            </div>
+            <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="clock" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Berhenti / Keluar</p>
+              <p id="kpiAiTotalStopped" class="text-2xl font-bold text-slate-600 mt-1">0</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Aturan Non-Aktif</p>
+            </div>
+            <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center">
+              <i data-lucide="user-x" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-View Navigation Pills -->
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+          <button id="pillAiTabListBtn" onclick="switchAiViewSection('list')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-purple-700 text-white shadow-sm transition flex items-center gap-2">
+            <i data-lucide="repeat" class="w-4 h-4"></i>
+            <span>Daftar Auto-Input Berjalan</span>
+            <span id="badgePillAiList" class="px-2 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-bold">0</span>
+          </button>
+          <button id="pillAiTabApprovalBtn" onclick="switchAiViewSection('approvals')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-amber-600"></i>
+            <span>List Task &amp; Riwayat Approval</span>
+            <span id="badgePillAiApprovals" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">0</span>
+          </button>
+          <button id="pillAiTabFormBtn" onclick="switchAiViewSection('form')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-600"></i>
+            <span>Atur Auto-Input Baru</span>
+          </button>
+        </div>
+
+        <!-- Sub-Section 1: Daftar Auto-Input Berjalan -->
+        <div id="sectionAiList" class="space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-bold text-slate-900 text-base">Daftar Auto-Input Rutin Berjalan</h3>
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">Potong Gaji Bulanan</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Daftar konfigurasi pemotongan simpanan sukarela rutin bulanan anggota yang aktif berjalan di sistem.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                <input type="text" id="searchAiInput" oninput="renderAiTable()" placeholder="Cari nama, NIK, unit..." class="pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 w-44 sm:w-56">
+              </div>
+              <select id="filterAiStatus" onchange="renderAiTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 bg-white font-medium text-slate-700">
+                <option value="ALL">Semua Status</option>
+                <option value="ACTIVE" selected>Aktif Berjalan</option>
+                <option value="PENDING_APPROVAL">Menunggu Approval</option>
+                <option value="STOPPED">Berhenti / Keluar</option>
+              </select>
+              <button type="button" onclick="loadAutoInputViewData()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="py-3.5 px-4">Tgl Dibuat & No. Rule</th>
+                    <th class="py-3.5 px-4">Anggota (NIK)</th>
+                    <th class="py-3.5 px-4 text-right">Nominal Rutin / Bulan</th>
+                    <th class="py-3.5 px-4 text-center">Jadwal & Frekuensi</th>
+                    <th class="py-3.5 px-4">Keterangan</th>
+                    <th class="py-3.5 px-4 text-center">Status</th>
+                    <th class="py-3.5 px-4 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAiRules" class="divide-y divide-slate-100 font-medium text-slate-700">
+                  <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400">Memuat aturan auto-input...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span id="aiRulesPaginationInfo">Menampilkan 0 aturan</span>
+              <span class="text-[11px] text-slate-400">Tersinkronisasi dengan Google Sheet SimpananSukarelaRules</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Section 2: List Task & Riwayat Approval Auto-Input -->
+        <div id="sectionAiApprovals" class="hidden space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-slate-900 text-base">Persetujuan & Task Auto-Input Simpanan Sukarela</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Daftar usulan baru, perubahan nominal, dan task auto-input yang telah disetujui oleh Admin, Finance, atau Ketua Koperasi.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="filterAiApprovalStatus" onchange="renderAiApprovalsTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white">
+                <option value="ALL">Semua Riwayat Task</option>
+                <option value="PENDING" selected>Menunggu Approval (Pending)</option>
+                <option value="APPROVED">List Task Telah Diapprove</option>
+                <option value="REJECTED">Task Ditolak (Rejected)</option>
+              </select>
+              <button type="button" onclick="fetchRulesApprovalRequests()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Segarkan</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold text-[11px]">
+                  <tr>
+                    <th class="py-3.5 px-4">Tgl Usulan</th>
+                    <th class="py-3.5 px-4">Anggota (NIK)</th>
+                    <th class="py-3.5 px-4">Pengusul</th>
+                    <th class="py-3.5 px-4">Tipe & Perubahan</th>
+                    <th class="py-3.5 px-4">Keterangan / Alasan</th>
+                    <th class="py-3.5 px-4">Status & Otorisator</th>
+                    <th class="py-3.5 px-4 text-center">Aksi / Otorisasi</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAiApprovals" class="divide-y divide-slate-100 font-normal">
+                  <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400">Memuat data task approval auto-input...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Section 3: Form Atur Auto-Input Baru -->
+        <div id="sectionAiForm" class="hidden space-y-4">
+          <div class="max-w-2xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+            <div class="flex items-center space-x-3 border-b border-slate-100 pb-4">
+              <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                <i data-lucide="repeat" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-900 text-base">Pendaftaran Auto-Input Rutin Baru</h3>
+                <p class="text-xs text-slate-500">Daftarkan pemotongan simpanan sukarela rutin bulanan untuk anggota</p>
+              </div>
+            </div>
+
+            <form onsubmit="handleAiFormSubmit(event)" class="space-y-4 text-xs">
+              <div>
+                <label class="block text-slate-700 font-semibold mb-1.5">Pilih Anggota <span class="text-rose-500">*</span></label>
+                <select id="aiFormTargetNik" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 bg-white font-medium text-slate-800">
+                  <option value="">-- Pilih Anggota --</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-slate-700 font-semibold mb-1.5">Nominal Rutin (Rp / Bulan) <span class="text-rose-500">*</span></label>
+                  <div class="relative">
+                    <span class="absolute left-3.5 top-2.5 text-slate-400 font-bold text-xs">Rp</span>
+                    <input type="text" id="aiFormNominal" placeholder="Contoh: 150.000" oninput="formatRupiahInput(this)" required class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:ring-2 focus:ring-purple-500">
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1">Minimal Rp 10.000 per bulan.</p>
+                </div>
+                <div>
+                  <label class="block text-slate-700 font-semibold mb-1.5">Tanggal Eksekusi Bulanan <span class="text-rose-500">*</span></label>
+                  <select id="aiFormTglEksekusi" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 bg-white font-medium">
+                    <option value="25" selected>Tgl 25 (Gajian Rutin)</option>
+                    <option value="1">Tgl 1 (Awal Bulan)</option>
+                    <option value="28">Tgl 28 (Akhir Bulan)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-slate-700 font-semibold mb-1.5">Keterangan / Keperluan</label>
+                <textarea id="aiFormKeterangan" rows="2" placeholder="Catatan aturan auto-input sukarela..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500"></textarea>
+              </div>
+
+              <div class="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2.5">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                <div>
+                  Aturan baru akan didaftarkan dengan status <b>PENDING_APPROVAL</b> dan wajib disetujui oleh Admin, Finance, atau Ketua Koperasi.
+                </div>
+              </div>
+
+              <button type="submit" id="btnSubmitAiForm" class="w-full py-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 active:scale-95">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span>Simpan &amp; Ajukan Usulan Auto-Input</span>
+              </button>
+            </form>
+          </div>
         </div>
 
       </div>
@@ -5170,12 +5435,17 @@
         }
       }
 
-      // Tab Saldo & Pinjaman Aktif Untuk Seluruh Anggota & Pengurus
+      // Tab Saldo, Auto-Input & Pinjaman Aktif Untuk Seluruh Anggota & Pengurus
       const tabSimpananBtn = document.getElementById('tabSimpananBtn');
+      const tabAutoInputBtn = document.getElementById('tabAutoInputBtn');
       const tabPinjamanBtn = document.getElementById('tabPinjamanBtn');
       if (tabSimpananBtn) {
         tabSimpananBtn.style.display = 'inline-flex';
         tabSimpananBtn.disabled = false;
+      }
+      if (tabAutoInputBtn) {
+        tabAutoInputBtn.style.display = 'inline-flex';
+        tabAutoInputBtn.disabled = false;
       }
       if (tabPinjamanBtn) {
         tabPinjamanBtn.style.display = 'inline-flex';
@@ -5344,6 +5614,8 @@
       if (viewOps) viewOps.classList.toggle('hidden', tab !== 'operasional');
       const viewSimp = document.getElementById('viewSimpanan');
       if (viewSimp) viewSimp.classList.toggle('hidden', tab !== 'simpanan');
+      const viewAi = document.getElementById('viewAutoInput');
+      if (viewAi) viewAi.classList.toggle('hidden', tab !== 'autoinput');
       const viewPinj = document.getElementById('viewPinjaman');
       if (viewPinj) viewPinj.classList.toggle('hidden', tab !== 'pinjaman');
       const viewApp = document.getElementById('viewApproval');
@@ -5351,6 +5623,7 @@
 
       const trackBtn = document.getElementById('tabTrackBtn');
       const simpananBtn = document.getElementById('tabSimpananBtn');
+      const autoInputBtn = document.getElementById('tabAutoInputBtn');
       const pinjamanBtn = document.getElementById('tabPinjamanBtn');
       const formBtn = document.getElementById('tabFormBtn');
       const usersBtn = document.getElementById('tabUsersBtn');
@@ -5363,6 +5636,7 @@
 
       trackBtn.className = (tab === 'tracking' ? activeClass : inactiveClass) + " flex";
       if (simpananBtn) simpananBtn.className = (tab === 'simpanan' ? activeClass : inactiveClass) + " flex";
+      if (autoInputBtn) autoInputBtn.className = (tab === 'autoinput' ? activeClass : inactiveClass) + " flex";
       if (pinjamanBtn) pinjamanBtn.className = (tab === 'pinjaman' ? activeClass : inactiveClass) + " flex";
       if (absensiBtn) absensiBtn.className = (tab === 'absensi' ? activeClass : inactiveClass) + " flex";
       if (operasionalBtn) operasionalBtn.className = (tab === 'operasional' ? activeClass : inactiveClass) + " flex";
@@ -5379,6 +5653,7 @@
         }
       }
       if (tab === 'simpanan') loadSimpananData();
+      if (tab === 'autoinput') loadAutoInputViewData();
       if (tab === 'pinjaman') loadPinjamanData();
       if (tab === 'approval' && (role === 'admin' || role === 'ketua koperasi' || role === 'financial')) refreshApprovalData();
       if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus')) fetchUsersList();
@@ -5391,6 +5666,7 @@
         const activeBtnMap = {
           tracking: 'tabTrackBtn',
           simpanan: 'tabSimpananBtn',
+          autoinput: 'tabAutoInputBtn',
           pinjaman: 'tabPinjamanBtn',
           approval: 'tabApprovalBtn',
           users: 'tabUsersBtn',
@@ -10160,6 +10436,8 @@ async function fetchSimpananRules() {
       const badgePill = document.getElementById('badgePillActiveRules');
       if (badgePill) badgePill.innerText = activeCount;
       renderSimpananRulesTable();
+      if (typeof updateAutoInputKPISummaries === 'function') updateAutoInputKPISummaries();
+      if (typeof renderAiTable === 'function') renderAiTable();
     } else {
       if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Belum ada aturan auto-input yang terdaftar.</td></tr>`;
     }
@@ -10434,6 +10712,465 @@ async function handleConfirmStopSimpananRule(e) {
       if (typeof refreshApprovalData === 'function') refreshApprovalData();
     } else {
       showToast('Gagal menghentikan auto-input: ' + (data.message || 'Unknown error'), true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ============================================================================
+// CONTROLLER: VIEW UTAMA TAB MENU AUTO-INPUT RUTIN (viewAutoInput)
+// ============================================================================
+
+let currentAiViewSection = 'list';
+
+function switchAiViewSection(sec) {
+  currentAiViewSection = sec;
+  const btnList = document.getElementById('pillAiTabListBtn');
+  const btnApp = document.getElementById('pillAiTabApprovalBtn');
+  const btnForm = document.getElementById('pillAiTabFormBtn');
+
+  const secList = document.getElementById('sectionAiList');
+  const secApp = document.getElementById('sectionAiApprovals');
+  const secForm = document.getElementById('sectionAiForm');
+
+  const activeBtnClass = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-purple-700 text-white shadow-sm transition flex items-center gap-2";
+  const inactiveBtnClass = "px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2";
+
+  if (btnList) btnList.className = (sec === 'list' ? activeBtnClass : inactiveBtnClass);
+  if (btnApp) btnApp.className = (sec === 'approvals' ? activeBtnClass : inactiveBtnClass);
+  if (btnForm) btnForm.className = (sec === 'form' ? activeBtnClass : inactiveBtnClass);
+
+  if (secList) secList.classList.toggle('hidden', sec !== 'list');
+  if (secApp) secApp.classList.toggle('hidden', sec !== 'approvals');
+  if (secForm) secForm.classList.toggle('hidden', sec !== 'form');
+
+  if (sec === 'list') {
+    renderAiTable();
+  } else if (sec === 'approvals') {
+    fetchRulesApprovalRequests().then(() => renderAiApprovalsTable());
+  } else if (sec === 'form') {
+    populateAiFormDropdown();
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function loadAutoInputViewData() {
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const tabFormPill = document.getElementById('pillAiTabFormBtn');
+  if (tabFormPill) {
+    if (role === 'admin' || role === 'financial') {
+      tabFormPill.style.display = 'inline-flex';
+    } else {
+      tabFormPill.style.display = 'none';
+      if (currentAiViewSection === 'form') switchAiViewSection('list');
+    }
+  }
+
+  await Promise.all([
+    fetchSimpananRules(),
+    fetchRulesApprovalRequests(),
+    populateAiFormDropdown()
+  ]);
+
+  updateAutoInputKPISummaries();
+  renderAiTable();
+  renderAiApprovalsTable();
+}
+
+function refreshAutoInputViewData() {
+  showToast('Memperbarui data auto-input rutin...');
+  loadAutoInputViewData();
+}
+
+function updateAutoInputKPISummaries() {
+  const activeRules = (simpananRulesList || []).filter(r => (r.statusRule || 'ACTIVE').toUpperCase() === 'ACTIVE');
+  const stoppedRules = (simpananRulesList || []).filter(r => (r.statusRule || '').toUpperCase() === 'STOPPED');
+  const pendingApprovals = (rulesApprovalList || []).filter(a => (a.status || 'PENDING').toUpperCase() === 'PENDING');
+
+  let totalNominal = 0;
+  activeRules.forEach(r => {
+    totalNominal += (parseInt(r.nominalRutin || 0, 10) || 0);
+  });
+
+  const elActive = document.getElementById('kpiAiTotalActive');
+  const elNominal = document.getElementById('kpiAiTotalNominal');
+  const elPending = document.getElementById('kpiAiTotalPending');
+  const elStopped = document.getElementById('kpiAiTotalStopped');
+
+  if (elActive) elActive.innerText = activeRules.length;
+  if (elNominal) elNominal.innerText = 'Rp ' + totalNominal.toLocaleString('id-ID');
+  if (elPending) elPending.innerText = pendingApprovals.length;
+  if (elStopped) elStopped.innerText = stoppedRules.length;
+
+  const badgeList = document.getElementById('badgePillAiList');
+  const badgeApp = document.getElementById('badgePillAiApprovals');
+  const badgeNav = document.getElementById('badgeTabAutoInputPending');
+
+  if (badgeList) badgeList.innerText = activeRules.length;
+  if (badgeApp) badgeApp.innerText = pendingApprovals.length;
+  if (badgeNav) {
+    if (pendingApprovals.length > 0) {
+      badgeNav.innerText = pendingApprovals.length;
+      badgeNav.classList.remove('hidden');
+    } else {
+      badgeNav.classList.add('hidden');
+    }
+  }
+}
+
+function renderAiTable() {
+  const tbody = document.getElementById('tbodyAiRules');
+  if (!tbody) return;
+
+  const search = ((document.getElementById('searchAiInput') || {}).value || '').trim().toLowerCase();
+  const filterStatus = (document.getElementById('filterAiStatus') || {}).value || 'ACTIVE';
+
+  let list = simpananRulesList || [];
+
+  if (filterStatus !== 'ALL') {
+    list = list.filter(r => (r.statusRule || 'ACTIVE').toUpperCase() === filterStatus);
+  }
+
+  if (search) {
+    list = list.filter(r => {
+      const nama = String(r.namaAnggota || '').toLowerCase();
+      const nik = String(r.nik || '').toLowerCase();
+      const unit = String(r.unitKerja || '').toLowerCase();
+      const ruleId = String(r.ruleId || '').toLowerCase();
+      return nama.includes(search) || nik.includes(search) || unit.includes(search) || ruleId.includes(search);
+    });
+  }
+
+  const paginationInfo = document.getElementById('aiRulesPaginationInfo');
+  if (paginationInfo) {
+    paginationInfo.innerText = `Menampilkan ${list.length} dari total ${simpananRulesList.length} aturan`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada aturan auto-input dengan status ${filterStatus}.</td></tr>`;
+    return;
+  }
+
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const canManage = (role === 'admin' || role === 'financial' || role === 'ketua koperasi');
+
+  tbody.innerHTML = list.map(r => {
+    const status = (r.statusRule || 'ACTIVE').toUpperCase();
+    let badgeStatus = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">AKTIF</span>';
+    if (status === 'PENDING_APPROVAL') {
+      badgeStatus = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">PENDING APPROVAL</span>';
+    } else if (status === 'STOPPED') {
+      badgeStatus = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">BERHENTI</span>';
+    }
+
+    const nominal = parseInt(r.nominalRutin || 0, 10);
+    const nominalStr = 'Rp ' + nominal.toLocaleString('id-ID');
+
+    let actionsHtml = `<span class="text-slate-400 text-xs">-</span>`;
+    if (canManage) {
+      if (status !== 'STOPPED') {
+        actionsHtml = `
+          <div class="flex items-center justify-center gap-1.5">
+            <button type="button" onclick="openEditSimpananRuleModal('${r.ruleId}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs transition flex items-center gap-1" title="Edit Nominal / Jadwal">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              <span>Edit</span>
+            </button>
+            <button type="button" onclick="openStopSimpananRuleModal('${r.ruleId}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1" title="Berhenti / Keluar Koperasi">
+              <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
+              <span>Berhenti</span>
+            </button>
+          </div>
+        `;
+      } else {
+        actionsHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-200">Non-Aktif</span>`;
+      }
+    }
+
+    return `
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <td class="py-3 px-4">
+          <p class="font-mono text-xs text-slate-700 font-bold">${r.ruleId || '-'}</p>
+          <p class="text-[10px] text-slate-400">${r.timestamp || '-'}</p>
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900 text-xs">${r.namaAnggota || '-'}</p>
+          <p class="text-[11px] font-mono text-indigo-700">${r.nik || '-'} · <span class="text-slate-500 font-sans">${r.unitKerja || '-'}</span></p>
+        </td>
+        <td class="py-3 px-4 text-right">
+          <p class="font-bold text-emerald-700 font-mono text-sm">${nominalStr}</p>
+          <span class="text-[10px] text-slate-400">/ bulan</span>
+        </td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">
+            <i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i>
+            Tgl ${r.tanggalEksekusi || 25}
+          </span>
+          <span class="text-[10px] text-slate-400 block mt-0.5">${r.frekuensi || 'BULANAN'}</span>
+        </td>
+        <td class="py-3 px-4">
+          <p class="text-xs text-slate-600 max-w-xs break-words">${r.keterangan || '-'}</p>
+        </td>
+        <td class="py-3 px-4 text-center">
+          ${badgeStatus}
+        </td>
+        <td class="py-3 px-4 text-center">
+          ${actionsHtml}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderAiApprovalsTable() {
+  const tbody = document.getElementById('tbodyAiApprovals');
+  if (!tbody) return;
+
+  const filterStatus = (document.getElementById('filterAiApprovalStatus') || {}).value || 'PENDING';
+  let list = rulesApprovalList || [];
+  if (filterStatus !== 'ALL') {
+    list = list.filter(r => (r.status || 'PENDING').toUpperCase() === filterStatus);
+  }
+
+  if (list.length === 0) {
+    const statusText = filterStatus === 'APPROVED' ? 'yang telah diapprove' : (filterStatus === 'PENDING' ? 'menunggu approval' : filterStatus);
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada task auto-input ${statusText}.</td></tr>`;
+    return;
+  }
+
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const canApprove = (role === 'admin' || role === 'financial' || role === 'ketua koperasi');
+
+  tbody.innerHTML = list.map(r => {
+    const st = (r.status || 'PENDING').toUpperCase();
+    let badgeClass = 'bg-amber-100 text-amber-800';
+    let statusLabel = 'Menunggu Approval';
+    if (st === 'APPROVED') { badgeClass = 'bg-emerald-100 text-emerald-800'; statusLabel = 'Disetujui'; }
+    if (st === 'REJECTED') { badgeClass = 'bg-rose-100 text-rose-800'; statusLabel = 'Ditolak'; }
+
+    const isPending = (st === 'PENDING');
+    const isExit = (r.tipePerubahan || '').toUpperCase() === 'KELUAR_KOPERASI' || (r.tipePerubahan || '').toUpperCase() === 'STOP_RULE';
+
+    let lamaNominal = 0;
+    let baruNominal = 0;
+    try {
+      const objLama = typeof r.lama === 'string' ? JSON.parse(r.lama || '{}') : (r.lama || {});
+      const objBaru = typeof r.baru === 'string' ? JSON.parse(r.baru || '{}') : (r.baru || {});
+      lamaNominal = parseInt(objLama.nominalRutin || 0, 10) || 0;
+      baruNominal = parseInt(objBaru.nominalRutin || 0, 10) || 0;
+    } catch (e) {}
+
+    let perubahanHtml = '';
+    if (isExit) {
+      perubahanHtml = `
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+          <i data-lucide="user-minus" class="w-3 h-3"></i>
+          Berhenti / Keluar
+        </span>
+        <p class="text-[10px] text-slate-400 mt-0.5">Non-aktifkan Potong Gaji</p>
+      `;
+    } else {
+      perubahanHtml = `
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="text-slate-400 font-mono line-through">Rp ${lamaNominal.toLocaleString('id-ID')}</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span class="font-bold text-emerald-700 font-mono text-sm">Rp ${baruNominal.toLocaleString('id-ID')}</span>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-0.5">Potong Gaji Rutin Bulanan</p>
+      `;
+    }
+
+    let statusOtorisatorHtml = '';
+    if (st === 'APPROVED') {
+      statusOtorisatorHtml = `
+        <div>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          <div class="mt-1 text-[11px] text-slate-700">
+            <span>Oleh: <b>${r.diprosesOlehNama || 'Admin / Ketua'}</b></span>
+            ${r.diprosesOlehNik ? `<span class="text-slate-400 font-mono text-[10px]"> (${r.diprosesOlehNik})</span>` : ''}
+          </div>
+          ${r.waktuProses ? `<p class="text-[10px] text-slate-400 font-mono mt-0.5">${r.waktuProses}</p>` : ''}
+        </div>
+      `;
+    } else if (st === 'REJECTED') {
+      statusOtorisatorHtml = `
+        <div>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          <div class="mt-1 text-[11px] text-slate-700">
+            <span>Oleh: <b>${r.diprosesOlehNama || '-'}</b></span>
+          </div>
+          ${r.waktuProses ? `<p class="text-[10px] text-slate-400 font-mono mt-0.5">${r.waktuProses}</p>` : ''}
+        </div>
+      `;
+    } else {
+      statusOtorisatorHtml = `
+        <div>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          <p class="text-[10px] text-amber-700 mt-0.5">Menunggu Otorisator</p>
+        </div>
+      `;
+    }
+
+    let actionsHtml = '';
+    if (isPending) {
+      if (canApprove) {
+        actionsHtml = `
+          <div class="flex items-center justify-center gap-1.5">
+            <button onclick="handleApproveRuleRequest('${r.approvalId}', '${(r.namaAnggota || '').replace(/'/g, "\\'")}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1 active:scale-95" title="Setujui Auto-Input">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Approve</span>
+            </button>
+            <button onclick="handleRejectRuleRequest('${r.approvalId}', '${(r.namaAnggota || '').replace(/'/g, "\\'")}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1 active:scale-95" title="Tolak Usulan">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              <span>Tolak</span>
+            </button>
+          </div>
+        `;
+      } else {
+        actionsHtml = `<span class="text-xs text-slate-400 block text-center">Menunggu Review</span>`;
+      }
+    } else if (st === 'APPROVED') {
+      actionsHtml = `
+        <div class="text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            <span>Selesai Disetujui</span>
+          </span>
+        </div>
+      `;
+    } else {
+      actionsHtml = `
+        <div class="text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+            <span>Ditolak</span>
+          </span>
+        </div>
+      `;
+    }
+
+    return `
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <td class="py-3 px-4 font-mono text-slate-500 text-xs">
+          <p>${r.timestamp || r.approvalId}</p>
+          <span class="text-[10px] text-slate-400 font-mono">${r.approvalId}</span>
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900">${r.namaAnggota}</p>
+          <p class="text-xs text-slate-500 font-mono">${r.nik}</p>
+        </td>
+        <td class="py-3 px-4">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-semibold">
+            <i data-lucide="user" class="w-3 h-3"></i>
+            ${r.diajukanOlehNama || 'Financial'}
+          </span>
+        </td>
+        <td class="py-3 px-4">
+          ${perubahanHtml}
+        </td>
+        <td class="py-3 px-4">
+          <p class="text-xs text-slate-700 max-w-xs break-words">${r.catatanReview || r.tipePerubahan || '-'}</p>
+        </td>
+        <td class="py-3 px-4">
+          ${statusOtorisatorHtml}
+        </td>
+        <td class="py-3 px-4">
+          ${actionsHtml}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function populateAiFormDropdown() {
+  const sel = document.getElementById('aiFormTargetNik');
+  if (!sel) return;
+
+  if (usersList && usersList.length > 0) {
+    fillAiSelect(usersList);
+  } else {
+    try {
+      const res = await fetch(`${API_BASE}/api/users?role=Admin`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.users)) {
+        usersList = data.users;
+        fillAiSelect(usersList);
+      }
+    } catch (e) {
+      console.warn('Gagal memuat list user dropdown:', e);
+    }
+  }
+
+  function fillAiSelect(arr) {
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">-- Pilih Anggota --</option>' + arr.map(u => {
+      const nik = u.nik || u.username;
+      const nama = u.namaLengkap || u.nama || u.username;
+      const unit = u.unitKerja || u.unit || '';
+      return `<option value="${nik}" data-nama="${nama}" data-unit="${unit}">${nama} (${nik}${unit ? ' - ' + unit : ''})</option>`;
+    }).join('');
+    if (curVal) sel.value = curVal;
+  }
+}
+
+async function handleAiFormSubmit(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const sel = document.getElementById('aiFormTargetNik');
+  if (!sel || !sel.value) {
+    showToast('Harap pilih anggota.', true);
+    return;
+  }
+
+  const opt = sel.options[sel.selectedIndex];
+  const nik = sel.value;
+  const namaAnggota = opt.getAttribute('data-nama') || opt.text;
+  const unitKerja = opt.getAttribute('data-unit') || '';
+  const nominalRutin = parseRupiahInput(document.getElementById('aiFormNominal').value);
+  const tanggalEksekusi = document.getElementById('aiFormTglEksekusi').value;
+  const keterangan = (document.getElementById('aiFormKeterangan').value || '').trim() || 'Pemotongan rutin simpanan sukarela';
+
+  if (!nominalRutin || nominalRutin < 10000) {
+    showToast('Nominal rutin minimal Rp 10.000.', true);
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitAiForm');
+  if (btn) btn.disabled = true;
+
+  showToast('Mendaftarkan aturan auto-input baru...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nik,
+        namaAnggota,
+        unitKerja,
+        nominalRutin,
+        tanggalEksekusi,
+        keterangan,
+        createdByNik: currentUser.nik || currentUser.username,
+        createdByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        createdByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Aturan auto-input berhasil didaftarkan dan menunggu approval!');
+      e.target.reset();
+      switchAiViewSection('list');
+      loadAutoInputViewData();
+    } else {
+      showToast('Gagal mendaftarkan aturan: ' + (data.message || 'Unknown error'), true);
     }
   } catch (err) {
     showToast('Koneksi server gagal: ' + err.message, true);
@@ -12064,6 +12801,16 @@ async function loadApprovalBadgeCounts() {
     if (pillBank) pillBank.innerText = pendingBank;
     if (pillRules) pillRules.innerText = pendingRules;
 
+    const badgeNavAi = document.getElementById('badgeTabAutoInputPending');
+    if (badgeNavAi) {
+      if (pendingRules > 0) {
+        badgeNavAi.innerText = pendingRules;
+        badgeNavAi.classList.remove('hidden');
+      } else {
+        badgeNavAi.classList.add('hidden');
+      }
+    }
+
     const approvedBank = bankReqs.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length;
     const approvedRules = rulesReqs.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length;
     const kpiApproved = document.getElementById('kpiApprovedTotalCount');
@@ -12244,6 +12991,8 @@ async function fetchRulesApprovalRequests() {
     const json = await res.json();
     rulesApprovalList = json.approvals || [];
     renderRulesApprovalTable();
+    if (typeof updateAutoInputKPISummaries === 'function') updateAutoInputKPISummaries();
+    if (typeof renderAiApprovalsTable === 'function') renderAiApprovalsTable();
   } catch (err) {
     if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-red-500">Gagal memuat usulan auto-input: ${err.message}</td></tr>`;
   }
