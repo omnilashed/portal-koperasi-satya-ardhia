@@ -2362,8 +2362,21 @@
               </div>
             </div>
 
-            <!-- Tabel Riwayat Mutasi Simpanan Sukarela -->
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Sub-Tab Navigation: Mutasi Ledger vs Daftar Auto-Input Berjalan -->
+            <div class="flex items-center gap-2 border-b border-slate-200 pb-3">
+              <button type="button" id="pillSimpananMutasiBtn" onclick="switchSimpananSubTab('mutasi')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-700 text-white shadow-sm transition flex items-center gap-2">
+                <i data-lucide="history" class="w-4 h-4"></i>
+                <span>Buku Mutasi Transaksi</span>
+              </button>
+              <button type="button" id="pillSimpananRulesBtn" onclick="switchSimpananSubTab('rules')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2">
+                <i data-lucide="repeat" class="w-4 h-4"></i>
+                <span>Daftar Auto-Input Rutin Berjalan</span>
+                <span id="badgePillActiveRules" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">0</span>
+              </button>
+            </div>
+
+            <!-- TAB 1: Tabel Riwayat Mutasi Simpanan Sukarela -->
+            <div id="sectionSimpananLedger" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 class="font-bold text-slate-900 text-base">Riwayat Mutasi Simpanan Sukarela</h3>
@@ -2415,6 +2428,63 @@
                 </div>
               </div>
 
+            </div>
+
+            <!-- TAB 2: Tabel Auto-Input Rutin Simpanan Sukarela Berjalan -->
+            <div id="sectionSimpananRules" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-slate-900 text-base">Daftar Auto-Input Rutin Berjalan</h3>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">Potong Gaji Bulanan</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">Daftar konfigurasi pemotongan simpanan sukarela rutin bulanan anggota yang aktif berjalan di sistem.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                    <input type="text" id="searchSimpananRulesInput" oninput="renderSimpananRulesTable()" placeholder="Cari nama, NIK, unit..." class="pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 w-44 sm:w-56">
+                  </div>
+                  <select id="filterSimpananRulesStatus" onchange="renderSimpananRulesTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 bg-white font-medium text-slate-700">
+                    <option value="ALL">Semua Status</option>
+                    <option value="ACTIVE" selected>Aktif Berjalan</option>
+                    <option value="PENDING_APPROVAL">Menunggu Approval</option>
+                    <option value="STOPPED">Berhenti / Keluar</option>
+                  </select>
+                  <button type="button" onclick="fetchSimpananRules()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Table Rules -->
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th class="py-3 px-4">Tgl Dibuat & No. Rule</th>
+                      <th class="py-3 px-4">Anggota (NIK)</th>
+                      <th class="py-3 px-4 text-right">Nominal Rutin / Bulan</th>
+                      <th class="py-3 px-4 text-center">Jadwal & Frekuensi</th>
+                      <th class="py-3 px-4">Keterangan</th>
+                      <th class="py-3 px-4 text-center">Status</th>
+                      <th class="py-3 px-4 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodySimpananRules" class="divide-y divide-slate-100 font-medium text-slate-700">
+                    <tr>
+                      <td colspan="7" class="py-8 text-center text-slate-400">Memuat aturan auto-input simpanan sukarela...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Rules Pagination / Summary -->
+              <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span id="simpananRulesPaginationInfo">Menampilkan 0 aturan</span>
+                <span class="text-[11px] text-slate-400">Data tersinkronisasi otomatis dengan sheet SimpananSukarelaRules</span>
+              </div>
             </div>
 
           </div>
@@ -3022,7 +3092,7 @@
             <div>
               <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Antrean Auto-Input</p>
               <p id="kpiRulesPendingCount" class="text-2xl font-bold text-indigo-600 mt-1">0</p>
-              <p class="text-[11px] text-slate-400 mt-0.5">Khusus Ketua Koperasi</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Admin / Finance / Ketua</p>
             </div>
             <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
               <i data-lucide="refresh-ccw" class="w-6 h-6"></i>
@@ -3117,16 +3187,20 @@
         <div id="sectionApprovalRules" class="hidden space-y-4">
           <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <h3 class="font-bold text-slate-900 text-base">Usulan Pengaturan Simpanan Sukarela Rutin (Auto-Input)</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Usulan perubahan atau setting potong gaji rutin yang diinput oleh role Financial wajib disetujui terlebih dahulu oleh Ketua Koperasi.</p>
+              <h3 class="font-bold text-slate-900 text-base">Persetujuan & Task Auto-Input Simpanan Sukarela</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Pengaturan auto-input simpanan sukarela wajib disetujui oleh Admin, Finance, atau Ketua Koperasi.</p>
             </div>
             <div class="flex items-center gap-2">
               <select id="filterRulesApprovalStatus" onchange="renderRulesApprovalTable()" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white">
-                <option value="ALL">Semua Status</option>
-                <option value="PENDING" selected>Menunggu Approval Ketua</option>
-                <option value="APPROVED">Disetujui (Approved)</option>
-                <option value="REJECTED">Ditolak (Rejected)</option>
+                <option value="ALL">Semua Riwayat Task</option>
+                <option value="PENDING" selected>Menunggu Approval (Pending)</option>
+                <option value="APPROVED">List Task Telah Diapprove</option>
+                <option value="REJECTED">Task Ditolak (Rejected)</option>
               </select>
+              <button type="button" onclick="fetchRulesApprovalRequests()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Segarkan</span>
+              </button>
             </div>
           </div>
 
@@ -3137,10 +3211,10 @@
                   <tr>
                     <th class="py-3.5 px-4">Tgl Usulan</th>
                     <th class="py-3.5 px-4">Anggota (NIK)</th>
-                    <th class="py-3.5 px-4">Pengusul (Finance)</th>
-                    <th class="py-3.5 px-4">Nominal Lama vs Baru</th>
-                    <th class="py-3.5 px-4">Keterangan</th>
-                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-4">Pengusul</th>
+                    <th class="py-3.5 px-4">Tipe & Perubahan</th>
+                    <th class="py-3.5 px-4">Keterangan / Alasan</th>
+                    <th class="py-3.5 px-4">Status & Otorisator</th>
                     <th class="py-3.5 px-4 text-center">Aksi / Otorisasi</th>
                   </tr>
                 </thead>
@@ -4178,6 +4252,153 @@
     </div>
   </div>
 
+  <!-- Modal Edit Simpanan Sukarela Rule -->
+  <div id="modalEditSimpananRule" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-8 space-y-5 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center">
+            <i data-lucide="edit-3" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Edit Aturan Auto-Input Sukarela</h3>
+            <p class="text-xs text-slate-500">Penyesuaian nominal potong gaji rutin sukarela anggota</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditSimpananRuleModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formEditSimpananRule" onsubmit="handleSaveEditSimpananRule(event)" class="space-y-4 text-xs">
+        <input type="hidden" id="editRuleId" name="ruleId">
+        <input type="hidden" id="editRuleNik" name="nik">
+
+        <!-- Info Anggota -->
+        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 text-[11px] font-medium">Nama Anggota:</span>
+            <span id="editRuleNamaAnggota" class="font-bold text-slate-900 text-xs">-</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 text-[11px] font-medium">NIK:</span>
+            <span id="editRuleNikDisplay" class="font-mono font-bold text-indigo-700 text-xs">-</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 text-[11px] font-medium">Nominal Saat Ini:</span>
+            <span id="editRuleNominalLamaDisplay" class="font-mono font-bold text-slate-700 text-xs">Rp 0</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-semibold mb-1.5 text-xs">Nominal Baru (Rp / Bulan) <span class="text-rose-500">*</span></label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-2.5 text-slate-400 font-bold text-xs">Rp</span>
+            <input type="number" id="editRuleNominalRutin" name="nominalRutin" min="10000" step="5000" required placeholder="Contoh: 150000" class="w-full pl-10 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold focus:ring-2 focus:ring-purple-500 text-slate-900">
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Minimal Rp 10.000 per bulan.</p>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-semibold mb-1.5 text-xs">Tanggal Eksekusi Bulanan (1 - 28) <span class="text-rose-500">*</span></label>
+          <input type="number" id="editRuleTanggalEksekusi" name="tanggalEksekusi" min="1" max="28" value="25" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-semibold focus:ring-2 focus:ring-purple-500 text-slate-900">
+          <p class="text-[10px] text-slate-400 mt-1">Tanggal debet/potong gaji rutin setiap bulannya (default: 25).</p>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-semibold mb-1.5 text-xs">Alasan Perubahan / Keterangan <span class="text-rose-500">*</span></label>
+          <textarea id="editRuleKeterangan" name="keterangan" rows="2" required placeholder="Contoh: Permohonan perubahan nominal simpanan sukarela dari anggota..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-purple-500 text-slate-900"></textarea>
+        </div>
+
+        <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
+          <div>
+            Perubahan ini akan dikirimkan ke <b>Antrean Persetujuan (Approval)</b>. Aturan baru akan aktif setelah disetujui oleh Admin, Finance, atau Ketua Koperasi.
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeEditSimpananRuleModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            Batal
+          </button>
+          <button type="submit" id="btnSubmitEditRule" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Simpan & Ajukan Approval</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Berhenti / Hapus Auto-Input (Keluar dari Koperasi) -->
+  <div id="modalStopSimpananRule" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-rose-100 my-8 space-y-5 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <i data-lucide="user-x" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-rose-900 text-base">Berhenti Auto-Input / Keluar Koperasi</h3>
+            <p class="text-xs text-slate-500">Penghentian potong gaji sukarela karena anggota non-aktif / keluar</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeStopSimpananRuleModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formStopSimpananRule" onsubmit="handleConfirmStopSimpananRule(event)" class="space-y-4 text-xs">
+        <input type="hidden" id="stopRuleId" name="ruleId">
+        <input type="hidden" id="stopRuleNik" name="nik">
+
+        <div class="p-4 bg-rose-50/60 rounded-2xl border border-rose-200 text-rose-950 space-y-1.5">
+          <p class="font-bold text-xs text-rose-900 flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+            Konfirmasi Penghentian Rutin Auto-Input
+          </p>
+          <div class="text-[11px] space-y-1 text-slate-700 pt-1">
+            <p>Anggota: <b id="stopRuleNamaAnggota" class="text-slate-900">-</b></p>
+            <p>NIK: <span id="stopRuleNikDisplay" class="font-mono font-bold text-indigo-700">-</span></p>
+            <p>Nominal Saat Ini: <span id="stopRuleNominalDisplay" class="font-mono font-bold text-slate-900">Rp 0</span></p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-700 font-semibold mb-1.5 text-xs">Pilih Alasan Penghentian <span class="text-rose-500">*</span></label>
+          <select id="stopRuleAlasanSelect" onchange="toggleCustomStopReason(this.value)" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white focus:ring-2 focus:ring-rose-500">
+            <option value="Keluar dari Keanggotaan Koperasi">Keluar dari Keanggotaan Koperasi (Resign/Mutasi)</option>
+            <option value="Permohonan Berhenti Simpanan Sukarela">Permohonan Berhenti Simpanan Sukarela (Hanya Wajib & Pokok)</option>
+            <option value="Koreksi / Duplikasi Rule">Koreksi Konfigurasi / Duplikasi Aturan</option>
+            <option value="OTHER">Alasan Lainnya (Input Manual)...</option>
+          </select>
+        </div>
+
+        <div id="containerCustomStopReason" class="hidden">
+          <label class="block text-slate-700 font-semibold mb-1.5 text-xs">Keterangan / Alasan Khusus <span class="text-rose-500">*</span></label>
+          <textarea id="stopRuleCustomReason" rows="2" placeholder="Tuliskan alasan penghentian aturan auto-input..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-rose-500 text-slate-900"></textarea>
+        </div>
+
+        <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"></i>
+          <div>
+            Status aturan akan diubah menjadi <b>STOPPED</b> dan pemotongan gaji rutin sukarela otomatis berhenti. Riwayat penonaktifan ini tercatat lengkap pada audit log.
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeStopSimpananRuleModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            Batal
+          </button>
+          <button type="submit" id="btnSubmitStopRule" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95">
+            <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
+            <span>Hentikan Auto-Input</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 
   <script>
     const API_BASE = '';
@@ -4308,6 +4529,7 @@
           const u = new URL(urlStr, window.location.href);
           return callGas('getSimpananTransactions', u.searchParams.get('nik'), u.searchParams.get('role'), u.searchParams.get('targetNik'), u.searchParams.get('page'), u.searchParams.get('limit'), u.searchParams.get('search'));
         }
+        if (urlStr.includes('/api/simpanan/rules/stop')) return callGas('stopSimpananRule', body);
         if (urlStr.includes('/api/simpanan/rules') && method === 'POST') return callGas('saveSimpananRule', body);
         if (urlStr.includes('/api/simpanan/rules')) {
           const u = new URL(urlStr, window.location.href);
@@ -9414,11 +9636,12 @@ async function loadSimpananData() {
   await Promise.all([
     fetchSimpananSummary(),
     fetchSimpananTransactions(1),
-    fetchUsersForSimpananDropdown()
+    fetchUsersForSimpananDropdown(),
+    fetchSimpananRules()
   ]);
 
   const role = normalizeRole(currentUser.role);
-  if (role === 'ketua koperasi' || role === 'admin') {
+  if (role === 'ketua koperasi' || role === 'admin' || role === 'financial') {
     fetchSimpananApprovals();
   }
 }
@@ -9879,6 +10102,343 @@ async function triggerRunAutoInputScheduler() {
     }
   } catch (err) {
     showToast('Koneksi server gagal: ' + err.message, true);
+  }
+}
+
+// ============================================================================
+// CONTROLLER: DAFTAR AUTO-INPUT RUTIN BERJALAN & SUB-TAB SIMPANAN SUKARELA
+// ============================================================================
+
+let simpananRulesList = [];
+let currentSimpananSubTab = 'mutasi';
+
+function switchSimpananSubTab(tab) {
+  currentSimpananSubTab = tab;
+  const btnMutasi = document.getElementById('pillSimpananMutasiBtn');
+  const btnRules = document.getElementById('pillSimpananRulesBtn');
+  const secLedger = document.getElementById('sectionSimpananLedger');
+  const secRules = document.getElementById('sectionSimpananRules');
+
+  if (tab === 'rules') {
+    if (btnMutasi) {
+      btnMutasi.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2';
+    }
+    if (btnRules) {
+      btnRules.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-purple-700 text-white shadow-sm transition flex items-center gap-2';
+    }
+    if (secLedger) secLedger.classList.add('hidden');
+    if (secRules) secRules.classList.remove('hidden');
+    fetchSimpananRules();
+  } else {
+    if (btnMutasi) {
+      btnMutasi.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-700 text-white shadow-sm transition flex items-center gap-2';
+    }
+    if (btnRules) {
+      btnRules.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-600 hover:text-slate-900 border border-slate-200 transition flex items-center gap-2';
+    }
+    if (secLedger) secLedger.classList.remove('hidden');
+    if (secRules) secRules.classList.add('hidden');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+async function fetchSimpananRules() {
+  const tbody = document.getElementById('tbodySimpananRules');
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400"><span class="inline-block animate-spin mr-1"><i data-lucide="loader-2" class="w-4 h-4"></i></span> Memuat daftar aturan auto-input...</td></tr>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+    const nik = currentUser ? (currentUser.nik || currentUser.username) : '';
+    const res = await fetch(`${API_BASE}/api/simpanan/rules?role=${encodeURIComponent(role)}&nik=${encodeURIComponent(nik)}`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.rules)) {
+      simpananRulesList = data.rules;
+      const activeCount = simpananRulesList.filter(r => (r.statusRule || 'ACTIVE').toUpperCase() === 'ACTIVE').length;
+      const badgePill = document.getElementById('badgePillActiveRules');
+      if (badgePill) badgePill.innerText = activeCount;
+      renderSimpananRulesTable();
+    } else {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Belum ada aturan auto-input yang terdaftar.</td></tr>`;
+    }
+  } catch (err) {
+    console.error('Gagal fetch simpanan rules:', err);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-red-500">Gagal memuat aturan auto-input: ${err.message}</td></tr>`;
+  }
+}
+
+function renderSimpananRulesTable() {
+  const tbody = document.getElementById('tbodySimpananRules');
+  if (!tbody) return;
+
+  const search = ((document.getElementById('searchSimpananRulesInput') || {}).value || '').trim().toLowerCase();
+  const filterStatus = (document.getElementById('filterSimpananRulesStatus') || {}).value || 'ACTIVE';
+
+  let list = simpananRulesList || [];
+
+  if (filterStatus !== 'ALL') {
+    list = list.filter(r => (r.statusRule || 'ACTIVE').toUpperCase() === filterStatus);
+  }
+
+  if (search) {
+    list = list.filter(r => {
+      const nama = String(r.namaAnggota || '').toLowerCase();
+      const nik = String(r.nik || '').toLowerCase();
+      const unit = String(r.unitKerja || '').toLowerCase();
+      const ruleId = String(r.ruleId || '').toLowerCase();
+      return nama.includes(search) || nik.includes(search) || unit.includes(search) || ruleId.includes(search);
+    });
+  }
+
+  const paginationInfo = document.getElementById('simpananRulesPaginationInfo');
+  if (paginationInfo) {
+    paginationInfo.innerText = `Menampilkan ${list.length} dari total ${simpananRulesList.length} aturan`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada aturan auto-input yang sesuai filter.</td></tr>`;
+    return;
+  }
+
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const canManage = (role === 'admin' || role === 'financial' || role === 'ketua koperasi');
+
+  tbody.innerHTML = list.map(r => {
+    const status = (r.statusRule || 'ACTIVE').toUpperCase();
+    let badgeStatus = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">AKTIF</span>';
+    if (status === 'PENDING_APPROVAL') {
+      badgeStatus = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">PENDING APPROVAL</span>';
+    } else if (status === 'STOPPED') {
+      badgeStatus = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">BERHENTI</span>';
+    }
+
+    const nominal = parseInt(r.nominalRutin || 0, 10);
+    const nominalStr = 'Rp ' + nominal.toLocaleString('id-ID');
+
+    let actionsHtml = `<span class="text-slate-400 text-xs">-</span>`;
+    if (canManage) {
+      if (status !== 'STOPPED') {
+        actionsHtml = `
+          <div class="flex items-center justify-center gap-1.5">
+            <button type="button" onclick="openEditSimpananRuleModal('${r.ruleId}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs transition flex items-center gap-1" title="Edit Nominal / Jadwal">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              <span>Edit</span>
+            </button>
+            <button type="button" onclick="openStopSimpananRuleModal('${r.ruleId}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1" title="Berhenti / Keluar Koperasi">
+              <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
+              <span>Berhenti</span>
+            </button>
+          </div>
+        `;
+      } else {
+        actionsHtml = `<span class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-200">Non-Aktif</span>`;
+      }
+    }
+
+    return `
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <td class="py-3 px-4">
+          <p class="font-mono text-xs text-slate-700 font-bold">${r.ruleId || '-'}</p>
+          <p class="text-[10px] text-slate-400">${r.timestamp || '-'}</p>
+        </td>
+        <td class="py-3 px-4">
+          <p class="font-bold text-slate-900 text-xs">${r.namaAnggota || '-'}</p>
+          <p class="text-[11px] font-mono text-indigo-700">${r.nik || '-'} · <span class="text-slate-500 font-sans">${r.unitKerja || '-'}</span></p>
+        </td>
+        <td class="py-3 px-4 text-right">
+          <p class="font-bold text-emerald-700 font-mono text-sm">${nominalStr}</p>
+          <span class="text-[10px] text-slate-400">/ bulan</span>
+        </td>
+        <td class="py-3 px-4 text-center">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">
+            <i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i>
+            Tgl ${r.tanggalEksekusi || 25}
+          </span>
+          <span class="text-[10px] text-slate-400 block mt-0.5">${r.frekuensi || 'BULANAN'}</span>
+        </td>
+        <td class="py-3 px-4">
+          <p class="text-xs text-slate-600 max-w-xs break-words">${r.keterangan || '-'}</p>
+        </td>
+        <td class="py-3 px-4 text-center">
+          ${badgeStatus}
+        </td>
+        <td class="py-3 px-4 text-center">
+          ${actionsHtml}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function openEditSimpananRuleModal(ruleId) {
+  const rule = simpananRulesList.find(r => r.ruleId === ruleId);
+  if (!rule) {
+    showToast('Data aturan tidak ditemukan!', true);
+    return;
+  }
+
+  document.getElementById('editRuleId').value = rule.ruleId || '';
+  document.getElementById('editRuleNik').value = rule.nik || '';
+  document.getElementById('editRuleNamaAnggota').innerText = rule.namaAnggota || '-';
+  document.getElementById('editRuleNikDisplay').innerText = `${rule.nik} (${rule.unitKerja || '-'})`;
+  const nom = parseInt(rule.nominalRutin || 0, 10);
+  document.getElementById('editRuleNominalLamaDisplay').innerText = 'Rp ' + nom.toLocaleString('id-ID');
+  document.getElementById('editRuleNominalRutin').value = nom || '';
+  document.getElementById('editRuleTanggalEksekusi').value = rule.tanggalEksekusi || 25;
+  document.getElementById('editRuleKeterangan').value = '';
+
+  const modal = document.getElementById('modalEditSimpananRule');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeEditSimpananRuleModal() {
+  const modal = document.getElementById('modalEditSimpananRule');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function handleSaveEditSimpananRule(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const ruleId = document.getElementById('editRuleId').value;
+  const nik = document.getElementById('editRuleNik').value;
+  const nominalRutin = parseInt(document.getElementById('editRuleNominalRutin').value || '0', 10);
+  const tanggalEksekusi = parseInt(document.getElementById('editRuleTanggalEksekusi').value || '25', 10);
+  const keterangan = (document.getElementById('editRuleKeterangan').value || '').trim();
+
+  if (!nominalRutin || nominalRutin < 10000) {
+    showToast('Nominal rutin minimal Rp 10.000.', true);
+    return;
+  }
+
+  const existingRule = simpananRulesList.find(r => r.ruleId === ruleId) || {};
+  const btn = document.getElementById('btnSubmitEditRule');
+  if (btn) btn.disabled = true;
+
+  showToast('Mengirim usulan perubahan auto-input...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ruleId,
+        nik,
+        namaAnggota: existingRule.namaAnggota || '',
+        unitKerja: existingRule.unitKerja || '',
+        nominalRutin,
+        tanggalEksekusi,
+        keterangan: keterangan || 'Perubahan nominal/jadwal auto-input sukarela',
+        createdByNik: currentUser.nik || currentUser.username,
+        createdByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        createdByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Usulan perubahan auto-input berhasil diajukan untuk approval!');
+      closeEditSimpananRuleModal();
+      fetchSimpananRules();
+      if (typeof refreshApprovalData === 'function') refreshApprovalData();
+    } else {
+      showToast('Gagal mengubah aturan: ' + (data.message || 'Unknown error'), true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function openStopSimpananRuleModal(ruleId) {
+  const rule = simpananRulesList.find(r => r.ruleId === ruleId);
+  if (!rule) {
+    showToast('Data aturan tidak ditemukan!', true);
+    return;
+  }
+  document.getElementById('stopRuleId').value = rule.ruleId || '';
+  document.getElementById('stopRuleNik').value = rule.nik || '';
+  document.getElementById('stopRuleNamaAnggota').innerText = rule.namaAnggota || '-';
+  document.getElementById('stopRuleNikDisplay').innerText = rule.nik || '-';
+  const nom = parseInt(rule.nominalRutin || 0, 10);
+  document.getElementById('stopRuleNominalDisplay').innerText = 'Rp ' + nom.toLocaleString('id-ID');
+  document.getElementById('stopRuleAlasanSelect').value = 'Keluar dari Keanggotaan Koperasi';
+  document.getElementById('containerCustomStopReason').classList.add('hidden');
+  document.getElementById('stopRuleCustomReason').value = '';
+
+  const modal = document.getElementById('modalStopSimpananRule');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeStopSimpananRuleModal() {
+  const modal = document.getElementById('modalStopSimpananRule');
+  if (modal) modal.classList.add('hidden');
+}
+
+function toggleCustomStopReason(val) {
+  const container = document.getElementById('containerCustomStopReason');
+  if (container) {
+    if (val === 'OTHER') {
+      container.classList.remove('hidden');
+    } else {
+      container.classList.add('hidden');
+    }
+  }
+}
+
+async function handleConfirmStopSimpananRule(e) {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const ruleId = document.getElementById('stopRuleId').value;
+  const nik = document.getElementById('stopRuleNik').value;
+  const selectAlasan = document.getElementById('stopRuleAlasanSelect').value;
+  let alasan = selectAlasan;
+  if (selectAlasan === 'OTHER') {
+    alasan = (document.getElementById('stopRuleCustomReason').value || '').trim();
+    if (!alasan) {
+      showToast('Harap isi alasan penghentian auto-input.', true);
+      return;
+    }
+  }
+
+  const existingRule = simpananRulesList.find(r => r.ruleId === ruleId) || {};
+  const btn = document.getElementById('btnSubmitStopRule');
+  if (btn) btn.disabled = true;
+
+  showToast('Memproses penghentian auto-input...');
+  try {
+    const res = await fetch(`${API_BASE}/api/simpanan/rules/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ruleId,
+        nik,
+        namaAnggota: existingRule.namaAnggota || '',
+        alasan,
+        requestedByNik: currentUser.nik || currentUser.username,
+        requestedByNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        requestedByRole: currentUser.role
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || 'Aturan auto-input berhasil dihentikan!');
+      closeStopSimpananRuleModal();
+      fetchSimpananRules();
+      if (typeof refreshApprovalData === 'function') refreshApprovalData();
+    } else {
+      showToast('Gagal menghentikan auto-input: ' + (data.message || 'Unknown error'), true);
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -11517,7 +12077,7 @@ async function loadApprovalBadgeCounts() {
 async function refreshApprovalData() {
   if (!currentUser) return;
   const role = normalizeRole(currentUser.role);
-  if (role !== 'admin' && role !== 'ketua koperasi') return;
+  if (role !== 'admin' && role !== 'ketua koperasi' && role !== 'financial') return;
 
   await Promise.all([
     fetchBankApprovalRequests(),
@@ -11700,18 +12260,23 @@ function renderRulesApprovalTable() {
   }
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada usulan auto-input dengan status ${filterStatus}.</td></tr>`;
+    const statusText = filterStatus === 'APPROVED' ? 'yang telah diapprove' : (filterStatus === 'PENDING' ? 'menunggu approval' : filterStatus);
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Tidak ada usulan auto-input ${statusText}.</td></tr>`;
     return;
   }
 
+  const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  const canApprove = (role === 'admin' || role === 'financial' || role === 'ketua koperasi');
+
   tbody.innerHTML = list.map(r => {
     const st = (r.status || 'PENDING').toUpperCase();
-    let badgeClass = 'bg-indigo-100 text-indigo-800';
-    let statusLabel = 'Menunggu Approval Ketua';
+    let badgeClass = 'bg-amber-100 text-amber-800';
+    let statusLabel = 'Menunggu Approval';
     if (st === 'APPROVED') { badgeClass = 'bg-emerald-100 text-emerald-800'; statusLabel = 'Disetujui'; }
     if (st === 'REJECTED') { badgeClass = 'bg-rose-100 text-rose-800'; statusLabel = 'Ditolak'; }
 
     const isPending = (st === 'PENDING');
+    const isExit = (r.tipePerubahan || '').toUpperCase() === 'KELUAR_KOPERASI' || (r.tipePerubahan || '').toUpperCase() === 'STOP_RULE';
 
     // Parse lama & baru
     let lamaNominal = 0;
@@ -11723,22 +12288,101 @@ function renderRulesApprovalTable() {
       baruNominal = parseInt(objBaru.nominalRutin || 0, 10) || 0;
     } catch (e) {}
 
-    const actionsHtml = isPending ? `
-      <div class="flex items-center justify-center gap-2">
-        <button onclick="handleApproveRuleRequest('${r.approvalId}', '${r.namaAnggota}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1 active:scale-95" title="Setujui Auto-Input">
-          <i data-lucide="check" class="w-3.5 h-3.5"></i>
-          <span>Approve</span>
-        </button>
-        <button onclick="handleRejectRuleRequest('${r.approvalId}', '${r.namaAnggota}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1 active:scale-95" title="Tolak Usulan">
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          <span>Tolak</span>
-        </button>
-      </div>
-    ` : `<span class="text-xs text-slate-400 block text-center">${r.catatanReview || '-'}</span>`;
+    let perubahanHtml = '';
+    if (isExit) {
+      perubahanHtml = `
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+          <i data-lucide="user-minus" class="w-3 h-3"></i>
+          Berhenti / Keluar
+        </span>
+        <p class="text-[10px] text-slate-400 mt-0.5">Non-aktifkan Potong Gaji</p>
+      `;
+    } else {
+      perubahanHtml = `
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="text-slate-400 font-mono line-through">Rp ${lamaNominal.toLocaleString('id-ID')}</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span class="font-bold text-emerald-700 font-mono text-sm">Rp ${baruNominal.toLocaleString('id-ID')}</span>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-0.5">Potong Gaji Rutin Bulanan</p>
+      `;
+    }
+
+    let statusOtorisatorHtml = '';
+    if (st === 'APPROVED') {
+      statusOtorisatorHtml = `
+        <div>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          <div class="mt-1 text-[11px] text-slate-700">
+            <span>Oleh: <b>${r.diprosesOlehNama || 'Admin / Ketua'}</b></span>
+            ${r.diprosesOlehNik ? `<span class="text-slate-400 font-mono text-[10px]"> (${r.diprosesOlehNik})</span>` : ''}
+          </div>
+          ${r.waktuProses ? `<p class="text-[10px] text-slate-400 font-mono mt-0.5">${r.waktuProses}</p>` : ''}
+        </div>
+      `;
+    } else if (st === 'REJECTED') {
+      statusOtorisatorHtml = `
+        <div>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          <div class="mt-1 text-[11px] text-slate-700">
+            <span>Oleh: <b>${r.diprosesOlehNama || '-'}</b></span>
+          </div>
+          ${r.waktuProses ? `<p class="text-[10px] text-slate-400 font-mono mt-0.5">${r.waktuProses}</p>` : ''}
+        </div>
+      `;
+    } else {
+      statusOtorisatorHtml = `
+        <div>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          <p class="text-[10px] text-amber-700 mt-0.5">Menunggu Otorisator</p>
+        </div>
+      `;
+    }
+
+    let actionsHtml = '';
+    if (isPending) {
+      if (canApprove) {
+        actionsHtml = `
+          <div class="flex items-center justify-center gap-1.5">
+            <button onclick="handleApproveRuleRequest('${r.approvalId}', '${(r.namaAnggota || '').replace(/'/g, "\\'")}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition flex items-center gap-1 active:scale-95" title="Setujui Auto-Input">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Approve</span>
+            </button>
+            <button onclick="handleRejectRuleRequest('${r.approvalId}', '${(r.namaAnggota || '').replace(/'/g, "\\'")}', '${r.ruleId}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition flex items-center gap-1 active:scale-95" title="Tolak Usulan">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              <span>Tolak</span>
+            </button>
+          </div>
+        `;
+      } else {
+        actionsHtml = `<span class="text-xs text-slate-400 block text-center">Menunggu Review</span>`;
+      }
+    } else if (st === 'APPROVED') {
+      actionsHtml = `
+        <div class="text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            <span>Selesai Disetujui</span>
+          </span>
+        </div>
+      `;
+    } else {
+      actionsHtml = `
+        <div class="text-center">
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+            <span>Ditolak</span>
+          </span>
+        </div>
+      `;
+    }
 
     return `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="py-3 px-4 font-mono text-slate-500 text-xs">${r.timestamp || r.approvalId}</td>
+      <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <td class="py-3 px-4 font-mono text-slate-500 text-xs">
+          <p>${r.timestamp || r.approvalId}</p>
+          <span class="text-[10px] text-slate-400 font-mono">${r.approvalId}</span>
+        </td>
         <td class="py-3 px-4">
           <p class="font-bold text-slate-900">${r.namaAnggota}</p>
           <p class="text-xs text-slate-500 font-mono">${r.nik}</p>
@@ -11750,18 +12394,13 @@ function renderRulesApprovalTable() {
           </span>
         </td>
         <td class="py-3 px-4">
-          <div class="flex items-center gap-1.5 text-xs">
-            <span class="text-slate-400 font-mono line-through">Rp ${lamaNominal.toLocaleString('id-ID')}</span>
-            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
-            <span class="font-bold text-emerald-700 font-mono text-sm">Rp ${baruNominal.toLocaleString('id-ID')}</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-0.5">Potong Gaji Rutin Bulanan</p>
+          ${perubahanHtml}
         </td>
         <td class="py-3 px-4">
           <p class="text-xs text-slate-700 max-w-xs break-words">${r.catatanReview || r.tipePerubahan || '-'}</p>
         </td>
         <td class="py-3 px-4">
-          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass} uppercase">${statusLabel}</span>
+          ${statusOtorisatorHtml}
         </td>
         <td class="py-3 px-4">
           ${actionsHtml}
@@ -11774,7 +12413,10 @@ function renderRulesApprovalTable() {
 }
 
 async function handleApproveRuleRequest(approvalId, namaAnggota, ruleId) {
-  if (!confirm(`Setujui usulan auto-input simpanan sukarela untuk:\n\nAnggota: ${namaAnggota}\n\nSetelah disetujui, aturan pemotongan gaji rutin simpanan sukarela akan berstatus ACTIVE.`)) return;
+  if (!currentUser) return;
+  const roleName = currentUser.role || 'Otorisator';
+  const approverName = currentUser.nama || currentUser.namaLengkap || currentUser.username || roleName;
+  if (!confirm(`Setujui usulan auto-input simpanan sukarela untuk:\n\nAnggota: ${namaAnggota}\nApproval ID: ${approvalId}\nOtorisator: ${approverName} (${roleName})\n\nSetelah disetujui, aturan pemotongan gaji rutin simpanan sukarela akan disahkan dan berstatus ACTIVE.`)) return;
 
   showToast('Memproses persetujuan auto-input...');
   try {
@@ -11784,16 +12426,17 @@ async function handleApproveRuleRequest(approvalId, namaAnggota, ruleId) {
       body: JSON.stringify({
         approvalId,
         action: 'APPROVE',
-        catatan: `Disetujui oleh Ketua Koperasi (${currentUser.nama || currentUser.role})`,
+        catatan: `Disetujui oleh ${approverName} (${roleName})`,
         reviewerNik: currentUser.nik || currentUser.username,
-        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerNama: approverName,
         reviewerRole: currentUser.role
       })
     });
     const json = await res.json();
     if (json.success) {
-      showToast(`Usulan auto-input untuk ${namaAnggota} berhasil disetujui!`);
+      showToast(`Usulan auto-input untuk ${namaAnggota} berhasil disetujui oleh ${approverName}!`);
       refreshApprovalData();
+      if (typeof fetchSimpananRules === 'function') fetchSimpananRules();
     } else {
       showToast('Gagal memproses approval: ' + json.message, true);
     }
@@ -11803,6 +12446,9 @@ async function handleApproveRuleRequest(approvalId, namaAnggota, ruleId) {
 }
 
 async function handleRejectRuleRequest(approvalId, namaAnggota, ruleId) {
+  if (!currentUser) return;
+  const roleName = currentUser.role || 'Otorisator';
+  const rejecterName = currentUser.nama || currentUser.namaLengkap || currentUser.username || roleName;
   const reason = prompt(`Masukkan alasan penolakan usulan auto-input untuk ${namaAnggota}:`);
   if (!reason || !reason.trim()) return;
 
@@ -11814,9 +12460,9 @@ async function handleRejectRuleRequest(approvalId, namaAnggota, ruleId) {
       body: JSON.stringify({
         approvalId,
         action: 'REJECT',
-        catatan: reason.trim(),
+        catatan: `${reason.trim()} (Ditolak oleh ${rejecterName} - ${roleName})`,
         reviewerNik: currentUser.nik || currentUser.username,
-        reviewerNama: currentUser.nama || currentUser.namaLengkap || currentUser.username,
+        reviewerNama: rejecterName,
         reviewerRole: currentUser.role
       })
     });
@@ -11824,6 +12470,7 @@ async function handleRejectRuleRequest(approvalId, namaAnggota, ruleId) {
     if (json.success) {
       showToast(`Usulan auto-input untuk ${namaAnggota} telah ditolak.`);
       refreshApprovalData();
+      if (typeof fetchSimpananRules === 'function') fetchSimpananRules();
     } else {
       showToast('Gagal memproses penolakan: ' + json.message, true);
     }

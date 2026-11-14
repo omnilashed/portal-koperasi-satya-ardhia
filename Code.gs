@@ -3222,6 +3222,244 @@ function reviewBankAccountRequest(payload) {
   }
 }
 
+function getSimpananRules(nik, role) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('SimpananSukarelaRules');
+    if (!sheet || sheet.getLastRow() <= 1) return { status: 'success', success: true, rules: [] };
+
+    var isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role) || isRolePengurus(role) || isRolePicSimpin(role);
+    var data = sheet.getDataRange().getValues();
+    var rules = [];
+
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      var rawNik = String(r[2] || '').trim();
+      var rawUnit = String(r[4] || '').trim();
+      var parsed = splitGasNikAndUnit(rawUnit ? (rawNik + ' - ' + rawUnit) : rawNik, rawNik, rawUnit);
+      var ruleNik = parsed.nik !== '-' ? parsed.nik : rawNik;
+      var ruleUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : rawUnit;
+
+      if (!isOfficer && cleanNik(ruleNik) !== cleanNik(nik) && cleanNik(rawNik) !== cleanNik(nik)) continue;
+
+      rules.push({
+        rowIndex: i + 1,
+        ruleId: r[0],
+        timestamp: r[1],
+        nik: ruleNik,
+        namaAnggota: r[3],
+        unitKerja: ruleUnit || '-',
+        nominalRutin: parseInt(r[5], 10) || 0,
+        frekuensi: r[6] || 'BULANAN',
+        tanggalEksekusi: r[7] || '25',
+        tanggalMulai: r[8] || '',
+        tanggalAkhir: r[9] || '-',
+        statusRule: r[10] || 'PENDING_APPROVAL',
+        keterangan: r[11] || '',
+        dibuatOlehNik: r[12] || '-',
+        dibuatOlehNama: r[13] || '-',
+        terakhirDijalankan: r[14] || '-'
+      });
+    }
+
+    return { status: 'success', success: true, rules: rules };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function saveSimpananRule(payload) {
+  try {
+    var role = payload.createdByRole;
+    if (!isRoleFinancial(role) && !isRoleAdmin(role) && !isRoleKetua(role)) {
+      return { status: 'error', success: false, message: 'Hanya role Financial, Administrator, atau Ketua Koperasi yang dapat mengatur auto-input.' };
+    }
+
+    var nom = parseInt(payload.nominalRutin, 10);
+    if (isNaN(nom) || nom <= 0) {
+      return { status: 'error', success: false, message: 'Nominal rutin harus angka positif lebih dari 0.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
+    var appSheet = ss.getSheetByName('SimpananSukarelaApprovals');
+    if (!rulesSheet || !appSheet) return { status: 'error', success: false, message: 'Sheet SimpananSukarela belum lengkap.' };
+
+    var jkt = getGasJakartaDateTime();
+    var ts = jkt.timestampStr;
+    var targetNikClean = cleanNik(payload.nik);
+
+    var rData = rulesSheet.getDataRange().getValues();
+    var existingIdx = -1;
+    for (var i = 1; i < rData.length; i++) {
+      var rNikClean = cleanNik(rData[i][2]);
+      if (rNikClean && targetNikClean && rNikClean === targetNikClean) {
+        existingIdx = i + 1;
+        break;
+      }
+    }
+
+    if (existingIdx !== -1) {
+      // Usulan update rule yang sudah ada
+      var existingRule = rData[existingIdx - 1];
+      var ruleId = existingRule[0];
+      var approvalId = 'APP-RULE-' + new Date().getTime();
+
+      // Tandai rule PENDING_APPROVAL
+      rulesSheet.getRange(existingIdx, 11).setValue('PENDING_APPROVAL');
+
+      appSheet.appendRow([
+        approvalId,
+        ruleId,
+        ts,
+        String(payload.nik).trim(),
+        payload.namaAnggota,
+        'UPDATE_NOMINAL',
+        JSON.stringify({ nominalRutin: existingRule[5], tanggalEksekusi: existingRule[7] || '25', status: existingRule[10] }),
+        JSON.stringify({ nominalRutin: nom, tanggalEksekusi: payload.tanggalEksekusi || '25' }),
+        String(payload.createdByNik || ''),
+        payload.createdByNama || '',
+        'PENDING',
+        payload.keterangan || 'Perubahan nominal auto-input simpanan sukarela',
+        '',
+        '',
+        ''
+      ]);
+
+      return {
+        status: 'success',
+        success: true,
+        message: 'Usulan perubahan nominal auto-input berhasil diajukan dan wajib diapprove oleh Admin, Finance, atau Ketua Koperasi.',
+        approvalId: approvalId,
+        ruleId: ruleId
+      };
+    }
+
+    // Buat rule baru
+    var newRuleId = 'RULE-SIMP-' + new Date().getTime();
+    rulesSheet.appendRow([
+      newRuleId,
+      ts,
+      String(payload.nik).trim(),
+      payload.namaAnggota,
+      payload.unitKerja || '',
+      nom,
+      'BULANAN',
+      payload.tanggalEksekusi || '25',
+      ts.split(' ')[0],
+      '-',
+      'PENDING_APPROVAL',
+      payload.keterangan || 'Pemotongan rutin simpanan sukarela',
+      String(payload.createdByNik || ''),
+      payload.createdByNama || '',
+      '-',
+      '-',
+      '1.0'
+    ]);
+
+    var newApprovalId = 'APP-RULE-' + new Date().getTime();
+    appSheet.appendRow([
+      newApprovalId,
+      newRuleId,
+      ts,
+      String(payload.nik).trim(),
+      payload.namaAnggota,
+      'NEW_RULE',
+      JSON.stringify({ nominalRutin: 0, status: 'NONE' }),
+      JSON.stringify({ nominalRutin: nom, tanggalEksekusi: payload.tanggalEksekusi || '25' }),
+      String(payload.createdByNik || ''),
+      payload.createdByNama || '',
+      'PENDING',
+      payload.keterangan || 'Setting baru simpanan sukarela rutin bulanan',
+      '',
+      '',
+      ''
+    ]);
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Aturan auto-input simpanan sukarela baru berhasil diajukan dan wajib diapprove oleh Admin, Finance, atau Ketua Koperasi.',
+      ruleId: newRuleId,
+      approvalId: newApprovalId
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function stopSimpananRule(payload) {
+  try {
+    var role = payload.actorRole || payload.requestedByRole || payload.role || '';
+    var actorNik = payload.actorNik || payload.requestedByNik || '';
+    var actorNama = payload.actorNama || payload.requestedByNama || '';
+    var reason = payload.reason || payload.alasan || 'Keluar dari keanggotaan koperasi';
+
+    if (!isRoleFinancial(role) && !isRoleAdmin(role) && !isRoleKetua(role)) {
+      return { status: 'error', success: false, message: 'Hanya Admin, Finance, atau Ketua Koperasi yang dapat menghentikan auto-input anggota.' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
+    var appSheet = ss.getSheetByName('SimpananSukarelaApprovals');
+    if (!rulesSheet) return { status: 'error', success: false, message: 'Sheet SimpananSukarelaRules tidak ditemukan.' };
+
+    var rData = rulesSheet.getDataRange().getValues();
+    var targetIdx = -1;
+    for (var i = 1; i < rData.length; i++) {
+      if (rData[i][0] === payload.ruleId || (payload.nik && cleanNik(rData[i][2]) === cleanNik(payload.nik))) {
+        targetIdx = i + 1;
+        break;
+      }
+    }
+
+    if (targetIdx === -1) {
+      return { status: 'error', success: false, message: 'Data aturan auto-input tidak ditemukan.' };
+    }
+
+    var ruleRow = rData[targetIdx - 1];
+    var jkt = getGasJakartaDateTime();
+    var ts = jkt.timestampStr;
+    var stopReason = reason || 'Anggota berhenti/keluar dari keanggotaan koperasi';
+
+    // Update rule row: Col J (TanggalAkhir), Col K (Status STOPPED), Col L (Keterangan)
+    rulesSheet.getRange(targetIdx, 10, 1, 3).setValues([[
+      ts.split(' ')[0],
+      'STOPPED',
+      stopReason
+    ]]);
+
+    if (appSheet) {
+      var approvalId = 'APP-STOP-' + new Date().getTime();
+      appSheet.appendRow([
+        approvalId,
+        ruleRow[0],
+        ts,
+        String(ruleRow[2] || payload.nik).trim(),
+        ruleRow[3] || payload.namaAnggota,
+        'KELUAR_KOPERASI',
+        JSON.stringify({ nominalRutin: ruleRow[5], status: ruleRow[10] }),
+        JSON.stringify({ status: 'STOPPED', alasan: stopReason }),
+        String(actorNik || ''),
+        actorNama || '',
+        'APPROVED',
+        stopReason,
+        String(actorNik || ''),
+        actorNama || '',
+        ts
+      ]);
+    }
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Auto-input simpanan sukarela untuk ' + (ruleRow[3] || payload.namaAnggota) + ' berhasil dihentikan karena keluar dari koperasi.'
+    };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
 function getSimpananApprovals() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3242,9 +3480,13 @@ function getSimpananApprovals() {
         tipePerubahan: r[5],
         lama: r[6],
         baru: r[7],
+        diajukanOlehNik: r[8],
         diajukanOlehNama: r[9],
         status: r[10] || 'PENDING',
-        catatanReview: r[11] || '-'
+        catatanReview: r[11] || '-',
+        diprosesOlehNik: r[12] || '-',
+        diprosesOlehNama: r[13] || '-',
+        waktuProses: r[14] || '-'
       });
     }
     approvals.reverse();
@@ -3257,8 +3499,8 @@ function getSimpananApprovals() {
 function reviewSimpananApproval(payload) {
   try {
     var role = payload.reviewerRole;
-    if (!isRoleKetua(role) && !isRoleAdmin(role)) {
-      return { status: 'error', success: false, message: 'Hanya Ketua Koperasi atau Administrator yang berwenang meninjau usulan auto-input.' };
+    if (!isRoleAdmin(role) && !isRoleFinancial(role) && !isRoleKetua(role)) {
+      return { status: 'error', success: false, message: 'Hanya Administrator, Financial, atau Ketua Koperasi yang berwenang meninjau usulan auto-input.' };
     }
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3278,37 +3520,157 @@ function reviewSimpananApproval(payload) {
 
     var appRow = data[targetIdx - 1];
     var ruleId = appRow[1];
+    var tipePerubahan = appRow[5];
     var statusResult = payload.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
     var jkt = getGasJakartaDateTime();
 
     sheet.getRange(targetIdx, 11, 1, 5).setValues([[
       statusResult,
-      payload.catatan || '-',
+      payload.catatan || (payload.action === 'APPROVE' ? ('Disetujui oleh ' + payload.reviewerNama + ' (' + payload.reviewerRole + ')') : 'Ditolak'),
       String(payload.reviewerNik || ''),
-      payload.reviewerNama || '',
+      payload.reviewerNama ? (payload.reviewerNama + ' (' + payload.reviewerRole + ')') : String(payload.reviewerRole),
       jkt.timestampStr
     ]]);
 
-    if (payload.action === 'APPROVE') {
-      var baruObj = {};
-      try { baruObj = JSON.parse(appRow[7] || '{}'); } catch(e){}
+    var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
+    if (rulesSheet && rulesSheet.getLastRow() > 1) {
+      var rData = rulesSheet.getDataRange().getValues();
+      for (var j = 1; j < rData.length; j++) {
+        if (rData[j][0] === ruleId) {
+          var ruleRowNum = j + 1;
+          if (payload.action === 'APPROVE') {
+            var baruObj = {};
+            try { baruObj = JSON.parse(appRow[7] || '{}'); } catch(e){}
 
-      var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
-      if (rulesSheet && rulesSheet.getLastRow() > 1) {
-        var rData = rulesSheet.getDataRange().getValues();
-        for (var j = 1; j < rData.length; j++) {
-          if (rData[j][0] === ruleId) {
-            if (baruObj.nominalRutin) {
-              rulesSheet.getRange(j + 1, 6).setValue(baruObj.nominalRutin);
+            if (tipePerubahan === 'KELUAR_KOPERASI' || tipePerubahan === 'STOP_RULE') {
+              rulesSheet.getRange(ruleRowNum, 11).setValue('STOPPED');
+            } else {
+              if (baruObj.nominalRutin) {
+                rulesSheet.getRange(ruleRowNum, 6).setValue(baruObj.nominalRutin);
+              }
+              if (baruObj.tanggalEksekusi) {
+                rulesSheet.getRange(ruleRowNum, 8).setValue(baruObj.tanggalEksekusi);
+              }
+              rulesSheet.getRange(ruleRowNum, 11).setValue('ACTIVE');
             }
-            rulesSheet.getRange(j + 1, 11).setValue('ACTIVE');
-            break;
+          } else {
+            if (tipePerubahan === 'NEW_RULE') {
+              rulesSheet.getRange(ruleRowNum, 11).setValue('REJECTED');
+            }
           }
+          break;
         }
       }
     }
 
-    return { status: 'success', success: true, message: 'Usulan auto-input berhasil diproses: ' + statusResult };
+    return { status: 'success', success: true, message: 'Usulan auto-input berhasil diproses: ' + statusResult + ' oleh ' + payload.reviewerNama };
+  } catch (err) {
+    return { status: 'error', success: false, message: err.toString() };
+  }
+}
+
+function runSimpananAutoInputScheduler(forceRun) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var rulesSheet = ss.getSheetByName('SimpananSukarelaRules');
+    var ledgerSheet = ss.getSheetByName('SimpananSukarelaLedger');
+    var jobLogSheet = ss.getSheetByName('SimpananSukarelaJobLog');
+
+    if (!rulesSheet || !ledgerSheet) return { status: 'error', success: false, message: 'Sheet SimpananSukarela belum lengkap.' };
+
+    var jkt = getGasJakartaDateTime();
+    var currentYYYYMM = '' + jkt.year + jkt.month;
+    var todayDay = parseInt(jkt.day, 10);
+
+    var executedKeys = {};
+    if (jobLogSheet && jobLogSheet.getLastRow() > 1) {
+      var jData = jobLogSheet.getDataRange().getValues();
+      for (var k = 1; k < jData.length; k++) {
+        var key = jData[k][9];
+        if (key) executedKeys[key] = true;
+      }
+    }
+
+    var rData = rulesSheet.getDataRange().getValues();
+    var executedCount = 0;
+    var skippedCount = 0;
+
+    for (var i = 1; i < rData.length; i++) {
+      var r = rData[i];
+      var ruleId = r[0];
+      var nik = r[2];
+      var nama = r[3];
+      var unit = r[4];
+      var nominal = parseInt(r[5], 10) || 0;
+      var tglEksekusi = parseInt(r[7], 10) || 25;
+      var statusRule = String(r[10] || '').toUpperCase();
+
+      if (statusRule !== 'ACTIVE') continue;
+
+      var idempotencyKey = 'AUTO-' + ruleId + '-' + currentYYYYMM;
+
+      if (todayDay < tglEksekusi && !forceRun) {
+        skippedCount++;
+        continue;
+      }
+
+      if (executedKeys[idempotencyKey]) {
+        skippedCount++;
+        continue;
+      }
+
+      var member = calculateGasMemberSimpananSaldo(nik);
+      var saldoSebelumnya = member.saldo;
+      var saldoSesudahnya = saldoSebelumnya + nominal;
+      var txId = 'TX-AUTO-' + new Date().getTime() + '-' + Math.floor(Math.random() * 100);
+
+      ledgerSheet.appendRow([
+        txId,
+        jkt.timestampStr,
+        jkt.dateStr,
+        String(nik).trim(),
+        nama,
+        unit,
+        'SETORAN',
+        'AUTO_INPUT_RUTIN',
+        nominal,
+        saldoSebelumnya,
+        saldoSesudahnya,
+        'Potongan rutin simpanan sukarela via Payroll',
+        'Sistem Auto-Input Koperasi',
+        'SYSTEM',
+        'POSTED',
+        idempotencyKey,
+        '-',
+        '-',
+        '1.0'
+      ]);
+
+      if (jobLogSheet) {
+        jobLogSheet.appendRow([
+          'JOB-' + new Date().getTime(),
+          jkt.timestampStr,
+          ruleId,
+          String(nik).trim(),
+          nama,
+          nominal,
+          'SUCCESS',
+          txId,
+          'Eksekusi auto-input berhasil',
+          idempotencyKey
+        ]);
+      }
+
+      rulesSheet.getRange(i + 1, 15).setValue(jkt.timestampStr);
+      executedKeys[idempotencyKey] = true;
+      executedCount++;
+    }
+
+    return {
+      status: 'success',
+      success: true,
+      message: 'Eksekusi auto-input selesai. Berhasil dieksekusi: ' + executedCount + ', Dilewati: ' + skippedCount
+    };
   } catch (err) {
     return { status: 'error', success: false, message: err.toString() };
   }

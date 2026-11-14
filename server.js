@@ -4299,7 +4299,7 @@ app.get('/api/simpanan/rules', async (req, res) => {
   try {
     const { nik, role } = req.query;
     const sheets = await getSheetsClient();
-    const isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role);
+    const isOfficer = isRoleFinancial(role) || isRoleAdmin(role) || isRoleKetua(role) || isRolePengurus(role) || isRolePicSimpin(role);
 
     const rulesRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -4309,8 +4309,13 @@ app.get('/api/simpanan/rules', async (req, res) => {
 
     const rules = [];
     rows.forEach((r, idx) => {
-      const ruleNik = String(r[2] || '').trim();
-      if (!isOfficer && ruleNik !== String(nik).trim()) return;
+      const rawNik = String(r[2] || '').trim();
+      const rawUnit = String(r[4] || '').trim();
+      const parsed = splitNikAndUnitKerja(rawUnit ? `${rawNik} - ${rawUnit}` : rawNik, rawNik, rawUnit);
+      const ruleNik = parsed.nik !== '-' ? parsed.nik : rawNik;
+      const ruleUnit = parsed.unitKerja !== '-' ? parsed.unitKerja : rawUnit;
+
+      if (!isOfficer && cleanNik(ruleNik) !== cleanNik(nik) && cleanNik(rawNik) !== cleanNik(nik)) return;
 
       rules.push({
         rowIndex: idx + 2,
@@ -4318,14 +4323,16 @@ app.get('/api/simpanan/rules', async (req, res) => {
         timestamp: r[1],
         nik: ruleNik,
         namaAnggota: r[3],
-        unitKerja: r[4],
+        unitKerja: ruleUnit || '-',
         nominalRutin: parseInt(r[5], 10) || 0,
         frekuensi: r[6] || 'BULANAN',
         tanggalEksekusi: r[7] || '25',
         tanggalMulai: r[8] || '',
-        tanggalAkhir: r[9] || '',
+        tanggalAkhir: r[9] || '-',
         statusRule: r[10] || 'PENDING_APPROVAL',
         keterangan: r[11] || '',
+        dibuatOlehNik: r[12] || '-',
+        dibuatOlehNama: r[13] || '-',
         terakhirDijalankan: r[14] || '-'
       });
     });
@@ -4339,7 +4346,7 @@ app.get('/api/simpanan/rules', async (req, res) => {
 
 /**
  * POST /api/simpanan/rules
- * Membuat atau memperbarui konfigurasi auto-input rutin
+ * Membuat atau memperbarui konfigurasi auto-input rutin (Wajib Approval)
  */
 app.post('/api/simpanan/rules', async (req, res) => {
   try {
@@ -4355,8 +4362,8 @@ app.post('/api/simpanan/rules', async (req, res) => {
       createdByRole
     } = req.body;
 
-    if (!isRoleFinancial(createdByRole) && !isRoleAdmin(createdByRole)) {
-      return res.status(403).json({ success: false, message: 'Hanya role Financial atau Administrator yang dapat mengatur auto-input.' });
+    if (!isRoleFinancial(createdByRole) && !isRoleAdmin(createdByRole) && !isRoleKetua(createdByRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya role Financial, Administrator, atau Ketua Koperasi yang dapat mengatur auto-input.' });
     }
 
     const nom = parseInt(nominalRutin, 10);
@@ -4370,15 +4377,29 @@ app.post('/api/simpanan/rules', async (req, res) => {
       range: "'SimpananSukarelaRules'!A2:Q"
     });
     const rows = rulesRes.data.values || [];
-    const existingRule = rows.find(r => String(r[2] || '').trim() === String(nik).trim());
+    const targetNikClean = cleanNik(nik);
+    const existingRuleIdx = rows.findIndex(r => {
+      const rNikClean = cleanNik(r[2]);
+      return rNikClean && targetNikClean && rNikClean === targetNikClean;
+    });
 
+    const existingRule = existingRuleIdx !== -1 ? rows[existingRuleIdx] : null;
     const ruleId = existingRule ? existingRule[0] : ('RULE-SIMP-' + Date.now());
     const ts = getFormattedTimestamp();
-    const initialStatus = isRoleAdmin(createdByRole) ? 'ACTIVE' : 'PENDING_APPROVAL';
 
     if (existingRule) {
-      // Usulan perubahan rule
+      // Usulan perubahan rule yang sudah ada
       const approvalId = 'APP-RULE-' + Date.now();
+      const ruleRowNum = existingRuleIdx + 2;
+
+      // Update status rule menjadi PENDING_APPROVAL sampai disetujui
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'SimpananSukarelaRules'!K${ruleRowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['PENDING_APPROVAL']] }
+      });
+
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
         range: "'SimpananSukarelaApprovals'!A:O",
@@ -4392,12 +4413,12 @@ app.post('/api/simpanan/rules', async (req, res) => {
             String(nik).trim(),
             namaAnggota,
             'UPDATE_NOMINAL',
-            JSON.stringify({ nominalRutin: existingRule[5], status: existingRule[10] }),
+            JSON.stringify({ nominalRutin: existingRule[5], tanggalEksekusi: existingRule[7] || '25', status: existingRule[10] }),
             JSON.stringify({ nominalRutin: nom, tanggalEksekusi }),
             String(createdByNik || ''),
             createdByNama || '',
             'PENDING',
-            keterangan || '-',
+            keterangan || 'Perubahan nominal auto-input simpanan sukarela',
             '',
             '',
             ''
@@ -4407,12 +4428,13 @@ app.post('/api/simpanan/rules', async (req, res) => {
 
       return res.json({
         success: true,
-        message: 'Usulan perubahan auto-input berhasil diajukan ke antrean persetujuan Ketua Koperasi / Admin.',
-        approvalId
+        message: 'Usulan perubahan nominal auto-input berhasil diajukan dan wajib diapprove oleh Admin, Finance, atau Ketua Koperasi.',
+        approvalId,
+        ruleId
       });
     }
 
-    // Buat rule baru
+    // Buat rule baru (Status awal: PENDING_APPROVAL)
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: "'SimpananSukarelaRules'!A:Q",
@@ -4430,7 +4452,7 @@ app.post('/api/simpanan/rules', async (req, res) => {
           tanggalEksekusi,
           ts.split(' ')[0],
           '-',
-          initialStatus,
+          'PENDING_APPROVAL',
           keterangan || 'Pemotongan rutin simpanan sukarela',
           String(createdByNik || ''),
           createdByNama || '',
@@ -4441,40 +4463,39 @@ app.post('/api/simpanan/rules', async (req, res) => {
       }
     });
 
-    // Jika yang mengajukan adalah role Financial, wajib masukkan ke antrean approval Ketua Koperasi
-    if (initialStatus !== 'ACTIVE') {
-      const approvalId = 'APP-RULE-' + Date.now();
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: "'SimpananSukarelaApprovals'!A:O",
-        valueInputOption: 'USER_ENTERED',
-        insertDataOption: 'INSERT_ROWS',
-        requestBody: {
-          values: [[
-            approvalId,
-            ruleId,
-            ts,
-            String(nik).trim(),
-            namaAnggota,
-            'NEW_RULE',
-            JSON.stringify({ nominalRutin: 0, status: 'NONE' }),
-            JSON.stringify({ nominalRutin: nom, tanggalEksekusi }),
-            String(createdByNik || ''),
-            createdByNama || '',
-            'PENDING',
-            keterangan || 'Setting baru simpanan sukarela rutin oleh Financial',
-            '',
-            '',
-            ''
-          ]]
-        }
-      });
-    }
+    // Wajib masukkan ke antrean approval (Bisa diapprove oleh Admin / Finance / Ketua Koperasi)
+    const approvalId = 'APP-RULE-' + Date.now();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaApprovals'!A:O",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          ruleId,
+          ts,
+          String(nik).trim(),
+          namaAnggota,
+          'NEW_RULE',
+          JSON.stringify({ nominalRutin: 0, status: 'NONE' }),
+          JSON.stringify({ nominalRutin: nom, tanggalEksekusi }),
+          String(createdByNik || ''),
+          createdByNama || '',
+          'PENDING',
+          keterangan || 'Setting baru simpanan sukarela rutin bulanan',
+          '',
+          '',
+          ''
+        ]]
+      }
+    });
 
     return res.json({
       success: true,
-      message: initialStatus === 'ACTIVE' ? 'Aturan auto-input simpanan sukarela berhasil diaktifkan.' : 'Usulan auto-input baru oleh Financial berhasil diajukan dan menunggu persetujuan Ketua Koperasi.',
-      ruleId
+      message: 'Aturan auto-input simpanan sukarela baru berhasil diajukan dan wajib diapprove oleh Admin, Finance, atau Ketua Koperasi.',
+      ruleId,
+      approvalId
     });
   } catch (error) {
     console.error('Error POST /api/simpanan/rules:', error);
@@ -4483,8 +4504,94 @@ app.post('/api/simpanan/rules', async (req, res) => {
 });
 
 /**
+ * POST /api/simpanan/rules/stop
+ * Aksi berhenti dari koperasi / nonaktifkan & hapus auto-input anggota yang keluar
+ */
+app.post('/api/simpanan/rules/stop', async (req, res) => {
+  try {
+    const { ruleId, nik, namaAnggota, actionType = 'STOP' } = req.body;
+    const actorRole = req.body.actorRole || req.body.requestedByRole || req.body.role || '';
+    const actorNik = req.body.actorNik || req.body.requestedByNik || '';
+    const actorNama = req.body.actorNama || req.body.requestedByNama || '';
+    const reason = req.body.reason || req.body.alasan || 'Keluar dari keanggotaan koperasi';
+
+    if (!isRoleFinancial(actorRole) && !isRoleAdmin(actorRole) && !isRoleKetua(actorRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Admin, Finance, atau Ketua Koperasi yang dapat menghentikan auto-input anggota.' });
+    }
+
+    const sheets = await getSheetsClient();
+    const rulesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A2:Q"
+    });
+    const rows = rulesRes.data.values || [];
+    const targetIdx = rows.findIndex(r => r[0] === ruleId || (nik && cleanNik(r[2]) === cleanNik(nik)));
+
+    if (targetIdx === -1) {
+      return res.status(404).json({ success: false, message: 'Data aturan auto-input tidak ditemukan.' });
+    }
+
+    const rowNum = targetIdx + 2;
+    const ruleRow = rows[targetIdx];
+    const ts = getFormattedTimestamp();
+    const dateToday = ts.split(' ')[0];
+    const stopReason = reason || 'Anggota berhenti/keluar dari keanggotaan koperasi';
+
+    // Update baris rule: status menjadi STOPPED, tanggal akhir diisi hari ini
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'SimpananSukarelaRules'!J${rowNum}:L${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          dateToday,
+          'STOPPED',
+          stopReason
+        ]]
+      }
+    });
+
+    // Catat ke log approval / audit trail agar tercatat siapa yang memproses dan kapan
+    const approvalId = 'APP-STOP-' + Date.now();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaApprovals'!A:O",
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          approvalId,
+          ruleRow[0],
+          ts,
+          String(ruleRow[2] || nik).trim(),
+          ruleRow[3] || namaAnggota,
+          'KELUAR_KOPERASI',
+          JSON.stringify({ nominalRutin: ruleRow[5], status: ruleRow[10] }),
+          JSON.stringify({ status: 'STOPPED', alasan: stopReason }),
+          String(actorNik || ''),
+          actorNama || '',
+          'APPROVED',
+          stopReason,
+          String(actorNik || ''),
+          actorNama || '',
+          ts
+        ]]
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `Auto-input simpanan sukarela untuk ${ruleRow[3] || namaAnggota} berhasil dihentikan karena keluar dari koperasi.`
+    });
+  } catch (error) {
+    console.error('Error POST /api/simpanan/rules/stop:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * GET /api/simpanan/approvals
- * Mengambil antrean approval usulan auto-input
+ * Mengambil antrean approval usulan auto-input lengkap dengan reviewer & waktu proses
  */
 app.get('/api/simpanan/approvals', async (req, res) => {
   try {
@@ -4505,9 +4612,13 @@ app.get('/api/simpanan/approvals', async (req, res) => {
       tipePerubahan: r[5],
       lama: r[6],
       baru: r[7],
+      diajukanOlehNik: r[8],
       diajukanOlehNama: r[9],
       status: r[10] || 'PENDING',
-      catatanReview: r[11] || '-'
+      catatanReview: r[11] || '-',
+      diprosesOlehNik: r[12] || '-',
+      diprosesOlehNama: r[13] || '-',
+      waktuProses: r[14] || '-'
     }));
 
     return res.json({ success: true, approvals: approvals.reverse() });
@@ -4519,14 +4630,14 @@ app.get('/api/simpanan/approvals', async (req, res) => {
 
 /**
  * POST /api/simpanan/approvals/review
- * Ketua Koperasi / Admin menyetujui atau menolak usulan perubahan auto-input
+ * Admin, Financial, atau Ketua Koperasi menyetujui atau menolak usulan perubahan auto-input
  */
 app.post('/api/simpanan/approvals/review', async (req, res) => {
   try {
     const { approvalId, action, catatan, reviewerNik, reviewerNama, reviewerRole } = req.body;
 
-    if (!isRoleKetua(reviewerRole) && !isRoleAdmin(reviewerRole)) {
-      return res.status(403).json({ success: false, message: 'Hanya Ketua Koperasi atau Administrator yang berwenang meninjau usulan auto-input.' });
+    if (!isRoleAdmin(reviewerRole) && !isRoleFinancial(reviewerRole) && !isRoleKetua(reviewerRole)) {
+      return res.status(403).json({ success: false, message: 'Hanya Administrator, Financial, atau Ketua Koperasi yang berwenang meninjau usulan auto-input.' });
     }
 
     const sheets = await getSheetsClient();
@@ -4543,11 +4654,12 @@ app.post('/api/simpanan/approvals/review', async (req, res) => {
 
     const appRow = rows[targetIdx];
     const ruleId = appRow[1];
+    const tipePerubahan = appRow[5];
     const statusResult = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
     const rowNum = targetIdx + 2;
     const ts = getFormattedTimestamp();
 
-    // Update baris approval
+    // Update baris approval dengan info siapa yang memproses dan kapan
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'SimpananSukarelaApprovals'!K${rowNum}:O${rowNum}`,
@@ -4555,46 +4667,75 @@ app.post('/api/simpanan/approvals/review', async (req, res) => {
       requestBody: {
         values: [[
           statusResult,
-          catatan || '-',
+          catatan || (action === 'APPROVE' ? `Disetujui oleh ${reviewerNama} (${reviewerRole})` : 'Ditolak'),
           String(reviewerNik || ''),
-          reviewerNama || '',
+          reviewerNama ? `${reviewerNama} (${reviewerRole})` : `${reviewerRole}`,
           ts
         ]]
       }
     });
 
-    // Jika APPROVE, update sheet SimpananSukarelaRules
-    if (action === 'APPROVE') {
-      const baruObj = JSON.parse(appRow[7] || '{}');
-      const rulesRes = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: "'SimpananSukarelaRules'!A2:Q"
-      });
-      const rulesRows = rulesRes.data.values || [];
-      const ruleIdx = rulesRows.findIndex(r => r[0] === ruleId);
+    // Update sheet SimpananSukarelaRules sesuai aksi
+    const rulesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "'SimpananSukarelaRules'!A2:Q"
+    });
+    const rulesRows = rulesRes.data.values || [];
+    const ruleIdx = rulesRows.findIndex(r => r[0] === ruleId);
 
-      if (ruleIdx !== -1) {
-        const ruleRowNum = ruleIdx + 2;
-        if (baruObj.nominalRutin) {
+    if (ruleIdx !== -1) {
+      const ruleRowNum = ruleIdx + 2;
+      if (action === 'APPROVE') {
+        let baruObj = {};
+        try { baruObj = JSON.parse(appRow[7] || '{}'); } catch(e){}
+
+        if (tipePerubahan === 'KELUAR_KOPERASI' || tipePerubahan === 'STOP_RULE') {
           await sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: `'SimpananSukarelaRules'!F${ruleRowNum}`,
+            range: `'SimpananSukarelaRules'!K${ruleRowNum}`,
             valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [[baruObj.nominalRutin]] }
+            requestBody: { values: [['STOPPED']] }
+          });
+        } else {
+          if (baruObj.nominalRutin) {
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `'SimpananSukarelaRules'!F${ruleRowNum}`,
+              valueInputOption: 'USER_ENTERED',
+              requestBody: { values: [[baruObj.nominalRutin]] }
+            });
+          }
+          if (baruObj.tanggalEksekusi) {
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `'SimpananSukarelaRules'!H${ruleRowNum}`,
+              valueInputOption: 'USER_ENTERED',
+              requestBody: { values: [[baruObj.tanggalEksekusi]] }
+            });
+          }
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'SimpananSukarelaRules'!K${ruleRowNum}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [['ACTIVE']] }
           });
         }
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `'SimpananSukarelaRules'!K${ruleRowNum}`,
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [['ACTIVE']] }
-        });
+      } else {
+        // Jika REJECTED dan tipenya NEW_RULE, tandai rule REJECTED
+        if (tipePerubahan === 'NEW_RULE') {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'SimpananSukarelaRules'!K${ruleRowNum}`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [['REJECTED']] }
+          });
+        }
       }
     }
 
     return res.json({
       success: true,
-      message: `Usulan auto-input ${approvalId} berhasil diproses dengan status: ${statusResult}.`
+      message: `Usulan auto-input ${approvalId} berhasil diproses dengan status: ${statusResult} oleh ${reviewerNama}.`
     });
   } catch (error) {
     console.error('Error POST /api/simpanan/approvals/review:', error);
