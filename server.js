@@ -1152,11 +1152,11 @@ app.post('/api/pengajuan', async (req, res) => {
       nominalPelunasanSistem
     } = req.body;
 
-    // Role Guard: Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman
-    if (userRole && !isRoleAdmin(userRole) && !isRoleKetua(userRole) && !isRoleFinancial(userRole)) {
+    // Role Guard: Hanya Admin dan Financial yang dapat menginput pengajuan pinjaman/biaya
+    if (userRole && !isRoleAdmin(userRole) && !isRoleFinancial(userRole)) {
       return res.status(403).json({
         success: false,
-        message: 'Akses ditolak: Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman/biaya.'
+        message: 'Akses ditolak: Hanya Admin dan Financial yang berhak menginput pengajuan pinjaman/biaya.'
       });
     }
 

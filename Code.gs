@@ -577,8 +577,8 @@ function calculateGasTopupOrPelunasan(params) {
 function simpanPengajuan(form) {
   try {
     const role = form.userRole || form.role;
-    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRoleFinancial(role)) {
-      return { status: 'error', message: 'Akses ditolak! Hanya Admin, Ketua Koperasi, dan Financial yang dapat menginput pengajuan pinjaman/biaya.' };
+    if (role && !isRoleAdmin(role) && !isRoleFinancial(role)) {
+      return { status: 'error', message: 'Akses ditolak! Hanya Admin dan Financial yang berhak menginput pengajuan pinjaman/biaya.' };
     }
     const parsed = splitGasNikAndUnit(form.nikUnitKerja || form.nikUnit, form.nik, form.unitKerja);
     const nominalNum = parseInt(String(form.totalDitransfer || '0').replace(/[^0-9-]/g, ''), 10) || 0;

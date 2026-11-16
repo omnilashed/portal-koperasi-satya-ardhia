@@ -416,7 +416,7 @@
                 <span id="tabOperasionalLabelSm" class="sm:hidden">Operasional</span>
               </button>
 
-              <!-- Tab: Form Input Baru (Financial / Admin / Ketua / Pengurus) -->
+              <!-- Tab: Form Input Baru (Khusus Admin & Financial) -->
               <button id="tabFormBtn" onclick="switchTab('form')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
                 <i data-lucide="plus-circle" class="w-4 h-4"></i>
                 <span class="hidden sm:inline">Input Pengajuan</span>
@@ -5391,8 +5391,8 @@
         roleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase";
       }
 
-      // 1. Tab Form Input Pinjaman (Admin, Ketua Koperasi, Financial)
-      if (role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
+      // 1. Tab Form Input Pinjaman (Khusus Admin & Financial)
+      if (role === 'admin' || role === 'financial') {
         tabFormBtn.style.display = 'inline-flex';
         tabFormBtn.disabled = false;
         if (typeof populateFormMemberQuickSelect === 'function') {
@@ -5686,6 +5686,11 @@
 
       if (tab === 'tracking') fetchData();
       if (tab === 'form') {
+        if (role !== 'admin' && role !== 'financial') {
+          showToast('Akses ditolak: Form input pengajuan hanya dapat diakses oleh Admin dan Finance.', true);
+          switchTab('tracking');
+          return;
+        }
         if (typeof populateFormMemberQuickSelect === 'function') populateFormMemberQuickSelect();
         if (typeof toggleCustomTipe === 'function') {
           const sel = document.getElementById('formTipeSelect');
