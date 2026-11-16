@@ -561,8 +561,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     const { role } = req.query;
-    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRolePengurus(role)) {
-      return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin dan Ketua Koperasi yang dapat mengakses data pengguna.' });
+    if (role && !isRoleAdmin(role) && !isRoleKetua(role) && !isRolePengurus(role) && !isRoleFinancial(role) && !isRolePicSimpin(role)) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak: Hanya Admin, Ketua Koperasi, Pengurus, dan Financial yang dapat mengakses data pengguna.' });
     }
 
     const sheets = await getSheetsClient();
@@ -572,17 +572,24 @@ app.get('/api/users', async (req, res) => {
     });
 
     const rows = response.data.values || [];
-    const users = rows.map((r, idx) => ({
-      rowIndex: idx + 2,
-      username: r[0] || '',
-      role: r[2] || 'User',
-      namaLengkap: r[3] || '',
-      nik: r[4] || '',
-      email: r[5] || '',
-      accountStatus: r[7] || 'Pending'
-    }));
+    const users = rows.map((r, idx) => {
+      const parsed = splitNikAndUnitKerja(r[4] || '', '', '');
+      const pureNik = parsed.nik !== '-' ? parsed.nik : (r[4] || '');
+      const unit = parsed.unitKerja !== '-' ? parsed.unitKerja : '';
+      return {
+        rowIndex: idx + 2,
+        username: r[0] || '',
+        role: r[2] || 'User',
+        namaLengkap: r[3] || '',
+        nik: pureNik,
+        rawNik: r[4] || '',
+        unitKerja: unit,
+        email: r[5] || '',
+        accountStatus: r[7] || 'Pending'
+      };
+    });
 
-    return res.json({ success: true, data: users });
+    return res.json({ success: true, data: users, users: users });
   } catch (error) {
     console.error('Error /api/users:', error);
     return res.status(500).json({ success: false, message: 'Gagal memuat data pengguna: ' + error.message });

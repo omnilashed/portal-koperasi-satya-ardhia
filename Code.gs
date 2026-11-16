@@ -148,10 +148,10 @@ function registerUser(userData) {
   }
 }
 
-// 3. Khusus Admin: Ambil Seluruh Data User
+// 3. Khusus Admin & Financial: Ambil Seluruh Data User
 function getAllUsersList(requestingUserRole) {
-  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole) && !isRolePengurus(requestingUserRole)) {
-    return []; // Khusus Admin, Ketua Koperasi, & Pengurus
+  if (!isRoleAdmin(requestingUserRole) && !isRoleKetua(requestingUserRole) && !isRolePengurus(requestingUserRole) && !isRoleFinancial(requestingUserRole) && !isRolePicSimpin(requestingUserRole)) {
+    return []; // Khusus Admin, Ketua Koperasi, Pengurus, & Financial
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -162,12 +162,18 @@ function getAllUsersList(requestingUserRole) {
   if (data.length <= 1) return [];
 
   return data.slice(1).map((row, index) => {
+    var rawNik = row[4] || '';
+    var parsed = splitGasNikAndUnit(rawNik, '', '');
+    var pureNik = parsed.nik !== '-' ? parsed.nik : rawNik;
+    var unit = parsed.unitKerja !== '-' ? parsed.unitKerja : '';
     return {
       rowIndex: index + 2,
       username: row[0],
       role: row[2] || 'User',
       namaLengkap: row[3] || '-',
-      nik: row[4] || '-',
+      nik: pureNik,
+      rawNik: rawNik,
+      unitKerja: unit,
       email: row[5] || '-',
       accountStatus: row[7] ? String(row[7]).trim() : (row[2] === 'Admin' ? 'Active' : 'Pending')
     };

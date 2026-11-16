@@ -5395,6 +5395,9 @@
       if (role === 'admin' || role === 'ketua koperasi' || role === 'financial') {
         tabFormBtn.style.display = 'inline-flex';
         tabFormBtn.disabled = false;
+        if (typeof populateFormMemberQuickSelect === 'function') {
+          populateFormMemberQuickSelect();
+        }
       } else {
         tabFormBtn.style.display = 'none';
         tabFormBtn.disabled = true;
@@ -6447,23 +6450,46 @@
       if (!sel || !currentUser) return;
       try {
         if (!usersList || usersList.length === 0) {
-          const res = await fetch(API_BASE + '/api/users?role=' + encodeURIComponent(currentUser.role || 'Admin'));
+          const userRole = currentUser.role || 'Financial';
+          const res = await fetch(API_BASE + '/api/users?role=' + encodeURIComponent(userRole));
           const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            usersList = json.data.map(u => ({
+          const rawData = (json && json.success) ? (json.data || json.users || []) : (Array.isArray(json) ? json : []);
+          if (Array.isArray(rawData) && rawData.length > 0) {
+            usersList = rawData.map(u => ({
               rowIndex: u.rowIndex,
-              nama: u.namaLengkap,
-              nik: u.nik,
-              username: u.username,
-              email: u.email,
-              role: u.role,
-              accountStatus: u.accountStatus
+              nama: u.namaLengkap || u.nama || u.username || '',
+              namaLengkap: u.namaLengkap || u.nama || u.username || '',
+              nik: u.nik || '',
+              rawNik: u.rawNik || u.nik || '',
+              unitKerja: u.unitKerja || '',
+              username: u.username || '',
+              email: u.email || '',
+              role: u.role || 'User',
+              accountStatus: u.accountStatus || 'Active'
             }));
           }
         }
-        const activeUsers = (usersList || []).filter(u => String(u.accountStatus || 'Active').toLowerCase() === 'active');
+        const activeUsers = (usersList || []).filter(u => {
+          const st = String(u.accountStatus || 'Active').trim().toLowerCase();
+          return st === 'active' || st === 'aktif';
+        });
+
+        // Urutkan alfabetis nama anggota
+        activeUsers.sort((a, b) => {
+          const na = String(a.nama || a.namaLengkap || a.username || '').toLowerCase();
+          const nb = String(b.nama || b.namaLengkap || b.username || '').toLowerCase();
+          return na.localeCompare(nb);
+        });
+
+        const curVal = sel.value;
         sel.innerHTML = '<option value="">-- Ketik / Pilih Anggota Aktif atau Isi Manual di Bawah --</option>' +
-          activeUsers.map((u, idx) => `<option value="${idx}">${u.nama || u.username} (NIK: ${u.nik || u.username})</option>`).join('');
+          activeUsers.map((u, idx) => {
+            const nama = u.nama || u.namaLengkap || u.username;
+            const nik = u.nik || u.username;
+            const unit = u.unitKerja ? ` · ${u.unitKerja}` : '';
+            return `<option value="${idx}">${nama} (NIK: ${nik}${unit})</option>`;
+          }).join('');
+        if (curVal) sel.value = curVal;
       } catch (e) {
         console.warn('Gagal memuat daftar anggota untuk quick select:', e.message);
       }
@@ -6471,7 +6497,15 @@
 
     function onSelectMemberForPengajuan(idxStr) {
       if (idxStr === '' || idxStr === null || idxStr === undefined) return;
-      const activeUsers = (usersList || []).filter(u => String(u.accountStatus || 'Active').toLowerCase() === 'active');
+      const activeUsers = (usersList || []).filter(u => {
+        const st = String(u.accountStatus || 'Active').trim().toLowerCase();
+        return st === 'active' || st === 'aktif';
+      });
+      activeUsers.sort((a, b) => {
+        const na = String(a.nama || a.namaLengkap || a.username || '').toLowerCase();
+        const nb = String(b.nama || b.namaLengkap || b.username || '').toLowerCase();
+        return na.localeCompare(nb);
+      });
       const u = activeUsers[parseInt(idxStr, 10)];
       if (!u) return;
 
@@ -6480,17 +6514,27 @@
       const unitEl = document.getElementById('inputUnitKerja');
       const atasNamaEl = document.getElementById('inputAtasNamaRekening');
 
-      if (namaEl) namaEl.value = u.nama || u.username || '';
-      if (nikEl) nikEl.value = u.nik || u.username || '';
-      if (atasNamaEl && !atasNamaEl.value) atasNamaEl.value = u.nama || u.username || '';
+      let parsedNik = u.nik || u.username || '';
+      let parsedUnit = u.unitKerja || '';
+
+      if (parsedNik.includes(' - ')) {
+        const parts = parsedNik.split(' - ');
+        parsedNik = parts[0].trim();
+        if (!parsedUnit) parsedUnit = parts.slice(1).join(' - ').trim();
+      }
+
+      if (namaEl) namaEl.value = u.nama || u.namaLengkap || u.username || '';
+      if (nikEl) nikEl.value = parsedNik;
+      if (unitEl && parsedUnit) unitEl.value = parsedUnit;
+      if (atasNamaEl && !atasNamaEl.value) atasNamaEl.value = u.nama || u.namaLengkap || u.username || '';
 
       // Cari histori unit kerja & no rekening anggota dari globalData jika ada
       const pastSubmission = (globalData || []).find(item =>
-        (u.nik && String(item.nik || '').toLowerCase() === String(u.nik).toLowerCase()) ||
+        (parsedNik && String(item.nik || '').toLowerCase() === String(parsedNik).toLowerCase()) ||
         (u.nama && String(item.namaKaryawan || '').toLowerCase() === String(u.nama).toLowerCase())
       );
       if (pastSubmission) {
-        if (unitEl && pastSubmission.unitKerja) unitEl.value = pastSubmission.unitKerja;
+        if (unitEl && !unitEl.value && pastSubmission.unitKerja) unitEl.value = pastSubmission.unitKerja;
         const rekEl = document.getElementById('inputNoRekening');
         if (rekEl && !rekEl.value && pastSubmission.noRekening) rekEl.value = pastSubmission.noRekening;
         if (atasNamaEl && pastSubmission.atasNamaRekening) atasNamaEl.value = pastSubmission.atasNamaRekening;
