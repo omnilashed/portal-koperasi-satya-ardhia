@@ -230,7 +230,7 @@ function normalizeRole(r) {
   const s = String(r || '').trim().toLowerCase();
   if (s.includes('ketua')) return 'ketua koperasi';
   if (s.includes('admin')) return 'admin';
-  if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+  if (s.includes('financial') || s.includes('finance') || s.includes('keuangan')) return 'financial';
   if (s.includes('pic simpin') || s.includes('pic-simpin') || s.includes('simpin')) return 'pic simpin';
   if (s.includes('pengurus')) return 'pengurus';
   if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';

@@ -372,8 +372,8 @@
                 <span class="sm:hidden">Simpanan</span>
               </button>
 
-              <!-- Tab: Auto-Input Rutin (Semua Anggota & Pengurus) -->
-              <button id="tabAutoInputBtn" onclick="switchTab('autoinput')" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
+              <!-- Tab: Auto-Input Rutin (Khusus Admin & Financial) -->
+              <button id="tabAutoInputBtn" onclick="switchTab('autoinput')" style="display: none;" class="items-center space-x-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex-shrink-0 whitespace-nowrap">
                 <i data-lucide="repeat" class="w-4 h-4 text-purple-600"></i>
                 <span class="hidden sm:inline">Auto-Input Rutin</span>
                 <span class="sm:hidden">Auto-Input</span>
@@ -5264,7 +5264,7 @@
       const s = String(r).trim().toLowerCase();
       if (s.includes('ketua')) return 'ketua koperasi';
       if (s.includes('admin')) return 'admin';
-      if (s.includes('financial') || s.includes('keuangan')) return 'financial';
+      if (s.includes('financial') || s.includes('finance') || s.includes('keuangan')) return 'financial';
       if (s.includes('pic simpin') || s.includes('pic-simpin') || s.includes('simpin')) return 'pic simpin';
       if (s.includes('pengurus')) return 'pengurus';
       if (s.includes('executive car') || s.includes('executivecar') || s.includes('executive')) return 'executive car';
@@ -5469,7 +5469,7 @@
         }
       }
 
-      // Tab Saldo, Auto-Input & Pinjaman Aktif Untuk Seluruh Anggota & Pengurus
+      // Tab Saldo & Pinjaman Aktif Untuk Seluruh Anggota & Pengurus
       const tabSimpananBtn = document.getElementById('tabSimpananBtn');
       const tabAutoInputBtn = document.getElementById('tabAutoInputBtn');
       const tabPinjamanBtn = document.getElementById('tabPinjamanBtn');
@@ -5477,9 +5477,15 @@
         tabSimpananBtn.style.display = 'inline-flex';
         tabSimpananBtn.disabled = false;
       }
+      // Tab Auto-Input Rutin: Khusus Admin dan Financial
       if (tabAutoInputBtn) {
-        tabAutoInputBtn.style.display = 'inline-flex';
-        tabAutoInputBtn.disabled = false;
+        if (role === 'admin' || role === 'financial') {
+          tabAutoInputBtn.style.display = 'inline-flex';
+          tabAutoInputBtn.disabled = false;
+        } else {
+          tabAutoInputBtn.style.display = 'none';
+          tabAutoInputBtn.disabled = true;
+        }
       }
       if (tabPinjamanBtn) {
         tabPinjamanBtn.style.display = 'inline-flex';
@@ -5687,7 +5693,15 @@
         }
       }
       if (tab === 'simpanan') loadSimpananData();
-      if (tab === 'autoinput') loadAutoInputViewData();
+      if (tab === 'autoinput') {
+        if (role === 'admin' || role === 'financial') {
+          loadAutoInputViewData();
+        } else {
+          showToast('Akses ditolak: Menu Auto-Input hanya dapat diakses oleh Admin dan Finance.', true);
+          switchTab('tracking');
+          return;
+        }
+      }
       if (tab === 'pinjaman') loadPinjamanData();
       if (tab === 'approval' && (role === 'admin' || role === 'ketua koperasi' || role === 'financial')) refreshApprovalData();
       if (tab === 'users' && (role === 'admin' || role === 'ketua koperasi' || role === 'pengurus')) fetchUsersList();
@@ -10835,6 +10849,8 @@ function switchAiViewSection(sec) {
 
 async function loadAutoInputViewData() {
   const role = currentUser ? normalizeRole(currentUser.role) : 'user';
+  if (role !== 'admin' && role !== 'financial') return;
+
   const tabFormPill = document.getElementById('pillAiTabFormBtn');
   if (tabFormPill) {
     if (role === 'admin' || role === 'financial') {
